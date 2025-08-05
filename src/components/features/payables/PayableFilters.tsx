@@ -38,9 +38,9 @@ export function PayableFilters({
   className,
 }: PayableFiltersProps) {
   const statusOptions = [
-    { value: 'Pendente', label: 'Pendente' },
-    { value: 'Pago', label: 'Pago' },
-    { value: 'Vencido', label: 'Vencido' },
+    { value: 'aberto', label: 'Aberto' },
+    { value: 'pago', label: 'Pago' },
+    { value: 'vencido', label: 'Vencido' },
   ];
 
   const hasActiveFilters = Object.values(filters).some(value => 
