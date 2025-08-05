@@ -336,8 +336,15 @@ export default function AccountsPayable() {
             }
 
             // Extrair número da NFe para verificar duplicação
-            const nfeNumber = xmlDoc.querySelector('nNF')?.textContent || '';
+            const nfeNumber = xmlDoc.querySelector('nNF')?.textContent?.trim() || '';
             const chaveAcesso = nfeElement.getAttribute('Id') || '';
+            
+            console.log(`NFe processando: ${file.name} - Número extraído: "${nfeNumber}"`);
+            
+            if (!nfeNumber) {
+              errors.push(`${file.name}: Número da NFe não encontrado no XML`);
+              continue;
+            }
             
             // Verificar se NFe já foi importada (duplicação)
             if (nfeNumber) {
