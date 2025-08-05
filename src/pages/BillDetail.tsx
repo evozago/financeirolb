@@ -271,7 +271,10 @@ export default function BillDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={() => navigate(`/bills/${id}/edit`)}
+              >
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </Button>
