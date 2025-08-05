@@ -3,7 +3,7 @@
  * Exibe informações completas do fornecedor e suas contas
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, FileText, Calendar, DollarSign, MapPin, Phone, Mail, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,107 +12,102 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BillToPayInstallment, Supplier } from '@/types/payables';
+import { supabase } from '@/integrations/supabase/client';
 
-// Mock data - substituir por dados reais da API
-const mockSuppliers: Supplier[] = [
-  { 
-    id: 'sup1', 
-    name: 'KYLY INDUSTRIA TEXTIL LTDA', 
-    legalName: 'KYLY INDUSTRIA TEXTIL LTDA', 
-    cnpj: '12.345.678/0001-90',
-    brandId: 'brand1'
-  },
-  { 
-    id: 'sup2', 
-    name: 'CONFECCOES ACUCENA LTDA', 
-    legalName: 'CONFECCOES ACUCENA LTDA', 
-    cnpj: '98.765.432/0001-10',
-    brandId: 'brand2'
-  },
-  { 
-    id: 'sup3', 
-    name: 'PIMPOLHO PRODUTOS INFANTIS LTDA', 
-    legalName: 'PIMPOLHO PRODUTOS INFANTIS LTDA', 
-    cnpj: '11.222.333/0001-44',
-    brandId: 'brand3'
-  },
-  { 
-    id: 'sup4', 
-    name: 'ABRANGE IND E COM CONF LTDA', 
-    legalName: 'ABRANGE IND E COM CONF LTDA', 
-    cnpj: '55.666.777/0001-88',
-    brandId: 'brand4'
-  },
-];
+interface SupplierData {
+  id: string;
+  nome: string;
+  cnpj_cpf: string;
+  ativo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
 
-// Mock contas do fornecedor
-const mockSupplierBills: BillToPayInstallment[] = [
-  {
-    id: '1',
-    installmentNumber: 1,
-    amount: 2120.22,
-    dueDate: '2024-08-01',
-    status: 'Vencido',
-    billId: 'bill1',
-    bill: {
-      id: 'bill1',
-      description: 'NFe 3095349 - Parcela 001',
-      totalAmount: 2120.22,
-      totalInstallments: 6,
-      createdAt: '2024-07-01',
-      updatedAt: '2024-07-01',
-      supplierId: 'sup1',
-      userId: 'user1',
-      supplier: mockSuppliers[0],
-      installments: [],
-    },
-  },
-  {
-    id: '5',
-    installmentNumber: 2,
-    amount: 2120.22,
-    dueDate: '2024-09-01',
-    status: 'Pendente',
-    billId: 'bill1',
-    bill: {
-      id: 'bill1',
-      description: 'NFe 3095349 - Parcela 002',
-      totalAmount: 2120.22,
-      totalInstallments: 6,
-      createdAt: '2024-07-01',
-      updatedAt: '2024-07-01',
-      supplierId: 'sup1',
-      userId: 'user1',
-      supplier: mockSuppliers[0],
-      installments: [],
-    },
-  },
-];
+interface SupplierBill {
+  id: string;
+  descricao: string;
+  valor: number;
+  data_vencimento: string;
+  status: string;
+  numero_parcela: number;
+  total_parcelas: number;
+  fornecedor: string;
+}
 
 export default function SupplierDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [supplier, setSupplier] = useState<SupplierData | null>(null);
+  const [supplierBills, setSupplierBills] = useState<SupplierBill[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  // Encontrar fornecedor
-  const supplier = mockSuppliers.find(s => s.id === id);
-  
-  // Filtrar contas do fornecedor
-  const supplierBills = useMemo(() => {
-    return mockSupplierBills.filter(bill => bill.bill?.supplierId === id);
+  useEffect(() => {
+    if (id) {
+      loadSupplierData();
+    }
   }, [id]);
+
+  const loadSupplierData = async () => {
+    try {
+      setLoading(true);
+      
+      // Carregar dados do fornecedor
+      const { data: supplierData, error: supplierError } = await supabase
+        .from('fornecedores')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (supplierError) {
+        console.error('Erro ao carregar fornecedor:', supplierError);
+        setSupplier(null);
+        return;
+      }
+      
+      setSupplier(supplierData);
+      
+      // Carregar contas do fornecedor
+      const { data: billsData, error: billsError } = await supabase
+        .rpc('get_ap_installments_complete')
+        .then(result => {
+          if (result.error) throw result.error;
+          return { data: result.data?.filter((bill: any) => bill.fornecedor === supplierData.nome) || [], error: null };
+        });
+      
+      if (billsError) {
+        console.error('Erro ao carregar contas:', billsError);
+      } else {
+        setSupplierBills(billsData || []);
+      }
+      
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calcular estatísticas
   const stats = useMemo(() => {
-    const total = supplierBills.reduce((sum, bill) => sum + bill.amount, 0);
+    const total = supplierBills.reduce((sum, bill) => sum + bill.valor, 0);
     const overdue = supplierBills.filter(bill => 
-      new Date(bill.dueDate) < new Date() && bill.status === 'Pendente'
+      new Date(bill.data_vencimento) < new Date() && bill.status === 'aberto'
     ).length;
-    const pending = supplierBills.filter(bill => bill.status === 'Pendente').length;
-    const paid = supplierBills.filter(bill => bill.status === 'Pago').length;
+    const pending = supplierBills.filter(bill => bill.status === 'aberto').length;
+    const paid = supplierBills.filter(bill => bill.status === 'pago').length;
 
     return { total, overdue, pending, paid, totalBills: supplierBills.length };
   }, [supplierBills]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">Carregando...</h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!supplier) {
     return (
@@ -144,18 +139,24 @@ export default function SupplierDetail() {
   };
 
   const getStatusBadge = (status: string, dueDate: string) => {
-    const isOverdue = new Date(dueDate) < new Date() && status === 'Pendente';
-    const currentStatus = isOverdue ? 'Vencido' : status;
+    const isOverdue = new Date(dueDate) < new Date() && status === 'aberto';
+    const currentStatus = isOverdue ? 'vencido' : status;
+    
+    const statusLabels = {
+      'aberto': 'Pendente',
+      'pago': 'Pago', 
+      'vencido': 'Vencido'
+    };
     
     const variants = {
-      'Pendente': 'secondary' as const,
-      'Pago': 'default' as const,
-      'Vencido': 'destructive' as const,
+      'aberto': 'secondary' as const,
+      'pago': 'default' as const,
+      'vencido': 'destructive' as const,
     };
     
     return (
       <Badge variant={variants[currentStatus as keyof typeof variants] || 'secondary'}>
-        {currentStatus}
+        {statusLabels[currentStatus as keyof typeof statusLabels] || currentStatus}
       </Badge>
     );
   };
@@ -178,8 +179,8 @@ export default function SupplierDetail() {
               <div className="flex items-center gap-3">
                 <Building2 className="h-8 w-8 text-primary" />
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">{supplier.name}</h1>
-                  <p className="text-muted-foreground">{formatCNPJ(supplier.cnpj)}</p>
+                  <h1 className="text-2xl font-bold text-foreground">{supplier.nome}</h1>
+                  <p className="text-muted-foreground">{formatCNPJ(supplier.cnpj_cpf)}</p>
                 </div>
               </div>
             </div>
@@ -262,32 +263,30 @@ export default function SupplierDetail() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Nome Fantasia</label>
-                        <p className="text-lg font-medium">{supplier.name}</p>
+                        <label className="text-sm font-medium text-muted-foreground">Nome</label>
+                        <p className="text-lg font-medium">{supplier.nome}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Razão Social</label>
-                        <p className="text-lg font-medium">{supplier.legalName}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">CNPJ</label>
-                        <p className="text-lg font-mono">{formatCNPJ(supplier.cnpj)}</p>
+                        <label className="text-sm font-medium text-muted-foreground">CNPJ/CPF</label>
+                        <p className="text-lg font-mono">{formatCNPJ(supplier.cnpj_cpf)}</p>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Status</label>
                         <div className="mt-1">
-                          <Badge variant="default">Ativo</Badge>
+                          <Badge variant={supplier.ativo ? "default" : "destructive"}>
+                            {supplier.ativo ? "Ativo" : "Inativo"}
+                          </Badge>
                         </div>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Data de Cadastro</label>
-                        <p className="text-lg">{formatDate('2024-01-15')}</p>
+                        <p className="text-lg">{supplier.created_at ? formatDate(supplier.created_at) : '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Última Atualização</label>
-                        <p className="text-lg">{formatDate('2024-07-20')}</p>
+                        <p className="text-lg">{supplier.updated_at ? formatDate(supplier.updated_at) : '-'}</p>
                       </div>
                     </div>
                   </div>
@@ -327,24 +326,24 @@ export default function SupplierDetail() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          supplierBills.map((bill) => (
+                           supplierBills.map((bill) => (
                             <TableRow
                               key={bill.id}
                               className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => navigate(`/bills/${bill.billId}`)}
+                              onClick={() => navigate(`/bills/${bill.id}`)}
                             >
-                              <TableCell className="font-medium">{bill.bill?.description}</TableCell>
-                              <TableCell>{bill.installmentNumber}/{bill.bill?.totalInstallments}</TableCell>
-                              <TableCell className="font-mono">{formatCurrency(bill.amount)}</TableCell>
-                              <TableCell>{formatDate(bill.dueDate)}</TableCell>
-                              <TableCell>{getStatusBadge(bill.status, bill.dueDate)}</TableCell>
+                              <TableCell className="font-medium">{bill.descricao}</TableCell>
+                              <TableCell>{bill.numero_parcela}/{bill.total_parcelas}</TableCell>
+                              <TableCell className="font-mono">{formatCurrency(bill.valor)}</TableCell>
+                              <TableCell>{formatDate(bill.data_vencimento)}</TableCell>
+                              <TableCell>{getStatusBadge(bill.status, bill.data_vencimento)}</TableCell>
                               <TableCell className="text-right">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/bills/${bill.billId}`);
+                                    navigate(`/bills/${bill.id}`);
                                   }}
                                 >
                                   Ver Detalhes

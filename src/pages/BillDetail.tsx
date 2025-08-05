@@ -29,85 +29,84 @@ import { BillToPay, BillToPayInstallment } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Mock data - substituir por dados reais da API
-const mockBill: BillToPay = {
-  id: 'bill1',
-  description: 'NFe 3095349 - Material Têxtil',
-  totalAmount: 12721.32,
-  totalInstallments: 6,
-  createdAt: '2024-07-01T10:00:00Z',
-  updatedAt: '2024-07-15T14:30:00Z',
-  supplierId: 'sup1',
-  userId: 'user1',
-  supplier: {
-    id: 'sup1',
-    name: 'KYLY INDUSTRIA TEXTIL LTDA',
-    legalName: 'KYLY INDUSTRIA TEXTIL LTDA',
-    cnpj: '12.345.678/0001-90',
-    brand: {
-      id: 'brand1',
-      name: 'KYLY'
-    }
-  },
-  installments: [
-    {
-      id: 'inst1',
-      installmentNumber: 1,
-      amount: 2120.22,
-      dueDate: '2024-08-01',
-      status: 'Vencido',
-      billId: 'bill1'
-    },
-    {
-      id: 'inst2',
-      installmentNumber: 2,
-      amount: 2120.22,
-      dueDate: '2024-09-01',
-      status: 'Pendente',
-      billId: 'bill1'
-    },
-    {
-      id: 'inst3',
-      installmentNumber: 3,
-      amount: 2120.22,
-      dueDate: '2024-10-01',
-      status: 'Pendente',
-      billId: 'bill1'
-    },
-    {
-      id: 'inst4',
-      installmentNumber: 4,
-      amount: 2120.22,
-      dueDate: '2024-11-01',
-      status: 'Pendente',
-      billId: 'bill1'
-    },
-    {
-      id: 'inst5',
-      installmentNumber: 5,
-      amount: 2120.22,
-      dueDate: '2024-12-01',
-      status: 'Pendente',
-      billId: 'bill1'
-    },
-    {
-      id: 'inst6',
-      installmentNumber: 6,
-      amount: 2120.22,
-      dueDate: '2025-01-01',
-      status: 'Pendente',
-      billId: 'bill1'
-    }
-  ]
-};
+import { supabase } from '@/integrations/supabase/client';
+import { useEffect } from 'react';
+
+interface BillData {
+  id: string;
+  descricao: string;
+  valor: number;
+  data_vencimento: string;
+  status: string;
+  numero_parcela: number;
+  total_parcelas: number;
+  valor_total_titulo: number;
+  fornecedor: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [bill, setBill] = useState<BillToPay>(mockBill);
-  const [loading, setLoading] = useState(false);
+  const [bill, setBill] = useState<BillData | null>(null);
+  const [relatedInstallments, setRelatedInstallments] = useState<BillData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      loadBillData();
+    }
+  }, [id]);
+
+  const loadBillData = async () => {
+    try {
+      setLoading(true);
+      
+      // Carregar dados da parcela específica
+      const { data, error } = await supabase.rpc('get_ap_installments_complete');
+      
+      if (error) {
+        console.error('Erro ao carregar dados:', error);
+        return;
+      }
+      
+      const installment = data?.find((item: any) => item.id === id);
+      
+      if (!installment) {
+        toast({
+          title: "Erro",
+          description: "Conta não encontrada",
+          variant: "destructive",
+        });
+        navigate('/accounts-payable');
+        return;
+      }
+      
+      setBill(installment);
+      
+      // Carregar outras parcelas do mesmo título
+      const relatedBills = data?.filter((item: any) => 
+        item.valor_total_titulo === installment.valor_total_titulo && 
+        item.fornecedor === installment.fornecedor &&
+        item.id !== installment.id
+      ) || [];
+      
+      setRelatedInstallments(relatedBills);
+      
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar dados da conta",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
@@ -139,41 +138,59 @@ export default function BillDetail() {
   };
 
   const calculateProgress = () => {
-    const paidInstallments = bill.installments.filter(inst => inst.status === 'Pago').length;
-    return (paidInstallments / bill.totalInstallments) * 100;
+    if (!bill) return 0;
+    const allInstallments = [bill, ...relatedInstallments];
+    const paidInstallments = allInstallments.filter(inst => inst.status === 'pago').length;
+    return (paidInstallments / bill.total_parcelas) * 100;
   };
 
   const getTotalPaid = () => {
-    return bill.installments
-      .filter(inst => inst.status === 'Pago')
-      .reduce((sum, inst) => sum + inst.amount, 0);
+    if (!bill) return 0;
+    const allInstallments = [bill, ...relatedInstallments];
+    return allInstallments
+      .filter(inst => inst.status === 'pago')
+      .reduce((sum, inst) => sum + inst.valor, 0);
   };
 
   const getTotalPending = () => {
-    return bill.installments
-      .filter(inst => inst.status !== 'Pago')
-      .reduce((sum, inst) => sum + inst.amount, 0);
+    if (!bill) return 0;
+    const allInstallments = [bill, ...relatedInstallments];
+    return allInstallments
+      .filter(inst => inst.status !== 'pago')
+      .reduce((sum, inst) => sum + inst.valor, 0);
   };
 
   const getOverdueCount = () => {
-    return bill.installments.filter(inst => {
-      const isOverdue = new Date(inst.dueDate) < new Date() && inst.status === 'Pendente';
+    if (!bill) return 0;
+    const allInstallments = [bill, ...relatedInstallments];
+    return allInstallments.filter(inst => {
+      const isOverdue = new Date(inst.data_vencimento) < new Date() && inst.status === 'aberto';
       return isOverdue;
     }).length;
   };
 
-  const handleMarkInstallmentAsPaid = async (installment: BillToPayInstallment) => {
-    setLoading(true);
+  const handleMarkInstallmentAsPaid = async (installment: BillData) => {
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase
+        .from('ap_installments')
+        .update({ 
+          status: 'pago',
+          data_pagamento: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', installment.id);
       
-      setBill(prev => ({
-        ...prev,
-        installments: prev.installments.map(inst =>
-          inst.id === installment.id ? { ...inst, status: 'Pago' as const } : inst
-        )
-      }));
+      if (error) throw error;
+      
+      // Atualizar estado local
+      if (bill?.id === installment.id) {
+        setBill(prev => prev ? { ...prev, status: 'pago' } : null);
+      } else {
+        setRelatedInstallments(prev => 
+          prev.map(inst => 
+            inst.id === installment.id ? { ...inst, status: 'pago' } : inst
+          )
+        );
+      }
       
       toast({
         title: "Sucesso",
@@ -185,38 +202,36 @@ export default function BillDetail() {
         description: "Falha ao marcar parcela como paga",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const installmentColumns: Column<BillToPayInstallment>[] = [
+  const installmentColumns: Column<BillData>[] = [
     {
-      key: 'installmentNumber',
+      key: 'numero_parcela',
       header: 'Parcela',
       cell: (item) => (
         <div className="font-medium text-center">
-          {item.installmentNumber}/{bill.totalInstallments}
+          {item.numero_parcela}/{item.total_parcelas}
         </div>
       ),
       className: 'text-center w-20',
     },
     {
-      key: 'amount',
+      key: 'valor',
       header: 'Valor',
       cell: (item) => (
-        <div className="font-mono">{formatCurrency(item.amount)}</div>
+        <div className="font-mono">{formatCurrency(item.valor)}</div>
       ),
       className: 'text-right',
     },
     {
-      key: 'dueDate',
+      key: 'data_vencimento',
       header: 'Vencimento',
       cell: (item) => {
-        const isOverdue = new Date(item.dueDate) < new Date() && item.status === 'Pendente';
+        const isOverdue = new Date(item.data_vencimento) < new Date() && item.status === 'aberto';
         return (
           <div className={cn('font-mono', isOverdue && 'text-destructive font-medium')}>
-            {formatDate(item.dueDate)}
+            {formatDate(item.data_vencimento)}
           </div>
         );
       },
@@ -224,13 +239,13 @@ export default function BillDetail() {
     {
       key: 'status',
       header: 'Status',
-      cell: (item) => getStatusBadge(item.status, item.dueDate),
+      cell: (item) => getStatusBadge(item.status, item.data_vencimento),
     },
     {
       key: 'actions',
       header: '',
       cell: (item) => (
-        item.status !== 'Pago' && (
+        item.status !== 'pago' && (
           <Button
             size="sm"
             variant="ghost"
@@ -246,7 +261,31 @@ export default function BillDetail() {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">Carregando...</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bill) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">Conta não encontrada</h1>
+          <Button onClick={() => navigate('/accounts-payable')}>
+            Voltar para Contas a Pagar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const overdueCount = getOverdueCount();
+  const allInstallments = [bill, ...relatedInstallments];
 
   return (
     <div className="bg-background">
@@ -266,7 +305,7 @@ export default function BillDetail() {
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Detalhes da Conta</h1>
                 <p className="text-muted-foreground">
-                  ID: {bill.id} • {bill.totalInstallments} parcelas
+                  ID: {bill.id} • {bill.total_parcelas} parcelas
                 </p>
               </div>
             </div>
@@ -313,13 +352,13 @@ export default function BillDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-lg">{bill.description}</h3>
+                  <h3 className="font-semibold text-lg">{bill.descricao}</h3>
                   <p className="text-muted-foreground">
-                    Criada em {formatDateTime(bill.createdAt)}
+                    Criada em {formatDateTime(bill.created_at)}
                   </p>
-                  {bill.createdAt !== bill.updatedAt && (
+                  {bill.created_at !== bill.updated_at && (
                     <p className="text-xs text-muted-foreground">
-                      Atualizada em {formatDateTime(bill.updatedAt)}
+                      Atualizada em {formatDateTime(bill.updated_at)}
                     </p>
                   )}
                 </div>
@@ -331,7 +370,7 @@ export default function BillDetail() {
                     <DollarSign className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="font-medium">Valor Total</p>
-                      <p className="text-2xl font-bold">{formatCurrency(bill.totalAmount)}</p>
+                      <p className="text-2xl font-bold">{formatCurrency(bill.valor_total_titulo || bill.valor)}</p>
                     </div>
                   </div>
                   
@@ -339,7 +378,7 @@ export default function BillDetail() {
                     <Calendar className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="font-medium">Parcelas</p>
-                      <p className="text-2xl font-bold">{bill.totalInstallments}x</p>
+                      <p className="text-2xl font-bold">{bill.total_parcelas}x</p>
                     </div>
                   </div>
                 </div>
@@ -364,7 +403,7 @@ export default function BillDetail() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  data={bill.installments}
+                  data={allInstallments}
                   columns={installmentColumns}
                   getItemId={(item) => item.id}
                   emptyMessage="Nenhuma parcela encontrada"
@@ -408,7 +447,7 @@ export default function BillDetail() {
                   <Separator />
                   <div className="flex justify-between font-medium">
                     <span>Total:</span>
-                    <span>{formatCurrency(bill.totalAmount)}</span>
+                    <span>{formatCurrency(bill.valor_total_titulo || bill.valor)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -424,43 +463,18 @@ export default function BillDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto font-semibold text-base"
-                    onClick={() => navigate(`/suppliers/${bill.supplier.id}`)}
-                  >
-                    {bill.supplier.name}
-                  </Button>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {bill.supplier.legalName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    CNPJ: {bill.supplier.cnpj}
-                  </p>
+                  <p className="font-semibold text-base">{bill.fornecedor}</p>
                 </div>
-                
-                {bill.supplier.brand && (
-                  <div>
-                    <Separator />
-                    <div className="pt-3">
-                      <p className="text-sm text-muted-foreground">Marca:</p>
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto"
-                        onClick={() => navigate(`/brands/${bill.supplier.brand?.id}`)}
-                      >
-                        {bill.supplier.brand.name}
-                      </Button>
-                    </div>
-                  </div>
-                )}
                 
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => navigate(`/suppliers/${bill.supplier.id}`)}
+                  onClick={() => {
+                    // Navegar para fornecedores e buscar pelo nome
+                    navigate('/suppliers');
+                  }}
                 >
-                  Ver Detalhes do Fornecedor
+                  Ver Fornecedores
                 </Button>
               </CardContent>
             </Card>

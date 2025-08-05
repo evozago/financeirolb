@@ -210,6 +210,14 @@ export default function AccountsPayable() {
     navigate(`/bills/${item.id}`);
   };
 
+  const handleView = (item: BillToPayInstallment) => {
+    navigate(`/bills/${item.id}`);
+  };
+
+  const handleEdit = (item: BillToPayInstallment) => {
+    navigate(`/bills/${item.id}`);
+  };
+
   const handleMarkAsPaid = async (items: BillToPayInstallment[]) => {
     setLoading(true);
     try {
@@ -633,7 +641,8 @@ export default function AccountsPayable() {
             onRowClick={handleRowClick}
             onMarkAsPaid={handleMarkAsPaid}
             onDelete={handleDelete}
-            onView={(item) => navigate(`/bills/${item.id}`)}
+            onView={handleView}
+            onEdit={handleEdit}
             onBulkEdit={handleBulkEdit}
           />
         </div>
