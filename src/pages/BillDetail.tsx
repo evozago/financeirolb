@@ -278,7 +278,19 @@ export default function BillDetail() {
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </Button>
-              <Button variant="destructive">
+              <Button 
+                variant="destructive"
+                onClick={() => {
+                  if (confirm('Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita.')) {
+                    // Mock exclusão - substituir por chamada real da API
+                    toast({
+                      title: "Conta excluída",
+                      description: "A conta foi excluída com sucesso.",
+                    });
+                    navigate('/accounts-payable');
+                  }
+                }}
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Excluir
               </Button>
