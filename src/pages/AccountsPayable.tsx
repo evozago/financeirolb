@@ -377,9 +377,10 @@ export default function AccountsPayable() {
                 });
             }
             
+            // Se não conseguiu criar a entidade, usar null (agora permitido)
             if (!entidadeId) {
-              errors.push(`Erro: entidade_id não definido para ${supplierName}`);
-              continue;
+              console.warn(`Aviso: entidade_id não definido para ${supplierName}, prosseguindo sem entidade`);
+              warnings.push(`Aviso: Não foi possível criar entidade para ${supplierName}`);
             }
 
             // Extrair valor total e duplicatas

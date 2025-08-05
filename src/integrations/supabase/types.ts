@@ -60,7 +60,7 @@ export type Database = {
           data_vencimento: string
           descricao: string
           eh_recorrente: boolean | null
-          entidade_id: string
+          entidade_id: string | null
           forma_pagamento: string | null
           fornecedor: string
           funcionario_id: string | null
@@ -89,7 +89,7 @@ export type Database = {
           data_vencimento: string
           descricao: string
           eh_recorrente?: boolean | null
-          entidade_id: string
+          entidade_id?: string | null
           forma_pagamento?: string | null
           fornecedor: string
           funcionario_id?: string | null
@@ -118,7 +118,7 @@ export type Database = {
           data_vencimento?: string
           descricao?: string
           eh_recorrente?: boolean | null
-          entidade_id?: string
+          entidade_id?: string | null
           forma_pagamento?: string | null
           fornecedor?: string
           funcionario_id?: string | null
@@ -141,13 +141,6 @@ export type Database = {
             columns: ["conta_bancaria_id"]
             isOneToOne: false
             referencedRelation: "contas_bancarias"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ap_installments_entidade_id_fkey"
-            columns: ["entidade_id"]
-            isOneToOne: false
-            referencedRelation: "entidades"
             referencedColumns: ["id"]
           },
           {
