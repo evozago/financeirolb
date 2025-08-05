@@ -329,75 +329,8 @@ export default function DashboardPayables() {
         </div>
 
         <div className="space-y-8">
-          {/* Financial Panel */}
+          {/* Financial Panel - Main Focus */}
           <FinancialPanel onCardClick={handleCardClick} />
-
-          {/* KPIs Cards */}
-          <SummaryCardsGrid 
-            totalPending={summary.totalPending}
-            totalOverdue={summary.totalOverdue}
-            totalDueThisWeek={summary.totalDueThisWeek}
-            totalDueThisMonth={summary.totalDueThisMonth}
-            totalPaid={summary.totalPaid}
-            onCardClick={handleCardClick}
-          />
-
-          {/* Charts */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Evolução Mensal */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Evolução das Despesas (6 meses)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={mockChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={value => new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                  }).format(value)} />
-                    <Tooltip formatter={(value: number) => [formatCurrency(value), '']} labelFormatter={label => `Mês: ${label}`} />
-                    <Bar dataKey="pago" fill="hsl(var(--status-paid))" name="Pago" />
-                    <Bar dataKey="pendente" fill="hsl(var(--status-pending))" name="Pendente" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Tendência Semanal */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Tendência dos Últimos 7 Dias</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis tickFormatter={value => new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                  }).format(value)} />
-                    <Tooltip formatter={(value: number) => [formatCurrency(value), 'Valor']} labelFormatter={label => `Dia ${label}`} />
-                    <Line type="monotone" dataKey="valor" stroke="hsl(var(--primary))" strokeWidth={3} dot={{
-                    fill: 'hsl(var(--primary))',
-                    strokeWidth: 2,
-                    r: 4
-                  }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Quick Actions */}
           <Card>
