@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, FileText, Building2, Users, LogOut } from 'lucide-react';
+import { Home, FileText, Building2, BarChart3, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ export function AppHeader() {
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/accounts-payable', label: 'Contas a Pagar', icon: FileText },
     { path: '/suppliers', label: 'Fornecedores', icon: Building2 },
+    { path: '/reports', label: 'Relatórios', icon: BarChart3 },
   ];
 
   return (

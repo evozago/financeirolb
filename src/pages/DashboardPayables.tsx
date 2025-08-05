@@ -56,71 +56,35 @@ export default function DashboardPayables() {
     totalPaid: 0,
   });
 
-  // Load dashboard statistics from Supabase
+  // Load dashboard statistics from Supabase using the database function
   const loadDashboardStats = async () => {
     try {
       setLoading(true);
       
-      // Get all installments for calculations
-      const { data: installments, error } = await supabase
-        .from('ap_installments')
-        .select('*');
+      // Use the database function for better performance
+      const { data, error } = await supabase
+        .rpc('get_dashboard_stats');
       
       if (error) {
-        console.error('Error loading installments:', error);
+        console.error('Error loading dashboard stats:', error);
+        toast({
+          title: "Erro",
+          description: "Falha ao carregar estatísticas do dashboard",
+          variant: "destructive",
+        });
         return;
       }
 
-      const today = new Date();
-      const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const currentMonth = today.getMonth() + 1;
-      const currentYear = today.getFullYear();
-
-      let totalPending = 0;
-      let totalOverdue = 0;
-      let totalDueThisWeek = 0;
-      let totalDueThisMonth = 0;
-      let totalPaid = 0;
-
-      installments?.forEach(item => {
-        const valor = parseFloat(item.valor?.toString() || '0');
-        const dueDate = new Date(item.data_vencimento);
-        const paidDate = item.data_pagamento ? new Date(item.data_pagamento) : null;
-        
-        if (item.status === 'pago' && paidDate) {
-          // Paid this month
-          if (paidDate.getMonth() + 1 === currentMonth && paidDate.getFullYear() === currentYear) {
-            totalPaid += valor;
-          }
-        } else {
-          // Pending calculations
-          totalPending += valor;
-          
-          // Overdue
-          if (dueDate < today) {
-            totalOverdue += valor;
-          }
-          
-          // Due this week
-          if (dueDate >= today && dueDate <= oneWeekFromNow) {
-            totalDueThisWeek += valor;
-          }
-          
-          // Due this month
-          if (dueDate >= today && dueDate <= oneMonthFromNow) {
-            totalDueThisMonth += valor;
-          }
-        }
-      });
-
-      setSummary({
-        totalPending,
-        totalOverdue,
-        totalDueThisWeek,
-        totalDueThisMonth,
-        totalPaid,
-      });
+      if (data && data.length > 0) {
+        const stats = data[0];
+        setSummary({
+          totalPending: parseFloat(String(stats.total_aberto || 0)),
+          totalOverdue: parseFloat(String(stats.vencidos || 0)),
+          totalDueThisWeek: parseFloat(String(stats.vencendo_hoje || 0)),
+          totalDueThisMonth: parseFloat(String(stats.vencendo_hoje || 0)), // Ajustar se necessário
+          totalPaid: parseFloat(String(stats.pagos_mes_atual || 0)),
+        });
+      }
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
       toast({
