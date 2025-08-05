@@ -4,7 +4,7 @@
  * Segue a filosofia de navegação drill-down
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Upload, FileSpreadsheet, Settings, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,15 +12,16 @@ import { Button } from '@/components/ui/button';
 import { SummaryCardsGrid } from '@/components/features/dashboard/PayablesSummaryCard';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-// Mock data - substituir por dados reais da API
-const mockSummary = {
-  totalPending: 150000.50,
-  totalOverdue: 25000.75,
-  totalDueThisWeek: 45000.25,
-  totalDueThisMonth: 89000.00,
-  totalPaid: 120000.00,
-};
+interface DashboardStats {
+  totalPending: number;
+  totalOverdue: number;
+  totalDueThisWeek: number;
+  totalDueThisMonth: number;
+  totalPaid: number;
+}
 
 const mockChartData = [
   { month: 'Jan', total: 120000, pago: 110000, pendente: 10000 },
@@ -43,8 +44,98 @@ const mockTrendData = [
 
 export default function DashboardPayables() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importMode, setImportMode] = useState<'xml' | 'spreadsheet'>('xml');
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<DashboardStats>({
+    totalPending: 0,
+    totalOverdue: 0,
+    totalDueThisWeek: 0,
+    totalDueThisMonth: 0,
+    totalPaid: 0,
+  });
+
+  // Load dashboard statistics from Supabase
+  const loadDashboardStats = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all installments for calculations
+      const { data: installments, error } = await supabase
+        .from('ap_installments')
+        .select('*');
+      
+      if (error) {
+        console.error('Error loading installments:', error);
+        return;
+      }
+
+      const today = new Date();
+      const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const currentMonth = today.getMonth() + 1;
+      const currentYear = today.getFullYear();
+
+      let totalPending = 0;
+      let totalOverdue = 0;
+      let totalDueThisWeek = 0;
+      let totalDueThisMonth = 0;
+      let totalPaid = 0;
+
+      installments?.forEach(item => {
+        const valor = parseFloat(item.valor?.toString() || '0');
+        const dueDate = new Date(item.data_vencimento);
+        const paidDate = item.data_pagamento ? new Date(item.data_pagamento) : null;
+        
+        if (item.status === 'pago' && paidDate) {
+          // Paid this month
+          if (paidDate.getMonth() + 1 === currentMonth && paidDate.getFullYear() === currentYear) {
+            totalPaid += valor;
+          }
+        } else {
+          // Pending calculations
+          totalPending += valor;
+          
+          // Overdue
+          if (dueDate < today) {
+            totalOverdue += valor;
+          }
+          
+          // Due this week
+          if (dueDate >= today && dueDate <= oneWeekFromNow) {
+            totalDueThisWeek += valor;
+          }
+          
+          // Due this month
+          if (dueDate >= today && dueDate <= oneMonthFromNow) {
+            totalDueThisMonth += valor;
+          }
+        }
+      });
+
+      setSummary({
+        totalPending,
+        totalOverdue,
+        totalDueThisWeek,
+        totalDueThisMonth,
+        totalPaid,
+      });
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar estatísticas do dashboard",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, []);
 
   const handleCardClick = (filter: string) => {
     // Navegação drill-down para listagem filtrada
@@ -53,33 +144,30 @@ export default function DashboardPayables() {
 
   const handleImport = async (files: File[]) => {
     try {
-      let processed = 0;
       const errors: string[] = [];
       const warnings: string[] = [];
+      let totalImported = 0;
 
       for (const file of files) {
         try {
           if (importMode === 'xml') {
-            // Processar arquivo XML
+            // Process XML file and save to Supabase
             const xmlContent = await file.text();
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
             
-            // Verificar se há erros de parsing
             const parserError = xmlDoc.querySelector('parsererror');
             if (parserError) {
               errors.push(`Erro ao processar ${file.name}: XML inválido`);
               continue;
             }
 
-            // Extrair dados da nota fiscal (exemplo de estrutura NFe)
             const nfeElement = xmlDoc.querySelector('infNFe') || xmlDoc.querySelector('NFe');
             if (!nfeElement) {
               errors.push(`${file.name}: Estrutura de NFe não encontrada`);
               continue;
             }
 
-            // Extrair dados do fornecedor
             const emit = xmlDoc.querySelector('emit');
             if (!emit) {
               errors.push(`${file.name}: Dados do fornecedor não encontrados`);
@@ -88,20 +176,92 @@ export default function DashboardPayables() {
 
             const cnpj = emit.querySelector('CNPJ')?.textContent || '';
             const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
+            
+            // Create supplier if not exists
+            let entidadeId = null;
+            const { data: existingFornecedor } = await supabase
+              .from('fornecedores')
+              .select('id')
+              .eq('cnpj_cpf', cnpj)
+              .single();
+            
+            if (existingFornecedor) {
+              entidadeId = existingFornecedor.id;
+            } else {
+              const { data: newFornecedor, error: fornecedorError } = await supabase
+                .from('fornecedores')
+                .insert({
+                  nome: supplierName,
+                  cnpj_cpf: cnpj,
+                  ativo: true
+                })
+                .select('id')
+                .single();
+              
+              if (fornecedorError) {
+                errors.push(`Erro ao criar fornecedor ${supplierName}: ${fornecedorError.message}`);
+                continue;
+              }
+              entidadeId = newFornecedor.id;
+            }
 
-            // Extrair valor total
             const totalElement = xmlDoc.querySelector('vNF');
             const totalAmount = parseFloat(totalElement?.textContent || '0');
-            
             const duplicatas = xmlDoc.querySelectorAll('dup');
             
-            if (totalAmount > 0) {
-              processed++;
+            if (duplicatas.length === 0) {
+              // Single installment
+              const { error: insertError } = await supabase
+                .from('ap_installments')
+                .insert({
+                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela única`,
+                  fornecedor: supplierName,
+                  valor: totalAmount,
+                  valor_total_titulo: totalAmount,
+                  data_vencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  status: 'aberto',
+                  numero_parcela: 1,
+                  total_parcelas: 1,
+                  entidade_id: entidadeId
+                });
+              
+              if (insertError) {
+                errors.push(`Erro ao inserir parcela de ${file.name}: ${insertError.message}`);
+              } else {
+                totalImported++;
+              }
             } else {
-              warnings.push(`${file.name}: Valor não encontrado ou inválido`);
+              // Multiple installments
+              const installmentsToInsert = [];
+              duplicatas.forEach((dup, index) => {
+                const valor = parseFloat(dup.querySelector('vDup')?.textContent || '0');
+                const vencimento = dup.querySelector('dVenc')?.textContent || 
+                  new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                
+                installmentsToInsert.push({
+                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela ${index + 1}`,
+                  fornecedor: supplierName,
+                  valor: valor,
+                  valor_total_titulo: totalAmount,
+                  data_vencimento: vencimento,
+                  status: 'aberto',
+                  numero_parcela: index + 1,
+                  total_parcelas: duplicatas.length,
+                  entidade_id: entidadeId
+                });
+              });
+              
+              const { error: insertError } = await supabase
+                .from('ap_installments')
+                .insert(installmentsToInsert);
+              
+              if (insertError) {
+                errors.push(`Erro ao inserir parcelas de ${file.name}: ${insertError.message}`);
+              } else {
+                totalImported += installmentsToInsert.length;
+              }
             }
           } else {
-            // Processar planilha (implementação futura)
             warnings.push(`Planilha ${file.name}: Implementação pendente`);
           }
         } catch (fileError) {
@@ -109,13 +269,23 @@ export default function DashboardPayables() {
         }
       }
 
+      // Refresh dashboard data after import
+      if (totalImported > 0) {
+        await loadDashboardStats();
+        toast({
+          title: "Importação concluída",
+          description: `${totalImported} parcelas importadas com sucesso`,
+        });
+      }
+
       return {
-        success: processed > 0,
-        processed: processed,
+        success: totalImported > 0,
+        processed: totalImported,
         errors,
-        warnings: warnings.length > 0 ? warnings : [`${processed} arquivo(s) processado(s) com sucesso`],
+        warnings: warnings.length > 0 ? warnings : [`${totalImported} parcela(s) processada(s) com sucesso`],
       };
     } catch (error) {
+      console.error('Import error:', error);
       return {
         success: false,
         processed: 0,
@@ -167,7 +337,7 @@ export default function DashboardPayables() {
                 <Upload className="h-4 w-4 mr-2" />
                 Importar XML
               </Button>
-              <Button onClick={() => navigate('/bills/new')}>
+              <Button onClick={() => navigate('/accounts-payable/new')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Conta
               </Button>
@@ -182,11 +352,11 @@ export default function DashboardPayables() {
           <div>
             <h2 className="text-lg font-semibold mb-4">Resumo Financeiro</h2>
             <SummaryCardsGrid
-              totalPending={mockSummary.totalPending}
-              totalOverdue={mockSummary.totalOverdue}
-              totalDueThisWeek={mockSummary.totalDueThisWeek}
-              totalDueThisMonth={mockSummary.totalDueThisMonth}
-              totalPaid={mockSummary.totalPaid}
+              totalPending={summary.totalPending}
+              totalOverdue={summary.totalOverdue}
+              totalDueThisWeek={summary.totalDueThisWeek}
+              totalDueThisMonth={summary.totalDueThisMonth}
+              totalPaid={summary.totalPaid}
               onCardClick={handleCardClick}
             />
           </div>
