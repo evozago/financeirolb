@@ -434,8 +434,12 @@ export default function AccountsPayable() {
             const totalAmount = parseFloat(totalElement?.textContent || '0');
             const duplicatas = xmlDoc.querySelectorAll('dup');
             
+            // Extrair data de emissão da NFe
+            const dataEmissao = xmlDoc.querySelector('dhEmi')?.textContent?.split('T')[0] || 
+                               new Date().toISOString().split('T')[0];
+            
             if (duplicatas.length === 0) {
-              // Criar parcela única
+              // Criar parcela única - sem vencimento = usar data emissão e marcar como pago
               const { error: insertError } = await supabase
                 .from('ap_installments')
                 .insert({
@@ -443,8 +447,9 @@ export default function AccountsPayable() {
                   fornecedor: supplierName,
                   valor: totalAmount,
                   valor_total_titulo: totalAmount,
-                  data_vencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  status: 'aberto',
+                  data_vencimento: dataEmissao,
+                  data_pagamento: dataEmissao,
+                  status: 'pago',
                   numero_parcela: 1,
                   total_parcelas: 1,
                   entidade_id: entidadeId,
@@ -461,8 +466,16 @@ export default function AccountsPayable() {
               const installmentsToInsert = [];
               duplicatas.forEach((dup, index) => {
                 const valor = parseFloat(dup.querySelector('vDup')?.textContent || '0');
-                const vencimento = dup.querySelector('dVenc')?.textContent || 
-                  new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                let vencimento = dup.querySelector('dVenc')?.textContent;
+                let dataPagamento = null;
+                let status = 'aberto';
+                
+                // Se não tem data de vencimento, usar data de emissão e marcar como pago
+                if (!vencimento) {
+                  vencimento = dataEmissao;
+                  dataPagamento = dataEmissao;
+                  status = 'pago';
+                }
                 
                 installmentsToInsert.push({
                   descricao: `NFe ${nfeNumber || file.name.replace('.xml', '')} - Parcela ${index + 1}`,
@@ -470,7 +483,8 @@ export default function AccountsPayable() {
                   valor: valor,
                   valor_total_titulo: totalAmount,
                   data_vencimento: vencimento,
-                  status: 'aberto',
+                  data_pagamento: dataPagamento,
+                  status: status,
                   numero_parcela: index + 1,
                   total_parcelas: duplicatas.length,
                   entidade_id: entidadeId,
