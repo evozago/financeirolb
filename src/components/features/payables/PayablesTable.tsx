@@ -147,6 +147,16 @@ export function PayablesTable({
       ),
     },
     {
+      key: 'documentNumber',
+      header: 'Nº Documento',
+      sortable: true,
+      cell: (item) => (
+        <div className="font-mono text-sm">
+          {item.numero_documento || '-'}
+        </div>
+      ),
+    },
+    {
       key: 'amount',
       header: 'Valor da Parcela',
       sortable: true,

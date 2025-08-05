@@ -26,6 +26,7 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     dueDate: item.data_vencimento,
     status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
     billId: item.id,
+    numero_documento: item.numero_documento,
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
@@ -334,6 +335,26 @@ export default function AccountsPayable() {
               continue;
             }
 
+            // Extrair número da NFe para verificar duplicação
+            const nfeNumber = xmlDoc.querySelector('nNF')?.textContent || '';
+            const chaveAcesso = nfeElement.getAttribute('Id') || '';
+            
+            // Verificar se NFe já foi importada (duplicação)
+            if (nfeNumber) {
+              const { data: existingNfe, error: nfeCheckError } = await supabase
+                .from('ap_installments')
+                .select('id, numero_documento')
+                .eq('numero_documento', nfeNumber)
+                .limit(1);
+              
+              if (nfeCheckError) {
+                console.error('Erro ao verificar NFe existente:', nfeCheckError);
+              } else if (existingNfe && existingNfe.length > 0) {
+                warnings.push(`NFe ${nfeNumber} já importada anteriormente (arquivo: ${file.name})`);
+                continue;
+              }
+            }
+
             // Extrair dados do fornecedor
             const emit = xmlDoc.querySelector('emit');
             if (!emit) {
@@ -418,7 +439,7 @@ export default function AccountsPayable() {
               const { error: insertError } = await supabase
                 .from('ap_installments')
                 .insert({
-                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela única`,
+                  descricao: `NFe ${nfeNumber || file.name.replace('.xml', '')} - Parcela única`,
                   fornecedor: supplierName,
                   valor: totalAmount,
                   valor_total_titulo: totalAmount,
@@ -426,7 +447,8 @@ export default function AccountsPayable() {
                   status: 'aberto',
                   numero_parcela: 1,
                   total_parcelas: 1,
-                  entidade_id: entidadeId
+                  entidade_id: entidadeId,
+                  numero_documento: nfeNumber || null
                 });
               
               if (insertError) {
@@ -443,7 +465,7 @@ export default function AccountsPayable() {
                   new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 
                 installmentsToInsert.push({
-                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela ${index + 1}`,
+                  descricao: `NFe ${nfeNumber || file.name.replace('.xml', '')} - Parcela ${index + 1}`,
                   fornecedor: supplierName,
                   valor: valor,
                   valor_total_titulo: totalAmount,
@@ -451,7 +473,8 @@ export default function AccountsPayable() {
                   status: 'aberto',
                   numero_parcela: index + 1,
                   total_parcelas: duplicatas.length,
-                  entidade_id: entidadeId
+                  entidade_id: entidadeId,
+                  numero_documento: nfeNumber || null
                 });
               });
               

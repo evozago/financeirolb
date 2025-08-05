@@ -40,6 +40,7 @@ export interface BillToPayInstallment {
   status: 'Pendente' | 'Pago' | 'Vencido';
   billId: string;
   bill?: BillToPay;
+  numero_documento?: string;
 }
 
 export interface PayablesSummary {
