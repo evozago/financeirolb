@@ -99,6 +99,23 @@ export default function DashboardPayables() {
 
   useEffect(() => {
     loadDashboardStats();
+    
+    // Set up periodic refresh every 30 seconds
+    const interval = setInterval(loadDashboardStats, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Add effect to refresh when coming back to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDashboardStats();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const handleCardClick = (filter: string) => {
