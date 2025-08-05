@@ -319,32 +319,44 @@ export default function AccountsPayable() {
             const cnpj = emit.querySelector('CNPJ')?.textContent || '';
             const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
             
-            // Criar fornecedor se não existir
+            // Criar entidade se não existir
             let entidadeId = null;
-            const { data: existingFornecedor } = await supabase
-              .from('fornecedores')
+            const { data: existingEntidade } = await supabase
+              .from('entidades')
               .select('id')
               .eq('cnpj_cpf', cnpj)
+              .eq('tipo', 'fornecedor')
               .single();
             
-            if (existingFornecedor) {
-              entidadeId = existingFornecedor.id;
+            if (existingEntidade) {
+              entidadeId = existingEntidade.id;
             } else {
-              const { data: newFornecedor, error: fornecedorError } = await supabase
-                .from('fornecedores')
+              // Criar entidade
+              const { data: newEntidade, error: entidadeError } = await supabase
+                .from('entidades')
                 .insert({
                   nome: supplierName,
                   cnpj_cpf: cnpj,
+                  tipo: 'fornecedor',
                   ativo: true
                 })
                 .select('id')
                 .single();
               
-              if (fornecedorError) {
-                errors.push(`Erro ao criar fornecedor ${supplierName}: ${fornecedorError.message}`);
+              if (entidadeError) {
+                errors.push(`Erro ao criar entidade ${supplierName}: ${entidadeError.message}`);
                 continue;
               }
-              entidadeId = newFornecedor.id;
+              entidadeId = newEntidade.id;
+              
+              // Também criar na tabela fornecedores para compatibilidade
+              await supabase
+                .from('fornecedores')
+                .insert({
+                  nome: supplierName,
+                  cnpj_cpf: cnpj,
+                  ativo: true
+                });
             }
 
             // Extrair valor total e duplicatas
