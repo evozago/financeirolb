@@ -7,7 +7,7 @@ import React from 'react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Eye, Edit, Trash2, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Eye, Edit, Trash2, CheckCircle, Edit3 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +28,7 @@ interface PayablesTableProps {
   onEdit?: (item: BillToPayInstallment) => void;
   onDelete?: (items: BillToPayInstallment[]) => void;
   onView?: (item: BillToPayInstallment) => void;
+  onBulkEdit?: (items: BillToPayInstallment[]) => void;
 }
 
 export function PayablesTable({
@@ -40,6 +41,7 @@ export function PayablesTable({
   onEdit,
   onDelete,
   onView,
+  onBulkEdit,
 }: PayablesTableProps) {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
@@ -204,6 +206,16 @@ export function PayablesTable({
 
   const bulkActions = selectedItems.length > 0 && (
     <div className="flex items-center gap-2">
+      {onBulkEdit && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onBulkEdit(selectedItems)}
+        >
+          <Edit3 className="h-4 w-4 mr-2" />
+          Editar em Massa ({selectedItems.length})
+        </Button>
+      )}
       {onMarkAsPaid && (
         <Button
           size="sm"

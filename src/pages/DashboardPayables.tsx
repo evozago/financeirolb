@@ -271,7 +271,11 @@ export default function DashboardPayables() {
 
       // Refresh dashboard data after import
       if (totalImported > 0) {
-        await loadDashboardStats();
+        // Force reload with a small delay to ensure database transaction is complete
+        setTimeout(async () => {
+          await loadDashboardStats();
+        }, 500);
+        
         toast({
           title: "Importação concluída",
           description: `${totalImported} parcelas importadas com sucesso`,

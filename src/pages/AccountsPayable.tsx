@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PayablesTable } from '@/components/features/payables/PayablesTable';
 import { PayableFilters } from '@/components/features/payables/PayableFilters';
 import { ImportModal } from '@/components/features/payables/ImportModal';
+import { BulkEditModal, BulkEditData } from '@/components/features/payables/BulkEditModal';
 import { BillToPayInstallment, PayablesFilter, Supplier } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +58,8 @@ export default function AccountsPayable() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importMode, setImportMode] = useState<'xml' | 'spreadsheet'>('xml');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
 
   // Load installments from Supabase
   const loadInstallments = async () => {
@@ -487,6 +490,81 @@ export default function AccountsPayable() {
     });
   };
 
+  const handleBulkEdit = (items: BillToPayInstallment[]) => {
+    setBulkEditModalOpen(true);
+  };
+
+  const handleBulkEditSave = async (updates: BulkEditData) => {
+    if (selectedItems.length === 0) return;
+
+    setBulkEditLoading(true);
+    try {
+      const itemIds = selectedItems.map(item => item.id);
+      
+      // Preparar dados para atualização
+      const updateData: any = {};
+      
+      if (updates.categoria) updateData.categoria = updates.categoria;
+      if (updates.status) updateData.status = updates.status;
+      if (updates.data_vencimento) updateData.data_vencimento = updates.data_vencimento;
+      if (updates.forma_pagamento) updateData.forma_pagamento = updates.forma_pagamento;
+      if (updates.observacoes) updateData.observacoes = updates.observacoes;
+      if (updates.banco) updateData.banco = updates.banco;
+      
+      // Adicionar timestamp de atualização
+      updateData.updated_at = new Date().toISOString();
+      
+      // Se status for 'pago', adicionar data de pagamento
+      if (updates.status === 'pago') {
+        updateData.data_pagamento = new Date().toISOString().split('T')[0];
+        updateData.data_hora_pagamento = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('ap_installments')
+        .update(updateData)
+        .in('id', itemIds);
+
+      if (error) {
+        throw error;
+      }
+
+      // Atualizar dados locais
+      setInstallments(prev => prev.map(installment => {
+        if (itemIds.includes(installment.id)) {
+          const updatedInstallment = { ...installment };
+          
+          // Aplicar atualizações status específicas
+          if (updates.status) {
+            updatedInstallment.status = updates.status === 'pago' ? 'Pago' : 
+                                      updates.status === 'aberto' ? 'Pendente' : 
+                                      'Pendente';
+          }
+          
+          return updatedInstallment;
+        }
+        return installment;
+      }));
+
+      setSelectedItems([]);
+      setBulkEditModalOpen(false);
+      
+      toast({
+        title: "Sucesso",
+        description: `${selectedItems.length} parcela(s) atualizada(s) com sucesso`,
+      });
+    } catch (error) {
+      console.error('Error bulk editing:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar contas em massa",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
   const getPageTitle = () => {
     const filter = searchParams.get('filter');
     const titles = {
@@ -571,6 +649,7 @@ export default function AccountsPayable() {
             onMarkAsPaid={handleMarkAsPaid}
             onDelete={handleDelete}
             onView={(item) => navigate(`/bills/${item.billId}`)}
+            onBulkEdit={handleBulkEdit}
           />
         </div>
       </div>
@@ -582,6 +661,15 @@ export default function AccountsPayable() {
         mode={importMode}
         onImport={handleImport}
         onDownloadTemplate={importMode === 'spreadsheet' ? handleDownloadTemplate : undefined}
+      />
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        open={bulkEditModalOpen}
+        onOpenChange={setBulkEditModalOpen}
+        selectedCount={selectedItems.length}
+        onSave={handleBulkEditSave}
+        loading={bulkEditLoading}
       />
     </div>
   );
