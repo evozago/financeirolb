@@ -56,6 +56,7 @@ export default function AccountsPayable() {
   const [loading, setLoading] = useState(true);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importMode, setImportMode] = useState<'xml' | 'spreadsheet'>('xml');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   // Load installments from Supabase
   const loadInstallments = async () => {
@@ -90,9 +91,37 @@ export default function AccountsPayable() {
     }
   };
 
+  // Load suppliers from Supabase
+  const loadSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('fornecedores')
+        .select('id, nome, cnpj_cpf')
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (error) {
+        console.error('Error loading suppliers:', error);
+        return;
+      }
+      
+      const transformedSuppliers: Supplier[] = (data || []).map(supplier => ({
+        id: supplier.id,
+        name: supplier.nome,
+        legalName: supplier.nome,
+        cnpj: supplier.cnpj_cpf || '',
+      }));
+      
+      setSuppliers(transformedSuppliers);
+    } catch (error) {
+      console.error('Error loading suppliers:', error);
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
     loadInstallments();
+    loadSuppliers();
   }, []);
 
   // Aplicar filtro baseado na URL (navegação drill-down)
@@ -491,7 +520,7 @@ export default function AccountsPayable() {
               <PayableFilters
                 filters={filters}
                 onFiltersChange={setFilters}
-                suppliers={[]}
+                suppliers={suppliers}
               />
             </CardContent>
           </Card>
