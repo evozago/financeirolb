@@ -115,14 +115,14 @@ export function PayableFilters({
               <div className="space-y-2">
                 <Label>Status</Label>
                 <Select
-                  value={filters.status?.[0] || ''}
-                  onValueChange={(value) => updateFilter('status', value ? [value] : [])}
+                  value={filters.status?.[0] || 'all'}
+                  onValueChange={(value) => updateFilter('status', value === 'all' ? [] : [value])}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos os status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os status</SelectItem>
+                    <SelectItem value="all">Todos os status</SelectItem>
                     {statusOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
@@ -136,14 +136,14 @@ export function PayableFilters({
               <div className="space-y-2">
                 <Label>Fornecedor</Label>
                 <Select
-                  value={filters.supplierId || ''}
-                  onValueChange={(value) => updateFilter('supplierId', value || undefined)}
+                  value={filters.supplierId || 'all'}
+                  onValueChange={(value) => updateFilter('supplierId', value === 'all' ? undefined : value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos os fornecedores" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os fornecedores</SelectItem>
+                    <SelectItem value="all">Todos os fornecedores</SelectItem>
                     {suppliers.map((supplier) => (
                       <SelectItem key={supplier.id} value={supplier.id}>
                         {supplier.name}
