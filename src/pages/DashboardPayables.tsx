@@ -80,8 +80,8 @@ export default function DashboardPayables() {
         setSummary({
           totalPending: parseFloat(String(stats.total_aberto || 0)),
           totalOverdue: parseFloat(String(stats.vencidos || 0)),
-          totalDueThisWeek: parseFloat(String(stats.vencendo_hoje || 0)),
-          totalDueThisMonth: parseFloat(String(stats.vencendo_hoje || 0)), // Ajustar se necessário
+  totalDueThisWeek: parseFloat(String(stats.vencendo_semana || 0)), // Supondo que você tenha esse campo
+  totalDueThisMonth: parseFloat(String(stats.vencendo_mes || 0)),   // Ou qualquer que seja o nome correto do campo
           totalPaid: parseFloat(String(stats.pagos_mes_atual || 0)),
         });
       }
