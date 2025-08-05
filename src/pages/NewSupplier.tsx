@@ -2,7 +2,7 @@
  * Página para criar novo fornecedor
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+interface Brand {
+  id: string;
+  nome: string;
+}
 
 interface SupplierFormData {
   nome: string;
@@ -27,6 +33,8 @@ export default function NewSupplier() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [formData, setFormData] = useState<SupplierFormData>({
     nome: '',
     cnpj_cpf: '',
@@ -35,6 +43,29 @@ export default function NewSupplier() {
     endereco: '',
     ativo: true,
   });
+
+  useEffect(() => {
+    loadBrands();
+  }, []);
+
+  const loadBrands = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('marcas')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Error loading brands:', error);
+        return;
+      }
+
+      setBrands(data || []);
+    } catch (error) {
+      console.error('Error loading brands:', error);
+    }
+  };
 
   const handleInputChange = (field: keyof SupplierFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -118,6 +149,14 @@ export default function NewSupplier() {
     return true;
   };
 
+  const handleBrandToggle = (brandId: string) => {
+    setSelectedBrands(prev => 
+      prev.includes(brandId) 
+        ? prev.filter(id => id !== brandId)
+        : [...prev, brandId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -126,7 +165,8 @@ export default function NewSupplier() {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase
+      // First, create the supplier
+      const { data: supplierData, error: supplierError } = await supabase
         .from('fornecedores')
         .insert({
           nome: formData.nome.trim(),
@@ -139,8 +179,21 @@ export default function NewSupplier() {
         .select()
         .single();
 
-      if (error) {
-        throw error;
+      if (supplierError) {
+        throw supplierError;
+      }
+
+      // Then, update selected brands to associate with this supplier
+      if (selectedBrands.length > 0) {
+        const { error: brandsError } = await supabase
+          .from('marcas')
+          .update({ fornecedor_id: supplierData.id })
+          .in('id', selectedBrands);
+
+        if (brandsError) {
+          console.error('Error updating brands:', brandsError);
+          // Don't throw here, just log the error as the supplier was created successfully
+        }
       }
 
       toast({
@@ -148,7 +201,7 @@ export default function NewSupplier() {
         description: "Fornecedor criado com sucesso",
       });
 
-      navigate(`/suppliers/${data.id}`);
+      navigate(`/suppliers/${supplierData.id}`);
     } catch (error: any) {
       console.error('Error creating supplier:', error);
       toast({
@@ -260,6 +313,30 @@ export default function NewSupplier() {
                 />
                 <Label htmlFor="ativo">Fornecedor ativo</Label>
               </div>
+
+              {/* Brands Section */}
+              {brands.length > 0 && (
+                <div className="space-y-4">
+                  <Label>Marcas Associadas</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                    {brands.map((brand) => (
+                      <div key={brand.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`brand-${brand.id}`}
+                          checked={selectedBrands.includes(brand.id)}
+                          onCheckedChange={() => handleBrandToggle(brand.id)}
+                        />
+                        <Label htmlFor={`brand-${brand.id}`} className="text-sm">
+                          {brand.nome}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Selecione as marcas que este fornecedor representa
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-end gap-4">
                 <Button

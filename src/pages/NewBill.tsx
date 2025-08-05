@@ -2,7 +2,7 @@
  * Página para criar nova conta a pagar
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+
+interface Supplier {
+  id: string;
+  nome: string;
+}
+
+interface Category {
+  id: string;
+  nome: string;
+}
 
 export default function NewBill() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [formData, setFormData] = useState({
     fornecedor: '',
@@ -26,18 +39,61 @@ export default function NewBill() {
     numero_parcela: 1,
     total_parcelas: 1,
     observacoes: '',
-    categoria: 'Geral',
+    categoria: '',
     forma_pagamento: '',
     banco: ''
   });
 
+  useEffect(() => {
+    loadSuppliers();
+    loadCategories();
+  }, []);
+
+  const loadSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('fornecedores')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Error loading suppliers:', error);
+        return;
+      }
+
+      setSuppliers(data || []);
+    } catch (error) {
+      console.error('Error loading suppliers:', error);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_produtos')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Error loading categories:', error);
+        return;
+      }
+
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.fornecedor || !formData.descricao || !formData.valor || !formData.data_vencimento) {
+    if (!formData.fornecedor || !formData.descricao || !formData.valor || !formData.data_vencimento || !formData.categoria) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios (Fornecedor, Descrição, Valor, Data de Vencimento e Categoria)",
         variant: "destructive",
       });
       return;
@@ -131,23 +187,34 @@ export default function NewBill() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="fornecedor">Fornecedor *</Label>
-                  <Input
-                    id="fornecedor"
-                    value={formData.fornecedor}
-                    onChange={(e) => handleInputChange('fornecedor', e.target.value)}
-                    placeholder="Nome do fornecedor"
-                    required
-                  />
+                  <Select value={formData.fornecedor} onValueChange={(value) => handleInputChange('fornecedor', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um fornecedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.nome}>
+                          {supplier.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="categoria">Categoria</Label>
-                  <Input
-                    id="categoria"
-                    value={formData.categoria}
-                    onChange={(e) => handleInputChange('categoria', e.target.value)}
-                    placeholder="Categoria da despesa"
-                  />
+                  <Label htmlFor="categoria">Categoria *</Label>
+                  <Select value={formData.categoria} onValueChange={(value) => handleInputChange('categoria', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.nome}>
+                          {category.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2 md:col-span-2">

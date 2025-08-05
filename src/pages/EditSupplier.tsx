@@ -11,8 +11,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+interface Brand {
+  id: string;
+  nome: string;
+  fornecedor_id?: string;
+}
 
 interface SupplierFormData {
   nome: string;
@@ -29,6 +36,8 @@ export default function EditSupplier() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [formData, setFormData] = useState<SupplierFormData>({
     nome: '',
     cnpj_cpf: '',
@@ -41,8 +50,35 @@ export default function EditSupplier() {
   useEffect(() => {
     if (id) {
       loadSupplier();
+      loadBrands();
     }
   }, [id]);
+
+  const loadBrands = async () => {
+    try {
+      const { data: allBrands, error: brandsError } = await supabase
+        .from('marcas')
+        .select('id, nome, fornecedor_id')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (brandsError) {
+        console.error('Error loading brands:', brandsError);
+        return;
+      }
+
+      setBrands(allBrands || []);
+      
+      // Set selected brands for this supplier
+      const supplierBrands = (allBrands || [])
+        .filter(brand => brand.fornecedor_id === id)
+        .map(brand => brand.id);
+      
+      setSelectedBrands(supplierBrands);
+    } catch (error) {
+      console.error('Error loading brands:', error);
+    }
+  };
 
   const loadSupplier = async () => {
     try {
@@ -155,6 +191,14 @@ export default function EditSupplier() {
     return true;
   };
 
+  const handleBrandToggle = (brandId: string) => {
+    setSelectedBrands(prev => 
+      prev.includes(brandId) 
+        ? prev.filter(id => id !== brandId)
+        : [...prev, brandId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -175,8 +219,12 @@ export default function EditSupplier() {
         })
         .eq('id', id);
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      // Update brand associations
+      await supabase.from('marcas').update({ fornecedor_id: null }).eq('fornecedor_id', id);
+      if (selectedBrands.length > 0) {
+        await supabase.from('marcas').update({ fornecedor_id: id }).in('id', selectedBrands);
       }
 
       toast({
@@ -307,6 +355,27 @@ export default function EditSupplier() {
                 />
                 <Label htmlFor="ativo">Fornecedor ativo</Label>
               </div>
+
+              {/* Brands Section */}
+              {brands.length > 0 && (
+                <div className="space-y-4">
+                  <Label>Marcas Associadas</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                    {brands.map((brand) => (
+                      <div key={brand.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`brand-${brand.id}`}
+                          checked={selectedBrands.includes(brand.id)}
+                          onCheckedChange={() => handleBrandToggle(brand.id)}
+                        />
+                        <Label htmlFor={`brand-${brand.id}`} className="text-sm">
+                          {brand.nome}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-4">
                 <Button
