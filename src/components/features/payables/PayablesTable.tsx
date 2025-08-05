@@ -84,18 +84,14 @@ export function PayablesTable({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {onView && (
-          <DropdownMenuItem onClick={() => onView(item)}>
-            <Eye className="h-4 w-4 mr-2" />
-            Visualizar
-          </DropdownMenuItem>
-        )}
-        {onEdit && (
-          <DropdownMenuItem onClick={() => onEdit(item)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Editar
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={() => window.location.href = `/bills/${item.billId}`}>
+          <Eye className="h-4 w-4 mr-2" />
+          Visualizar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => window.location.href = `/bills/${item.billId}/edit`}>
+          <Edit className="h-4 w-4 mr-2" />
+          Editar
+        </DropdownMenuItem>
         {onMarkAsPaid && item.status !== 'Pago' && (
           <>
             <DropdownMenuSeparator />

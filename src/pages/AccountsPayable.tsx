@@ -14,129 +14,86 @@ import { PayableFilters } from '@/components/features/payables/PayableFilters';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BillToPayInstallment, PayablesFilter, Supplier } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-// Mock data - substituir por dados reais da API
-const mockInstallments: BillToPayInstallment[] = [
-  {
-    id: '1',
-    installmentNumber: 1,
-    amount: 2120.22,
-    dueDate: '2024-08-01',
-    status: 'Vencido',
-    billId: 'bill1',
+// Transform Supabase data to app format
+const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
+  return data.map(item => ({
+    id: item.id,
+    installmentNumber: item.numero_parcela || 1,
+    amount: parseFloat(item.valor) || 0,
+    dueDate: item.data_vencimento,
+    status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
+    billId: item.id,
     bill: {
-      id: 'bill1',
-      description: 'NFe 3095349 - Parcela 001',
-      totalAmount: 2120.22,
-      totalInstallments: 6,
-      createdAt: '2024-07-01',
-      updatedAt: '2024-07-01',
-      supplierId: 'sup1',
+      id: item.id,
+      description: item.descricao || `Parcela ${item.numero_parcela}`,
+      totalAmount: parseFloat(item.valor_total_titulo) || parseFloat(item.valor) || 0,
+      totalInstallments: item.total_parcelas || 1,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      supplierId: item.entidade_id,
       userId: 'user1',
       supplier: {
-        id: 'sup1',
-        name: 'KYLY INDUSTRIA TEXTIL LTDA',
-        legalName: 'KYLY INDUSTRIA TEXTIL LTDA',
-        cnpj: '12.345.678/0001-90',
+        id: item.entidade_id || 'unknown',
+        name: item.fornecedor || 'Fornecedor não identificado',
+        legalName: item.fornecedor || 'Fornecedor não identificado',
+        cnpj: '',
       },
       installments: [],
     },
-  },
-  {
-    id: '2',
-    installmentNumber: 1,
-    amount: 2846.96,
-    dueDate: '2024-08-04',
-    status: 'Pendente',
-    billId: 'bill2',
-    bill: {
-      id: 'bill2',
-      description: 'NFe 82946 - Parcela 001',
-      totalAmount: 5693.92,
-      totalInstallments: 2,
-      createdAt: '2024-07-04',
-      updatedAt: '2024-07-04',
-      supplierId: 'sup2',
-      userId: 'user1',
-      supplier: {
-        id: 'sup2',
-        name: 'CONFECCOES ACUCENA LTDA',
-        legalName: 'CONFECCOES ACUCENA LTDA',
-        cnpj: '98.765.432/0001-10',
-      },
-      installments: [],
-    },
-  },
-  {
-    id: '3',
-    installmentNumber: 1,
-    amount: 923.00,
-    dueDate: '2024-08-04',
-    status: 'Pendente',
-    billId: 'bill3',
-    bill: {
-      id: 'bill3',
-      description: 'NFe 91912 - Parcela 001',
-      totalAmount: 3692.00,
-      totalInstallments: 4,
-      createdAt: '2024-07-04',
-      updatedAt: '2024-07-04',
-      supplierId: 'sup3',
-      userId: 'user1',
-      supplier: {
-        id: 'sup3',
-        name: 'PIMPOLHO PRODUTOS INFANTIS LTDA',
-        legalName: 'PIMPOLHO PRODUTOS INFANTIS LTDA',
-        cnpj: '11.222.333/0001-44',
-      },
-      installments: [],
-    },
-  },
-  {
-    id: '4',
-    installmentNumber: 1,
-    amount: 415.70,
-    dueDate: '2024-08-04',
-    status: 'Pendente',
-    billId: 'bill4',
-    bill: {
-      id: 'bill4',
-      description: 'NFe 319290 - Parcela 001',
-      totalAmount: 2078.46,
-      totalInstallments: 5,
-      createdAt: '2024-07-04',
-      updatedAt: '2024-07-04',
-      supplierId: 'sup4',
-      userId: 'user1',
-      supplier: {
-        id: 'sup4',
-        name: 'ABRANGE IND E COM CONF LTDA',
-        legalName: 'ABRANGE IND E COM CONF LTDA',
-        cnpj: '55.666.777/0001-88',
-      },
-      installments: [],
-    },
-  },
-];
-
-const mockSuppliers: Supplier[] = [
-  { id: 'sup1', name: 'KYLY INDUSTRIA TEXTIL LTDA', legalName: 'KYLY INDUSTRIA TEXTIL LTDA', cnpj: '12.345.678/0001-90' },
-  { id: 'sup2', name: 'CONFECCOES ACUCENA LTDA', legalName: 'CONFECCOES ACUCENA LTDA', cnpj: '98.765.432/0001-10' },
-  { id: 'sup3', name: 'PIMPOLHO PRODUTOS INFANTIS LTDA', legalName: 'PIMPOLHO PRODUTOS INFANTIS LTDA', cnpj: '11.222.333/0001-44' },
-  { id: 'sup4', name: 'ABRANGE IND E COM CONF LTDA', legalName: 'ABRANGE IND E COM CONF LTDA', cnpj: '55.666.777/0001-88' },
-];
+  }));
+};
 
 export default function AccountsPayable() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
-  const [installments, setInstallments] = useState<BillToPayInstallment[]>(mockInstallments);
+  const [installments, setInstallments] = useState<BillToPayInstallment[]>([]);
   const [selectedItems, setSelectedItems] = useState<BillToPayInstallment[]>([]);
   const [filters, setFilters] = useState<PayablesFilter>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importMode, setImportMode] = useState<'xml' | 'spreadsheet'>('xml');
+
+  // Load installments from Supabase
+  const loadInstallments = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('ap_installments')
+        .select('*')
+        .order('data_vencimento', { ascending: true });
+      
+      if (error) {
+        console.error('Error loading installments:', error);
+        toast({
+          title: "Erro",
+          description: "Falha ao carregar contas a pagar",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const transformedData = transformInstallmentData(data || []);
+      setInstallments(transformedData);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar dados",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadInstallments();
+  }, []);
 
   // Aplicar filtro baseado na URL (navegação drill-down)
   useEffect(() => {
@@ -224,8 +181,20 @@ export default function AccountsPayable() {
   const handleMarkAsPaid = async (items: BillToPayInstallment[]) => {
     setLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const itemIds = items.map(item => item.id);
+      
+      const { error } = await supabase
+        .from('ap_installments')
+        .update({ 
+          status: 'pago',
+          data_pagamento: new Date().toISOString().split('T')[0],
+          data_hora_pagamento: new Date().toISOString()
+        })
+        .in('id', itemIds);
+      
+      if (error) {
+        throw error;
+      }
       
       setInstallments(prev => prev.map(installment => 
         items.find(item => item.id === installment.id)
@@ -239,6 +208,7 @@ export default function AccountsPayable() {
         description: `${items.length} conta(s) marcada(s) como paga(s)`,
       });
     } catch (error) {
+      console.error('Error marking as paid:', error);
       toast({
         title: "Erro",
         description: "Falha ao marcar contas como pagas",
@@ -252,10 +222,17 @@ export default function AccountsPayable() {
   const handleDelete = async (items: BillToPayInstallment[]) => {
     setLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       const itemIds = items.map(item => item.id);
+      
+      const { error } = await supabase
+        .from('ap_installments')
+        .delete()
+        .in('id', itemIds);
+      
+      if (error) {
+        throw error;
+      }
+      
       setInstallments(prev => prev.filter(installment => !itemIds.includes(installment.id)));
       
       setSelectedItems([]);
@@ -264,6 +241,7 @@ export default function AccountsPayable() {
         description: `${items.length} conta(s) excluída(s)`,
       });
     } catch (error) {
+      console.error('Error deleting:', error);
       toast({
         title: "Erro",
         description: "Falha ao excluir contas",
@@ -276,10 +254,9 @@ export default function AccountsPayable() {
 
   const handleImport = async (files: File[]) => {
     try {
-      const newInstallments: BillToPayInstallment[] = [];
-      let processed = 0;
       const errors: string[] = [];
       const warnings: string[] = [];
+      let totalImported = 0;
 
       for (const file of files) {
         try {
@@ -296,7 +273,7 @@ export default function AccountsPayable() {
               continue;
             }
 
-            // Extrair dados da nota fiscal (exemplo de estrutura NFe)
+            // Extrair dados da nota fiscal
             const nfeElement = xmlDoc.querySelector('infNFe') || xmlDoc.querySelector('NFe');
             if (!nfeElement) {
               errors.push(`${file.name}: Estrutura de NFe não encontrada`);
@@ -313,90 +290,92 @@ export default function AccountsPayable() {
             const cnpj = emit.querySelector('CNPJ')?.textContent || '';
             const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
             
-            // Verificar se fornecedor já existe ou criar novo
-            let supplier = mockSuppliers.find(s => s.cnpj === cnpj);
-            if (!supplier) {
-              supplier = {
-                id: `sup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                name: supplierName,
-                legalName: supplierName,
-                cnpj: cnpj
-              };
-              mockSuppliers.push(supplier);
+            // Criar fornecedor se não existir
+            let entidadeId = null;
+            const { data: existingFornecedor } = await supabase
+              .from('fornecedores')
+              .select('id')
+              .eq('cnpj_cpf', cnpj)
+              .single();
+            
+            if (existingFornecedor) {
+              entidadeId = existingFornecedor.id;
+            } else {
+              const { data: newFornecedor, error: fornecedorError } = await supabase
+                .from('fornecedores')
+                .insert({
+                  nome: supplierName,
+                  cnpj_cpf: cnpj,
+                  ativo: true
+                })
+                .select('id')
+                .single();
+              
+              if (fornecedorError) {
+                errors.push(`Erro ao criar fornecedor ${supplierName}: ${fornecedorError.message}`);
+                continue;
+              }
+              entidadeId = newFornecedor.id;
             }
 
-            // Extrair valor total e dados das duplicatas
+            // Extrair valor total e duplicatas
             const totalElement = xmlDoc.querySelector('vNF');
             const totalAmount = parseFloat(totalElement?.textContent || '0');
-            
             const duplicatas = xmlDoc.querySelectorAll('dup');
             
             if (duplicatas.length === 0) {
-              // Se não há duplicatas, criar uma única parcela
-              const billId = `bill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              const installmentId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              // Criar parcela única
+              const { error: insertError } = await supabase
+                .from('ap_installments')
+                .insert({
+                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela única`,
+                  fornecedor: supplierName,
+                  valor: totalAmount,
+                  valor_total_titulo: totalAmount,
+                  data_vencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  status: 'aberto',
+                  numero_parcela: 1,
+                  total_parcelas: 1,
+                  entidade_id: entidadeId
+                });
               
-              const newBill = {
-                id: billId,
-                description: `NFe ${file.name.replace('.xml', '')} - Parcela única`,
-                totalAmount: totalAmount,
-                totalInstallments: 1,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                supplierId: supplier.id,
-                userId: 'user1',
-                supplier: supplier,
-                installments: [],
-              };
-
-              newInstallments.push({
-                id: installmentId,
-                installmentNumber: 1,
-                amount: totalAmount,
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 dias
-                status: 'Pendente',
-                billId: billId,
-                bill: newBill,
-              });
+              if (insertError) {
+                errors.push(`Erro ao inserir parcela de ${file.name}: ${insertError.message}`);
+              } else {
+                totalImported++;
+              }
             } else {
-              // Processar múltiplas parcelas
-              const billId = `bill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              
-              const newBill = {
-                id: billId,
-                description: `NFe ${file.name.replace('.xml', '')}`,
-                totalAmount: totalAmount,
-                totalInstallments: duplicatas.length,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                supplierId: supplier.id,
-                userId: 'user1',
-                supplier: supplier,
-                installments: [],
-              };
-
+              // Inserir múltiplas parcelas
+              const installmentsToInsert = [];
               duplicatas.forEach((dup, index) => {
-                const parcela = dup.querySelector('nDup')?.textContent || (index + 1).toString();
                 const valor = parseFloat(dup.querySelector('vDup')?.textContent || '0');
-                const vencimento = dup.querySelector('dVenc')?.textContent || new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const vencimento = dup.querySelector('dVenc')?.textContent || 
+                  new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 
-                const installmentId = `inst_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
-                
-                newInstallments.push({
-                  id: installmentId,
-                  installmentNumber: index + 1,
-                  amount: valor,
-                  dueDate: vencimento,
-                  status: 'Pendente',
-                  billId: billId,
-                  bill: newBill,
+                installmentsToInsert.push({
+                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela ${index + 1}`,
+                  fornecedor: supplierName,
+                  valor: valor,
+                  valor_total_titulo: totalAmount,
+                  data_vencimento: vencimento,
+                  status: 'aberto',
+                  numero_parcela: index + 1,
+                  total_parcelas: duplicatas.length,
+                  entidade_id: entidadeId
                 });
               });
+              
+              const { error: insertError } = await supabase
+                .from('ap_installments')
+                .insert(installmentsToInsert);
+              
+              if (insertError) {
+                errors.push(`Erro ao inserir parcelas de ${file.name}: ${insertError.message}`);
+              } else {
+                totalImported += installmentsToInsert.length;
+              }
             }
-            
-            processed++;
           } else {
-            // Processar planilha (implementação futura)
             warnings.push(`Planilha ${file.name}: Implementação pendente`);
           }
         } catch (fileError) {
@@ -404,23 +383,23 @@ export default function AccountsPayable() {
         }
       }
 
-      // Adicionar novos registros ao estado
-      if (newInstallments.length > 0) {
-        setInstallments(prev => [...prev, ...newInstallments]);
-        
+      // Recarregar dados
+      if (totalImported > 0) {
+        await loadInstallments();
         toast({
           title: "Importação concluída",
-          description: `${newInstallments.length} parcelas importadas com sucesso`,
+          description: `${totalImported} parcelas importadas com sucesso`,
         });
       }
 
       return {
-        success: processed > 0,
-        processed: newInstallments.length,
+        success: totalImported > 0,
+        processed: totalImported,
         errors,
-        warnings: warnings.length > 0 ? warnings : [`${processed} arquivo(s) processado(s) com sucesso`],
+        warnings: warnings.length > 0 ? warnings : [`${totalImported} parcela(s) processada(s) com sucesso`],
       };
     } catch (error) {
+      console.error('Import error:', error);
       return {
         success: false,
         processed: 0,
@@ -492,7 +471,7 @@ export default function AccountsPayable() {
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Importar
               </Button>
-              <Button onClick={() => navigate('/bills/new')}>
+              <Button onClick={() => navigate('/accounts-payable/new')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Conta
               </Button>
@@ -512,7 +491,7 @@ export default function AccountsPayable() {
               <PayableFilters
                 filters={filters}
                 onFiltersChange={setFilters}
-                suppliers={mockSuppliers}
+                suppliers={[]}
               />
             </CardContent>
           </Card>
