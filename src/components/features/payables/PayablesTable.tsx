@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { DataTable, Column } from '@/components/ui/data-table';
+import { EnhancedDataTable, Column } from '@/components/ui/enhanced-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Eye, Edit, Trash2, CheckCircle, Edit3 } from 'lucide-react';
@@ -240,7 +240,7 @@ export function PayablesTable({
   );
 
   return (
-    <DataTable
+    <EnhancedDataTable
       data={data}
       columns={columns}
       loading={loading}
@@ -251,6 +251,8 @@ export function PayablesTable({
       getItemId={(item) => item.id}
       actions={bulkActions}
       emptyMessage="Nenhuma conta a pagar encontrada"
+      pagination={true}
+      defaultPageSize={25}
     />
   );
 }

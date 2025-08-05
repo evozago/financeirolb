@@ -12,6 +12,8 @@ import NewBill from "./pages/NewBill";
 import BillDetail from "./pages/BillDetail";
 import Suppliers from "./pages/Suppliers";
 import SupplierDetail from "./pages/SupplierDetail";
+import NewSupplier from "./pages/NewSupplier";
+import EditSupplier from "./pages/EditSupplier";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
@@ -42,7 +44,9 @@ function AppContent() {
           <Route path="/accounts-payable/new" element={<NewBill />} />
           <Route path="/bills/:id" element={<BillDetail />} />
           <Route path="/suppliers" element={<Suppliers />} />
+          <Route path="/suppliers/new" element={<NewSupplier />} />
           <Route path="/suppliers/:id" element={<SupplierDetail />} />
+          <Route path="/suppliers/:id/edit" element={<EditSupplier />} />
           <Route path="/reports" element={<Reports />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
