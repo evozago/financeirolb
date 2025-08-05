@@ -10,6 +10,7 @@ import { Plus, Upload, FileSpreadsheet, Settings, TrendingUp } from 'lucide-reac
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SummaryCardsGrid } from '@/components/features/dashboard/PayablesSummaryCard';
+import { FinancialPanel } from '@/components/features/dashboard/FinancialPanel';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -328,8 +329,18 @@ export default function DashboardPayables() {
         </div>
 
         <div className="space-y-8">
+          {/* Financial Panel */}
+          <FinancialPanel onCardClick={handleCardClick} />
+
           {/* KPIs Cards */}
-          
+          <SummaryCardsGrid 
+            totalPending={summary.totalPending}
+            totalOverdue={summary.totalOverdue}
+            totalDueThisWeek={summary.totalDueThisWeek}
+            totalDueThisMonth={summary.totalDueThisMonth}
+            totalPaid={summary.totalPaid}
+            onCardClick={handleCardClick}
+          />
 
           {/* Charts */}
           <div className="grid gap-6 lg:grid-cols-2">
