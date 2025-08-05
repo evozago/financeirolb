@@ -106,7 +106,8 @@ export function PayableFilters({
                     onClick={clearFilters}
                     className="h-auto p-1 text-muted-foreground hover:text-foreground"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 mr-1" />
+                    Limpar
                   </Button>
                 )}
               </div>

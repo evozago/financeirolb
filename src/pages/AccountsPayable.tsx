@@ -207,7 +207,7 @@ export default function AccountsPayable() {
 
   const handleRowClick = (item: BillToPayInstallment) => {
     // Navegação drill-down para detalhes da conta (Nível 3)
-    navigate(`/bills/${item.billId}`);
+    navigate(`/bills/${item.id}`);
   };
 
   const handleMarkAsPaid = async (items: BillToPayInstallment[]) => {
@@ -578,52 +578,37 @@ export default function AccountsPayable() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">{getPageTitle()}</h1>
-                <p className="text-muted-foreground">
-                  {filteredInstallments.length} registro{filteredInstallments.length !== 1 ? 's' : ''} encontrado{filteredInstallments.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleExport}>
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setImportMode('spreadsheet');
-                  setImportModalOpen(true);
-                }}
-              >
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Importar
-              </Button>
-              <Button onClick={() => navigate('/accounts-payable/new')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Conta
-              </Button>
-            </div>
+    <div className="bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">{getPageTitle()}</h1>
+            <p className="text-muted-foreground">
+              {filteredInstallments.length} registro{filteredInstallments.length !== 1 ? 's' : ''} encontrado{filteredInstallments.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportMode('spreadsheet');
+                setImportModalOpen(true);
+              }}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Importar
+            </Button>
+            <Button onClick={() => navigate('/accounts-payable/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Conta
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* Filtros */}
           <Card>
@@ -648,7 +633,7 @@ export default function AccountsPayable() {
             onRowClick={handleRowClick}
             onMarkAsPaid={handleMarkAsPaid}
             onDelete={handleDelete}
-            onView={(item) => navigate(`/bills/${item.billId}`)}
+            onView={(item) => navigate(`/bills/${item.id}`)}
             onBulkEdit={handleBulkEdit}
           />
         </div>

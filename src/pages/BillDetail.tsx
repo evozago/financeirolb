@@ -249,7 +249,7 @@ export default function BillDetail() {
   const overdueCount = getOverdueCount();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       {/* Header */}
       <div className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -258,7 +258,7 @@ export default function BillDetail() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/accounts-payable')}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar

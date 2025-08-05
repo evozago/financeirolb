@@ -311,46 +311,42 @@ export default function DashboardPayables() {
     }).format(value);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Contas a Pagar</h1>
-              <p className="text-muted-foreground">Gestão financeira e controle de pagamentos</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setImportMode('spreadsheet');
-                  setImportModalOpen(true);
-                }}
-              >
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Importar Planilha
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setImportMode('xml');
-                  setImportModalOpen(true);
-                }}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Importar XML
-              </Button>
-              <Button onClick={() => navigate('/accounts-payable/new')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Conta
-              </Button>
-            </div>
+    <div className="bg-background">
+      {/* Dashboard Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground">Gestão financeira e controle de pagamentos</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportMode('spreadsheet');
+                setImportModalOpen(true);
+              }}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Importar Planilha
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportMode('xml');
+                setImportModalOpen(true);
+              }}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Importar XML
+            </Button>
+            <Button onClick={() => navigate('/accounts-payable/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Conta
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
           {/* KPIs Cards */}
           <div>

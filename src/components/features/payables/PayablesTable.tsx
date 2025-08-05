@@ -86,11 +86,11 @@ export function PayablesTable({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => window.location.href = `/bills/${item.billId}`}>
+        <DropdownMenuItem onClick={() => window.location.href = `/bills/${item.id}`}>
           <Eye className="h-4 w-4 mr-2" />
           Visualizar
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => window.location.href = `/bills/${item.billId}/edit`}>
+        <DropdownMenuItem onClick={() => window.location.href = `/bills/${item.id}/edit`}>
           <Edit className="h-4 w-4 mr-2" />
           Editar
         </DropdownMenuItem>

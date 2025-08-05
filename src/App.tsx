@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { AppHeader } from "@/components/layout/AppHeader";
 import DashboardPayables from "./pages/DashboardPayables";
 import AccountsPayable from "./pages/AccountsPayable";
 import NewBill from "./pages/NewBill";
@@ -32,16 +33,19 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<DashboardPayables />} />
-        <Route path="/accounts-payable" element={<AccountsPayable />} />
-        <Route path="/accounts-payable/new" element={<NewBill />} />
-        <Route path="/bills/:id" element={<BillDetail />} />
-        <Route path="/suppliers" element={<Suppliers />} />
-        <Route path="/suppliers/:id" element={<SupplierDetail />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <Routes>
+          <Route path="/" element={<DashboardPayables />} />
+          <Route path="/accounts-payable" element={<AccountsPayable />} />
+          <Route path="/accounts-payable/new" element={<NewBill />} />
+          <Route path="/bills/:id" element={<BillDetail />} />
+          <Route path="/suppliers" element={<Suppliers />} />
+          <Route path="/suppliers/:id" element={<SupplierDetail />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
     </BrowserRouter>
   );
 }
