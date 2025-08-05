@@ -330,7 +330,12 @@ export function EnhancedDataTable<T>({
                         <td className="p-4">
                           <Checkbox
                             checked={isSelected}
-                            onCheckedChange={() => handleSelectItem(item, index)}
+                            onCheckedChange={(checked) => {
+                              // Para Shift+Click, usar o evento onClick
+                              if (!checked) {
+                                handleSelectItem(item, index);
+                              }
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSelectItem(item, index, e);

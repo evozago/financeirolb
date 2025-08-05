@@ -65,15 +65,25 @@ export default function BillDetail() {
     try {
       setLoading(true);
       
-      // Carregar dados da parcela específica
-      const { data, error } = await supabase.rpc('get_ap_installments_complete');
+      // Carregar dados da parcela específica diretamente da tabela
+      const { data, error } = await supabase
+        .from('ap_installments')
+        .select('*')
+        .eq('id', id)
+        .single();
       
       if (error) {
         console.error('Erro ao carregar dados:', error);
+        toast({
+          title: "Erro", 
+          description: "Conta não encontrada",
+          variant: "destructive",
+        });
+        navigate('/accounts-payable');
         return;
       }
       
-      const installment = data?.find((item: any) => item.id === id);
+      const installment = data;
       
       if (!installment) {
         toast({
@@ -88,13 +98,18 @@ export default function BillDetail() {
       setBill(installment);
       
       // Carregar outras parcelas do mesmo título
-      const relatedBills = data?.filter((item: any) => 
-        item.valor_total_titulo === installment.valor_total_titulo && 
-        item.fornecedor === installment.fornecedor &&
-        item.id !== installment.id
-      ) || [];
+      const { data: relatedData, error: relatedError } = await supabase
+        .from('ap_installments')
+        .select('*')
+        .eq('valor_total_titulo', installment.valor_total_titulo || installment.valor)
+        .eq('fornecedor', installment.fornecedor)
+        .neq('id', installment.id);
       
-      setRelatedInstallments(relatedBills);
+      if (relatedError) {
+        console.error('Erro ao carregar parcelas relacionadas:', relatedError);
+      }
+      
+      setRelatedInstallments(relatedData || []);
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
