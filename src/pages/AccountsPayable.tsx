@@ -321,17 +321,27 @@ export default function AccountsPayable() {
             
             // Criar entidade se não existir
             let entidadeId = null;
-            const { data: existingEntidade } = await supabase
+            
+            // Primeiro tentar encontrar entidade existente
+            const { data: existingEntidade, error: selectError } = await supabase
               .from('entidades')
               .select('id')
               .eq('cnpj_cpf', cnpj)
               .eq('tipo', 'fornecedor')
-              .single();
+              .maybeSingle();
+            
+            if (selectError) {
+              console.error('Erro ao buscar entidade:', selectError);
+              errors.push(`Erro ao buscar entidade ${supplierName}: ${selectError.message}`);
+              continue;
+            }
             
             if (existingEntidade) {
               entidadeId = existingEntidade.id;
+              console.log(`Entidade existente encontrada: ${entidadeId}`);
             } else {
               // Criar entidade
+              console.log(`Criando nova entidade para: ${supplierName}`);
               const { data: newEntidade, error: entidadeError } = await supabase
                 .from('entidades')
                 .insert({
@@ -344,10 +354,18 @@ export default function AccountsPayable() {
                 .single();
               
               if (entidadeError) {
+                console.error('Erro ao criar entidade:', entidadeError);
                 errors.push(`Erro ao criar entidade ${supplierName}: ${entidadeError.message}`);
                 continue;
               }
+              
+              if (!newEntidade || !newEntidade.id) {
+                errors.push(`Erro: ID da entidade não retornado para ${supplierName}`);
+                continue;
+              }
+              
               entidadeId = newEntidade.id;
+              console.log(`Nova entidade criada: ${entidadeId}`);
               
               // Também criar na tabela fornecedores para compatibilidade
               await supabase
@@ -357,6 +375,11 @@ export default function AccountsPayable() {
                   cnpj_cpf: cnpj,
                   ativo: true
                 });
+            }
+            
+            if (!entidadeId) {
+              errors.push(`Erro: entidade_id não definido para ${supplierName}`);
+              continue;
             }
 
             // Extrair valor total e duplicatas
