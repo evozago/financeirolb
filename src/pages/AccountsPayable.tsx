@@ -176,7 +176,12 @@ export default function AccountsPayable() {
 
     if (filters.status?.length) {
       filtered = filtered.filter(item => {
-        const isOverdue = new Date(item.dueDate) < new Date() && item.status === 'Pendente';
+        // Verificar se está vencido baseado na data de vencimento
+        const dueDate = new Date(item.dueDate + 'T23:59:59');
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        
+        const isOverdue = dueDate < today && item.status === 'Pendente';
         const currentStatus = isOverdue ? 'Vencido' : item.status;
         return filters.status!.includes(currentStatus);
       });
@@ -186,19 +191,28 @@ export default function AccountsPayable() {
       filtered = filtered.filter(item => item.bill?.supplierId === filters.supplierId);
     }
 
+    // Filtro por data de vencimento - corrigido para funcionar adequadamente
     if (filters.dueDateFrom) {
-      filtered = filtered.filter(item => item.dueDate >= filters.dueDateFrom!);
+      const fromDate = new Date(filters.dueDateFrom + 'T00:00:00');
+      filtered = filtered.filter(item => {
+        const itemDate = new Date(item.dueDate + 'T00:00:00');
+        return itemDate >= fromDate;
+      });
     }
 
     if (filters.dueDateTo) {
-      filtered = filtered.filter(item => item.dueDate <= filters.dueDateTo!);
+      const toDate = new Date(filters.dueDateTo + 'T23:59:59');
+      filtered = filtered.filter(item => {
+        const itemDate = new Date(item.dueDate + 'T00:00:00');
+        return itemDate <= toDate;
+      });
     }
 
-    if (filters.amountFrom) {
+    if (filters.amountFrom && filters.amountFrom > 0) {
       filtered = filtered.filter(item => item.amount >= filters.amountFrom!);
     }
 
-    if (filters.amountTo) {
+    if (filters.amountTo && filters.amountTo > 0) {
       filtered = filtered.filter(item => item.amount <= filters.amountTo!);
     }
 
