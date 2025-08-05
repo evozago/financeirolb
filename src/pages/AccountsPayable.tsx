@@ -275,17 +275,159 @@ export default function AccountsPayable() {
   };
 
   const handleImport = async (files: File[]) => {
-    // Mock implementation
-    return new Promise<any>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          processed: files.length,
-          errors: [],
-          warnings: [`${files.length} arquivo(s) processado(s) com sucesso`],
+    try {
+      const newInstallments: BillToPayInstallment[] = [];
+      let processed = 0;
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      for (const file of files) {
+        try {
+          if (importMode === 'xml') {
+            // Processar arquivo XML
+            const xmlContent = await file.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
+            
+            // Verificar se há erros de parsing
+            const parserError = xmlDoc.querySelector('parsererror');
+            if (parserError) {
+              errors.push(`Erro ao processar ${file.name}: XML inválido`);
+              continue;
+            }
+
+            // Extrair dados da nota fiscal (exemplo de estrutura NFe)
+            const nfeElement = xmlDoc.querySelector('infNFe') || xmlDoc.querySelector('NFe');
+            if (!nfeElement) {
+              errors.push(`${file.name}: Estrutura de NFe não encontrada`);
+              continue;
+            }
+
+            // Extrair dados do fornecedor
+            const emit = xmlDoc.querySelector('emit');
+            if (!emit) {
+              errors.push(`${file.name}: Dados do fornecedor não encontrados`);
+              continue;
+            }
+
+            const cnpj = emit.querySelector('CNPJ')?.textContent || '';
+            const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
+            
+            // Verificar se fornecedor já existe ou criar novo
+            let supplier = mockSuppliers.find(s => s.cnpj === cnpj);
+            if (!supplier) {
+              supplier = {
+                id: `sup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: supplierName,
+                legalName: supplierName,
+                cnpj: cnpj
+              };
+              mockSuppliers.push(supplier);
+            }
+
+            // Extrair valor total e dados das duplicatas
+            const totalElement = xmlDoc.querySelector('vNF');
+            const totalAmount = parseFloat(totalElement?.textContent || '0');
+            
+            const duplicatas = xmlDoc.querySelectorAll('dup');
+            
+            if (duplicatas.length === 0) {
+              // Se não há duplicatas, criar uma única parcela
+              const billId = `bill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              const installmentId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              
+              const newBill = {
+                id: billId,
+                description: `NFe ${file.name.replace('.xml', '')} - Parcela única`,
+                totalAmount: totalAmount,
+                totalInstallments: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                supplierId: supplier.id,
+                userId: 'user1',
+                supplier: supplier,
+                installments: [],
+              };
+
+              newInstallments.push({
+                id: installmentId,
+                installmentNumber: 1,
+                amount: totalAmount,
+                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 dias
+                status: 'Pendente',
+                billId: billId,
+                bill: newBill,
+              });
+            } else {
+              // Processar múltiplas parcelas
+              const billId = `bill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              
+              const newBill = {
+                id: billId,
+                description: `NFe ${file.name.replace('.xml', '')}`,
+                totalAmount: totalAmount,
+                totalInstallments: duplicatas.length,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                supplierId: supplier.id,
+                userId: 'user1',
+                supplier: supplier,
+                installments: [],
+              };
+
+              duplicatas.forEach((dup, index) => {
+                const parcela = dup.querySelector('nDup')?.textContent || (index + 1).toString();
+                const valor = parseFloat(dup.querySelector('vDup')?.textContent || '0');
+                const vencimento = dup.querySelector('dVenc')?.textContent || new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                
+                const installmentId = `inst_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                newInstallments.push({
+                  id: installmentId,
+                  installmentNumber: index + 1,
+                  amount: valor,
+                  dueDate: vencimento,
+                  status: 'Pendente',
+                  billId: billId,
+                  bill: newBill,
+                });
+              });
+            }
+            
+            processed++;
+          } else {
+            // Processar planilha (implementação futura)
+            warnings.push(`Planilha ${file.name}: Implementação pendente`);
+          }
+        } catch (fileError) {
+          errors.push(`Erro ao processar ${file.name}: ${(fileError as Error).message}`);
+        }
+      }
+
+      // Adicionar novos registros ao estado
+      if (newInstallments.length > 0) {
+        setInstallments(prev => [...prev, ...newInstallments]);
+        
+        toast({
+          title: "Importação concluída",
+          description: `${newInstallments.length} parcelas importadas com sucesso`,
         });
-      }, 2000);
-    });
+      }
+
+      return {
+        success: processed > 0,
+        processed: newInstallments.length,
+        errors,
+        warnings: warnings.length > 0 ? warnings : [`${processed} arquivo(s) processado(s) com sucesso`],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        processed: 0,
+        errors: [`Erro geral na importação: ${(error as Error).message}`],
+        warnings: [],
+      };
+    }
   };
 
   const handleDownloadTemplate = () => {

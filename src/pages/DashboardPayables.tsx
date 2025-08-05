@@ -52,17 +52,77 @@ export default function DashboardPayables() {
   };
 
   const handleImport = async (files: File[]) => {
-    // Mock implementation - substituir por chamada real da API
-    return new Promise<any>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          processed: files.length,
-          errors: [],
-          warnings: [`${files.length} arquivo(s) processado(s) com sucesso`],
-        });
-      }, 2000);
-    });
+    try {
+      let processed = 0;
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      for (const file of files) {
+        try {
+          if (importMode === 'xml') {
+            // Processar arquivo XML
+            const xmlContent = await file.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
+            
+            // Verificar se há erros de parsing
+            const parserError = xmlDoc.querySelector('parsererror');
+            if (parserError) {
+              errors.push(`Erro ao processar ${file.name}: XML inválido`);
+              continue;
+            }
+
+            // Extrair dados da nota fiscal (exemplo de estrutura NFe)
+            const nfeElement = xmlDoc.querySelector('infNFe') || xmlDoc.querySelector('NFe');
+            if (!nfeElement) {
+              errors.push(`${file.name}: Estrutura de NFe não encontrada`);
+              continue;
+            }
+
+            // Extrair dados do fornecedor
+            const emit = xmlDoc.querySelector('emit');
+            if (!emit) {
+              errors.push(`${file.name}: Dados do fornecedor não encontrados`);
+              continue;
+            }
+
+            const cnpj = emit.querySelector('CNPJ')?.textContent || '';
+            const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
+
+            // Extrair valor total
+            const totalElement = xmlDoc.querySelector('vNF');
+            const totalAmount = parseFloat(totalElement?.textContent || '0');
+            
+            const duplicatas = xmlDoc.querySelectorAll('dup');
+            
+            if (totalAmount > 0) {
+              processed++;
+            } else {
+              warnings.push(`${file.name}: Valor não encontrado ou inválido`);
+            }
+          } else {
+            // Processar planilha (implementação futura)
+            warnings.push(`Planilha ${file.name}: Implementação pendente`);
+          }
+        } catch (fileError) {
+          errors.push(`Erro ao processar ${file.name}: ${(fileError as Error).message}`);
+        }
+      }
+
+      return {
+        success: processed > 0,
+        processed: processed,
+        errors,
+        warnings: warnings.length > 0 ? warnings : [`${processed} arquivo(s) processado(s) com sucesso`],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        processed: 0,
+        errors: [`Erro geral na importação: ${(error as Error).message}`],
+        warnings: [],
+      };
+    }
   };
 
   const handleDownloadTemplate = () => {
