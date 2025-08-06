@@ -486,6 +486,8 @@ export default function AccountsPayable() {
             
             // Se não tem número mas tem chave, usar número extraído da chave
             const finalNfeNumber = nfeNumber || (chaveAcesso ? chaveAcesso.substring(25, 34) : '');
+            
+            console.log(`Final NFe number: "${finalNfeNumber}" (original: "${nfeNumber}", from key: "${chaveAcesso ? chaveAcesso.substring(25, 34) : ''}")`);
 
             // Extrair dados do fornecedor
             const emit = xmlDoc.querySelector('emit');
