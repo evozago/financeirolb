@@ -186,7 +186,7 @@ export function PayablesTable({
       sortable: true,
       cell: (item) => (
         <div className="font-mono text-sm">
-          {item.numero_documento || '-'}
+          {item.numero_nfe || '-'}
         </div>
       ),
     },
