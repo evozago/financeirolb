@@ -26,7 +26,7 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     dueDate: item.data_vencimento,
     status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
     billId: item.id,
-    numero_documento: item.numero_documento,
+    numero_documento: item.numero_documento || '-',
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
@@ -574,7 +574,12 @@ export default function AccountsPayable() {
             
             if (duplicatas.length === 0) {
               // Criar parcela única - sem vencimento = usar data emissão e marcar como pago
-              const documentNumber = finalNfeNumber || `CH${chaveAcesso?.slice(-8) || ''}` || file.name.replace('.xml', '');
+              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' 
+                ? finalNfeNumber 
+                : (chaveAcesso?.slice(-8) || file.name.replace('.xml', ''));
+              
+              console.log(`Document number for single parcel: "${documentNumber}" (finalNfeNumber: "${finalNfeNumber}", chave slice: "${chaveAcesso?.slice(-8)}")`);
+              
               const { error: insertError } = await supabase
                 .from('ap_installments')
                 .insert({
@@ -604,7 +609,11 @@ export default function AccountsPayable() {
               console.log(`NFe ${finalNfeNumber || 'sem número'} importada com sucesso (parcela única)`);
             } else {
               // Processar duplicatas normalmente
-              const documentNumber = finalNfeNumber || `CH${chaveAcesso?.slice(-8) || ''}` || file.name.replace('.xml', '');
+              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' 
+                ? finalNfeNumber 
+                : (chaveAcesso?.slice(-8) || file.name.replace('.xml', ''));
+              
+              console.log(`Document number for multiple parcels: "${documentNumber}" (finalNfeNumber: "${finalNfeNumber}", chave slice: "${chaveAcesso?.slice(-8)}")`);
               
               for (let i = 0; i < duplicatas.length; i++) {
                 const dup = duplicatas[i];
