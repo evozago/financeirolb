@@ -18,35 +18,62 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUndoActions } from '@/hooks/useUndoActions';
 
+/** 
+ * 🔧 EXTENSÃO TEMPORÁRIA DO TIPO PARA ENVIAR CAMPOS EXTRAS À TABELA
+ * (numero_nfe, aditor, invoice_number_norm). Isso evita erro de TS e permite que
+ * a PayablesTable leia esses campos para a coluna "Nº NFe".
+ */
+type BillToPayInstallmentExt = BillToPayInstallment & {
+  numero_nfe?: string | null;
+  aditor?: any;
+  invoice_number_norm?: string | null;
+};
+
 // Transform Supabase data to app format
-const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
-  return data.map(item => ({
-    id: item.id,
-    installmentNumber: item.numero_parcela || 1,
-    amount: parseFloat(item.valor) || 0,
-    dueDate: item.data_vencimento,
-    status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
-    billId: item.id,
-    numero_documento: item.numero_documento || '-',
-    categoria: item.categoria || 'Geral',
-    bill: {
+const transformInstallmentData = (data: any[]): BillToPayInstallmentExt[] => {
+  return data.map(item => {
+    // Tentar deduzir o nNF a partir da chave, caso banco não tenha salvo ainda
+    const nfeFromKey =
+      typeof item.invoice_number_norm === 'string' && item.invoice_number_norm.length === 44
+        ? item.invoice_number_norm.slice(25, 34) // posições 26..34 (0-based 25..33)
+        : null;
+
+    const numero_nfe: string | null =
+      item.numero_nfe ?? item?.aditor?.numero_nfe ?? nfeFromKey ?? null;
+
+    return {
       id: item.id,
-      description: item.descricao || `Parcela ${item.numero_parcela}`,
-      totalAmount: parseFloat(item.valor_total_titulo) || parseFloat(item.valor) || 0,
-      totalInstallments: item.total_parcelas || 1,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      supplierId: item.entidade_id,
-      userId: 'user1',
-      supplier: {
-        id: item.entidade_id || 'unknown',
-        name: item.fornecedor || 'Fornecedor não identificado',
-        legalName: item.fornecedor || 'Fornecedor não identificado',
-        cnpj: '',
+      installmentNumber: item.numero_parcela || 1,
+      amount: parseFloat(item.valor) || 0,
+      dueDate: item.data_vencimento,
+      status:
+        item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
+      billId: item.id,
+      numero_documento: item.numero_documento || '-',
+      categoria: item.categoria || 'Geral',
+      // 🔽 CAMPOS EXTRAS USADOS PELA PayablesTable PARA RENDERIZAR Nº NFe
+      numero_nfe,
+      aditor: item.aditor ?? null,
+      invoice_number_norm: item.invoice_number_norm ?? null,
+      bill: {
+        id: item.id,
+        description: item.descricao || `Parcela ${item.numero_parcela}`,
+        totalAmount: parseFloat(item.valor_total_titulo) || parseFloat(item.valor) || 0,
+        totalInstallments: item.total_parcelas || 1,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        supplierId: item.entidade_id,
+        userId: 'user1',
+        supplier: {
+          id: item.entidade_id || 'unknown',
+          name: item.fornecedor || 'Fornecedor não identificado',
+          legalName: item.fornecedor || 'Fornecedor não identificado',
+          cnpj: '',
+        },
+        installments: [],
       },
-      installments: [],
-    },
-  }));
+    };
+  });
 };
 
 export default function AccountsPayable() {
@@ -55,8 +82,8 @@ export default function AccountsPayable() {
   const { toast } = useToast();
   const { addUndoAction } = useUndoActions();
   
-  const [installments, setInstallments] = useState<BillToPayInstallment[]>([]);
-  const [selectedItems, setSelectedItems] = useState<BillToPayInstallment[]>([]);
+  const [installments, setInstallments] = useState<BillToPayInstallmentExt[]>([]);
+  const [selectedItems, setSelectedItems] = useState<BillToPayInstallmentExt[]>([]);
   const [filters, setFilters] = useState<PayablesFilter>({});
   const [loading, setLoading] = useState(true);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -73,7 +100,8 @@ export default function AccountsPayable() {
       // Construir query com filtros
       let query = supabase
         .from('ap_installments')
-        .select('*');
+        // 🔽 Garanta que estes campos venham do banco (select('*') já traz, mas fica explícito)
+        .select('*, aditor, numero_nfe, invoice_number_norm');
 
       // Aplicar filtros de categoria
       if (filters.category) {
@@ -82,11 +110,11 @@ export default function AccountsPayable() {
 
       // Aplicar filtros de status
       if (filters.status?.length) {
-        if (filters.status.includes('aberto')) {
+        if (filters.status.includes('aberto') || filters.status.includes('Pendente')) {
           query = query.eq('status', 'aberto');
-        } else if (filters.status.includes('pago')) {
+        } else if (filters.status.includes('pago') || filters.status.includes('Pago')) {
           query = query.eq('status', 'pago');
-        } else if (filters.status.includes('vencido')) {
+        } else if (filters.status.includes('vencido') || filters.status.includes('Vencido')) {
           query = query.eq('status', 'vencido');
         }
       }
@@ -109,7 +137,9 @@ export default function AccountsPayable() {
 
       // Aplicar busca textual
       if (filters.search) {
-        query = query.or(`descricao.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,numero_documento.ilike.%${filters.search}%`);
+        query = query.or(
+          `descricao.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,numero_documento.ilike.%${filters.search}%,numero_nfe.ilike.%${filters.search}%`
+        );
       }
 
       const { data, error } = await query.order('data_vencimento', { ascending: true });
@@ -214,8 +244,9 @@ export default function AccountsPayable() {
       const search = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
         item.bill?.supplier.name.toLowerCase().includes(search) ||
-        item.bill?.description.toLowerCase().includes(search) ||
-        item.bill?.id.toLowerCase().includes(search)
+        (item.bill?.description || '').toLowerCase().includes(search) ||
+        item.id.toLowerCase().includes(search) ||
+        (item.numero_nfe || '').toLowerCase().includes(search)
       );
     }
 
@@ -228,7 +259,7 @@ export default function AccountsPayable() {
         
         const isOverdue = dueDate < today && item.status === 'Pendente';
         const currentStatus = isOverdue ? 'Vencido' : item.status;
-        return filters.status!.includes(currentStatus);
+        return !!filters.status && filters.status.includes(currentStatus as any);
       });
     }
 
@@ -254,30 +285,30 @@ export default function AccountsPayable() {
     }
 
     if (filters.amountFrom && filters.amountFrom > 0) {
-      filtered = filtered.filter(item => item.amount >= filters.amountFrom!);
+      filtered = filtered.filter(item => item.amount >= (filters.amountFrom as number));
     }
 
     if (filters.amountTo && filters.amountTo > 0) {
-      filtered = filtered.filter(item => item.amount <= filters.amountTo!);
+      filtered = filtered.filter(item => item.amount <= (filters.amountTo as number));
     }
 
     return filtered;
   }, [installments, filters]);
 
-  const handleRowClick = (item: BillToPayInstallment) => {
+  const handleRowClick = (item: BillToPayInstallmentExt) => {
     // Navegação drill-down para detalhes da conta (Nível 3)
     navigate(`/bills/${item.id}`);
   };
 
-  const handleView = (item: BillToPayInstallment) => {
+  const handleView = (item: BillToPayInstallmentExt) => {
     navigate(`/bills/${item.id}`);
   };
 
-  const handleEdit = (item: BillToPayInstallment) => {
+  const handleEdit = (item: BillToPayInstallmentExt) => {
     navigate(`/bills/${item.id}`);
   };
 
-  const handleMarkAsPaid = async (items: BillToPayInstallment[]) => {
+  const handleMarkAsPaid = async (items: BillToPayInstallmentExt[]) => {
     setLoading(true);
     try {
       const itemIds = items.map(item => item.id);
@@ -338,7 +369,7 @@ export default function AccountsPayable() {
     }
   };
 
-  const handleDelete = async (items: BillToPayInstallment[]) => {
+  const handleDelete = async (items: BillToPayInstallmentExt[]) => {
     setLoading(true);
     try {
       const itemIds = items.map(item => item.id);
@@ -436,20 +467,15 @@ export default function AccountsPayable() {
             for (const selector of possibleSelectors) {
               const element = xmlDoc.querySelector(selector);
               if (element && element.textContent?.trim()) {
+                // ⚠️ PRESERVAR ZEROS À ESQUERDA
                 nfeNumber = element.textContent.trim();
-                // Remover zeros à esquerda se necessário
-                nfeNumber = nfeNumber.replace(/^0+/, '') || nfeNumber;
-                console.log(`Número NFe encontrado usando seletor "${selector}": ${nfeNumber}`);
                 break;
               }
             }
             
             // Extrair chave de acesso
             let chaveAcesso = '';
-            const chaveSelectors = [
-              'infNFe[Id]',
-              'chNFe'
-            ];
+            const chaveSelectors = ['infNFe[Id]', 'chNFe'];
             
             for (const selector of chaveSelectors) {
               if (selector === 'infNFe[Id]') {
@@ -458,7 +484,6 @@ export default function AccountsPayable() {
                   const id = element.getAttribute('Id');
                   if (id && id.startsWith('NFe')) {
                     chaveAcesso = id.replace('NFe', '');
-                    console.log(`Chave de acesso encontrada no atributo Id: ${chaveAcesso}`);
                     break;
                   }
                 }
@@ -466,87 +491,15 @@ export default function AccountsPayable() {
                 const element = xmlDoc.querySelector(selector);
                 if (element && element.textContent?.trim()) {
                   chaveAcesso = element.textContent.trim();
-                  console.log(`Chave de acesso encontrada usando seletor "${selector}": ${chaveAcesso}`);
                   break;
                 }
               }
             }
             
-            // Se não encontrou número da NFe, tentar extrair dos últimos 9 dígitos da chave
+            // Se não encontrou número da NFe, extrair das posições 26..34 da chave
             if (!nfeNumber && chaveAcesso && chaveAcesso.length >= 44) {
-              // A chave de acesso tem 44 dígitos, o número da NFe são os dígitos 26-34 (9 dígitos)
-              const extractedNumber = chaveAcesso.substring(25, 34);
-              // Remover zeros à esquerda
-              nfeNumber = extractedNumber.replace(/^0+/, '') || extractedNumber;
-              console.log(`Número NFe extraído da chave de acesso: ${nfeNumber} (original: ${extractedNumber})`);
+              nfeNumber = chaveAcesso.substring(25, 34); // mantém zeros
             }
-            
-            console.log(`NFe processando: ${file.name} - Número: "${nfeNumber}", Chave: "${chaveAcesso}"`);
-            
-            // Sistema robusto de verificação de duplicação
-            let isDuplicate = false;
-            let duplicateReason = '';
-            
-            // Critério 1: Verificar por número da NFe (mais confiável)
-            if (nfeNumber) {
-              const { data: existingByNumber, error: numberCheckError } = await supabase
-                .from('ap_installments')
-                .select('id, numero_documento, descricao, observacoes')
-                .eq('numero_documento', nfeNumber)
-                .limit(1);
-              
-              if (numberCheckError) {
-                console.error('Erro ao verificar NFe por número:', numberCheckError);
-              } else if (existingByNumber && existingByNumber.length > 0) {
-                isDuplicate = true;
-                duplicateReason = `número da NFe ${nfeNumber}`;
-                console.log(`Duplicata encontrada por número da NFe: ${nfeNumber}`);
-              }
-            }
-            
-            // Critério 2: Verificar por chave de acesso completa (se não encontrou duplicata por número)
-            if (!isDuplicate && chaveAcesso) {
-              const { data: existingByKey, error: keyCheckError } = await supabase
-                .from('ap_installments')
-                .select('id, numero_documento, descricao, observacoes')
-                .or(`observacoes.ilike.%${chaveAcesso}%`)
-                .limit(1);
-              
-              if (keyCheckError) {
-                console.error('Erro ao verificar NFe por chave:', keyCheckError);
-              } else if (existingByKey && existingByKey.length > 0) {
-                isDuplicate = true;
-                duplicateReason = `chave de acesso ${chaveAcesso.substring(0, 10)}...`;
-                console.log(`Duplicata encontrada por chave de acesso: ${chaveAcesso}`);
-              }
-            }
-            
-            // Se encontrou duplicata, informar e pular
-            if (isDuplicate) {
-              warnings.push(`⚠️ NFe ${nfeNumber || 'sem número'} já foi importada anteriormente (${duplicateReason}) - Arquivo: ${file.name}`);
-              console.log(`Importação ignorada - duplicata detectada: ${file.name}`);
-              continue;
-            }
-            
-            // Validar se conseguiu extrair dados mínimos necessários
-            if (!nfeNumber && !chaveAcesso) {
-              errors.push(`❌ ${file.name}: Não foi possível extrair número da NFe nem chave de acesso. Verifique se o arquivo XML está no formato correto.`);
-              continue;
-            }
-            
-            // Se não tem número mas tem chave, usar número extraído da chave
-            let finalNfeNumber = nfeNumber || (chaveAcesso ? chaveAcesso.substring(25, 34) : '');
-            
-            // Se ainda não tem número, tentar extrair da descrição como fallback
-            if (!finalNfeNumber && file.name) {
-              const fileNumberMatch = file.name.match(/(\d{8,9})/);
-              if (fileNumberMatch) {
-                finalNfeNumber = fileNumberMatch[1];
-                console.log(`Número NFe extraído do nome do arquivo: ${finalNfeNumber}`);
-              }
-            }
-            
-            console.log(`Final NFe number: "${finalNfeNumber}" (original: "${nfeNumber}", from key: "${chaveAcesso ? chaveAcesso.substring(25, 34) : ''}")`);
 
             // Extrair dados do fornecedor
             const emit = xmlDoc.querySelector('emit');
@@ -559,9 +512,8 @@ export default function AccountsPayable() {
             const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
             
             // Criar entidade se não existir
-            let entidadeId = null;
+            let entidadeId: string | null = null;
             
-            // Primeiro tentar encontrar entidade existente
             const { data: existingEntidade, error: selectError } = await supabase
               .from('entidades')
               .select('id')
@@ -577,10 +529,7 @@ export default function AccountsPayable() {
             
             if (existingEntidade) {
               entidadeId = existingEntidade.id;
-              console.log(`Entidade existente encontrada: ${entidadeId}`);
             } else {
-              // Criar entidade
-              console.log(`Criando nova entidade para: ${supplierName}`);
               const { data: newEntidade, error: entidadeError } = await supabase
                 .from('entidades')
                 .insert({
@@ -598,15 +547,9 @@ export default function AccountsPayable() {
                 continue;
               }
               
-              if (!newEntidade || !newEntidade.id) {
-                errors.push(`Erro: ID da entidade não retornado para ${supplierName}`);
-                continue;
-              }
+              entidadeId = newEntidade?.id ?? null;
               
-              entidadeId = newEntidade.id;
-              console.log(`Nova entidade criada: ${entidadeId}`);
-              
-              // Também criar na tabela fornecedores para compatibilidade
+              // Compatibilidade com tabela fornecedores
               await supabase
                 .from('fornecedores')
                 .insert({
@@ -615,12 +558,6 @@ export default function AccountsPayable() {
                   ativo: true
                 });
             }
-            
-            // Se não conseguiu criar a entidade, usar null (agora permitido)
-            if (!entidadeId) {
-              console.warn(`Aviso: entidade_id não definido para ${supplierName}, prosseguindo sem entidade`);
-              warnings.push(`Aviso: Não foi possível criar entidade para ${supplierName}`);
-            }
 
             // Extrair valor total e duplicatas
             const totalElement = xmlDoc.querySelector('vNF');
@@ -628,21 +565,22 @@ export default function AccountsPayable() {
             const duplicatas = xmlDoc.querySelectorAll('dup');
             
             // Extrair data de emissão da NFe
-            const dataEmissao = xmlDoc.querySelector('dhEmi')?.textContent?.split('T')[0] || 
-                               new Date().toISOString().split('T')[0];
+            const dataEmissao =
+              xmlDoc.querySelector('dhEmi')?.textContent?.split('T')[0] ||
+              new Date().toISOString().split('T')[0];
             
+            // Preparar campos comuns
+            const numeroNfeFinal = nfeNumber || (chaveAcesso ? chaveAcesso.substring(25, 34) : '');
+            const invoiceKey = chaveAcesso || null;
+
             if (duplicatas.length === 0) {
-              // Criar parcela única - sem vencimento = usar data emissão e marcar como pago
-              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' && finalNfeNumber !== 'undefined'
-                ? finalNfeNumber 
-                : null;
-              
-              console.log(`Document number for single parcel: "${documentNumber}" (finalNfeNumber: "${finalNfeNumber}", chave slice: "${chaveAcesso?.slice(-8)}")`);
+              // Parcela única
+              const documentNumber = numeroNfeFinal && numeroNfeFinal.trim() !== '' ? numeroNfeFinal : null;
               
               const { error: insertError } = await supabase
                 .from('ap_installments')
                 .insert({
-                  descricao: `NFe ${finalNfeNumber || 'sem número'} - Parcela única`,
+                  descricao: `NFe ${numeroNfeFinal || 'sem número'} - Parcela única`,
                   fornecedor: supplierName,
                   valor: totalAmount,
                   valor_total_titulo: totalAmount,
@@ -650,11 +588,14 @@ export default function AccountsPayable() {
                   data_pagamento: dataEmissao,
                   status: 'pago',
                   numero_documento: documentNumber,
+                  // 🔽 CAMPOS IMPORTANTES PARA A COLUNA Nº NFe
+                  numero_nfe: documentNumber,            // salva nNF
+                  invoice_number_norm: invoiceKey,       // salva a chave de acesso
                   categoria: 'Mercadorias',
                   entidade_id: entidadeId,
                   numero_parcela: 1,
                   total_parcelas: 1,
-                  observacoes: `Importado de ${file.name}${chaveAcesso ? '. Chave de Acesso: ' + chaveAcesso : ''}`,
+                  observacoes: `Importado de ${file.name}${invoiceKey ? '. Chave de Acesso: ' + invoiceKey : ''}`,
                   data_hora_pagamento: new Date().toISOString()
                 });
               
@@ -665,23 +606,18 @@ export default function AccountsPayable() {
               }
               
               totalImported++;
-              console.log(`NFe ${finalNfeNumber || 'sem número'} importada com sucesso (parcela única)`);
             } else {
-              // Processar duplicatas normalmente
-              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' && finalNfeNumber !== 'undefined'
-                ? finalNfeNumber 
-                : null;
-              
-              console.log(`Document number for multiple parcels: "${documentNumber}" (finalNfeNumber: "${finalNfeNumber}", chave slice: "${chaveAcesso?.slice(-8)}")`);
+              // Múltiplas duplicatas
+              const documentNumber = numeroNfeFinal && numeroNfeFinal.trim() !== '' ? numeroNfeFinal : null;
               
               for (let i = 0; i < duplicatas.length; i++) {
                 const dup = duplicatas[i];
                 const parcelaValue = parseFloat(dup.querySelector('vDup')?.textContent || '0');
-                let vencimento = dup.querySelector('dVenc')?.textContent;
-                let dataPagamento = null;
+                let vencimento = dup.querySelector('dVenc')?.textContent || undefined;
+                let dataPagamento: string | null = null;
                 let status = 'aberto';
                 
-                // Se não tem data de vencimento, usar data de emissão e marcar como pago
+                // Sem vencimento: usa emissão e marca como pago
                 if (!vencimento) {
                   vencimento = dataEmissao;
                   dataPagamento = dataEmissao;
@@ -691,7 +627,7 @@ export default function AccountsPayable() {
                 const { error: insertError } = await supabase
                   .from('ap_installments')
                   .insert({
-                    descricao: `NFe ${finalNfeNumber || 'sem número'} - Parcela ${i + 1}/${duplicatas.length}`,
+                    descricao: `NFe ${numeroNfeFinal || 'sem número'} - Parcela ${i + 1}/${duplicatas.length}`,
                     fornecedor: supplierName,
                     valor: parcelaValue,
                     valor_total_titulo: totalAmount,
@@ -699,11 +635,14 @@ export default function AccountsPayable() {
                     data_pagamento: dataPagamento,
                     status: status,
                     numero_documento: documentNumber,
+                    // 🔽 CAMPOS IMPORTANTES PARA A COLUNA Nº NFe
+                    numero_nfe: documentNumber,
+                    invoice_number_norm: invoiceKey,
                     categoria: 'Mercadorias',
                     entidade_id: entidadeId,
                     numero_parcela: i + 1,
                     total_parcelas: duplicatas.length,
-                    observacoes: `Importado de ${file.name}${chaveAcesso ? '. Chave de Acesso: ' + chaveAcesso : ''}`,
+                    observacoes: `Importado de ${file.name}${invoiceKey ? '. Chave de Acesso: ' + invoiceKey : ''}`,
                     data_hora_pagamento: status === 'pago' ? new Date().toISOString() : null
                   });
                 
@@ -715,7 +654,6 @@ export default function AccountsPayable() {
               }
               
               totalImported++;
-              console.log(`NFe ${finalNfeNumber || 'sem número'} importada com sucesso (${duplicatas.length} parcelas)`);
             }
           } else {
             warnings.push(`Planilha ${file.name}: Implementação pendente`);
@@ -764,7 +702,7 @@ export default function AccountsPayable() {
     });
   };
 
-  const handleBulkEdit = (items: BillToPayInstallment[]) => {
+  const handleBulkEdit = (items: BillToPayInstallmentExt[]) => {
     setBulkEditModalOpen(true);
   };
 
@@ -869,7 +807,7 @@ export default function AccountsPayable() {
       pending: 'Contas Pendentes',
       paid: 'Contas Pagas',
     };
-    return titles[filter as keyof typeof titles] || 'Contas a Pagar';
+    return (titles as any)[filter as keyof typeof titles] || 'Contas a Pagar';
   };
 
   return (
@@ -934,7 +872,7 @@ export default function AccountsPayable() {
             data={filteredInstallments}
             loading={loading}
             selectedItems={selectedItems}
-            onSelectionChange={setSelectedItems}
+            onSelectionChange={setSelectedItems as any}
             onRowClick={handleRowClick}
             onView={handleView}
             onEdit={handleEdit}
