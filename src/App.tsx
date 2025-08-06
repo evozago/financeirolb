@@ -10,6 +10,7 @@ import DashboardPayables from "./pages/DashboardPayables";
 import AccountsPayable from "./pages/AccountsPayable";
 import NewBill from "./pages/NewBill";
 import BillDetail from "./pages/BillDetail";
+import EditBill from "./pages/EditBill";
 import Suppliers from "./pages/Suppliers";
 import SupplierDetail from "./pages/SupplierDetail";
 import NewSupplier from "./pages/NewSupplier";
@@ -44,6 +45,7 @@ function AppContent() {
           <Route path="/accounts-payable" element={<AccountsPayable />} />
           <Route path="/accounts-payable/new" element={<NewBill />} />
           <Route path="/bills/:id" element={<BillDetail />} />
+          <Route path="/bills/:id/edit" element={<EditBill />} />
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/suppliers/new" element={<NewSupplier />} />
           <Route path="/suppliers/:id" element={<SupplierDetail />} />
