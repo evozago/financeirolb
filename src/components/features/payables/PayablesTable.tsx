@@ -142,32 +142,7 @@ export function PayablesTable({
   );
 
   // Definição de todas as colunas disponíveis
-  
-  // -----------------------------------------------------------
-  // Helper para obter o Nº da NFe de forma robusta
-  // Prioridades:
-  // 1) coluna numero_nfe
-  // 2) JSON aditor.numero_nfe
-  // 3) chave de acesso invoice_number_norm (posições 26..34)
-  // 4) fallback por descrição
-  // -----------------------------------------------------------
-  const extractNumeroNfe = (item: any): string | null => {
-    const direct = item?.numero_nfe ?? item?.aditor?.numero_nfe;
-    if (direct) return String(direct);
-
-    const chave: string | undefined = item?.invoice_number_norm;
-    if (chave && typeof chave === 'string' && chave.length === 44) {
-      return chave.slice(25, 34);
-    }
-
-    const desc: string | undefined = item?.bill?.description;
-    if (desc) {
-      const m = desc.match(/NFe\s+(\d{1,9})/i);
-      if (m) return m[1].padStart(9, '0');
-    }
-    return null;
-  };
-const allColumns: Record<string, Column<BillToPayInstallment>> = {
+  const allColumns: Record<string, Column<BillToPayInstallment>> = {
     supplier: {
       key: 'supplier',
       header: 'Fornecedor',
@@ -221,10 +196,25 @@ const allColumns: Record<string, Column<BillToPayInstallment>> = {
       header: 'Nº NFe',
       sortable: true,
       cell: (item) => {
-        const nfe = extractNumeroNfe(item);
-        return <div className="font-mono text-sm text-center">{nfe ?? '–'}</div>;
+        // Usar diretamente o campo numero_documento
+        let nfeNumber = item.numero_documento;
+        
+        // Se não tiver número, tentar extrair da descrição como último recurso
+        if (!nfeNumber) {
+          const match = item.bill?.description?.match(/NFe\s+(\d+)/i);
+          nfeNumber = match ? match[1] : null;
+        }
+        
+        const installmentInfo = item.bill?.totalInstallments && item.bill.totalInstallments > 1 
+          ? `-${item.installmentNumber}/${item.bill.totalInstallments}` 
+          : '';
+        
+        return (
+          <div className="font-mono text-sm">
+            {nfeNumber ? `${nfeNumber}${installmentInfo}` : '-'}
+          </div>
+        );
       },
-    },
     },
     amount: {
       key: 'amount',
