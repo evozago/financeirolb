@@ -66,18 +66,44 @@ export default function SupplierDetail() {
       
       setSupplier(supplierData);
       
-      // Carregar contas do fornecedor
+      // Carregar contas do fornecedor diretamente
       const { data: billsData, error: billsError } = await supabase
-        .rpc('get_ap_installments_complete')
-        .then(result => {
-          if (result.error) throw result.error;
-          return { data: result.data?.filter((bill: any) => bill.fornecedor === supplierData.nome) || [], error: null };
-        });
+        .from('ap_installments')
+        .select('*')
+        .eq('fornecedor', supplierData.nome)
+        .order('data_vencimento', { ascending: true });
       
       if (billsError) {
         console.error('Erro ao carregar contas:', billsError);
+        setSupplierBills([]);
       } else {
-        setSupplierBills(billsData || []);
+        // Transformar dados para o formato esperado incluindo status calculado
+        const transformedBills = (billsData || []).map((item: any) => {
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+          const dueDate = new Date(item.data_vencimento + 'T23:59:59');
+          
+          let calculatedStatus = item.status;
+          if (item.data_pagamento) {
+            calculatedStatus = 'pago';
+          } else if (dueDate < today && (item.status === 'aberto' || item.status === 'pendente')) {
+            calculatedStatus = 'vencido';
+          } else if (item.status === 'aberto') {
+            calculatedStatus = 'aberto';
+          }
+          
+          return {
+            id: item.id,
+            descricao: item.descricao,
+            valor: parseFloat(item.valor),
+            data_vencimento: item.data_vencimento,
+            status: calculatedStatus,
+            numero_parcela: item.numero_parcela || 1,
+            total_parcelas: item.total_parcelas || 1,
+            fornecedor: item.fornecedor
+          };
+        });
+        setSupplierBills(transformedBills);
       }
       
     } catch (error) {
@@ -87,13 +113,19 @@ export default function SupplierDetail() {
     }
   };
 
-  // Calcular estatísticas
+  // Calcular estatísticas corrigidas
   const stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    
     const total = supplierBills.reduce((sum, bill) => sum + bill.valor, 0);
-    const overdue = supplierBills.filter(bill => 
-      new Date(bill.data_vencimento) < new Date() && bill.status === 'aberto'
+    const overdue = supplierBills.filter(bill => {
+      const dueDate = new Date(bill.data_vencimento + 'T23:59:59');
+      return dueDate < today && (bill.status === 'aberto' || bill.status === 'pendente');
+    }).length;
+    const pending = supplierBills.filter(bill => 
+      bill.status === 'aberto' || bill.status === 'pendente'
     ).length;
-    const pending = supplierBills.filter(bill => bill.status === 'aberto').length;
     const paid = supplierBills.filter(bill => bill.status === 'pago').length;
 
     return { total, overdue, pending, paid, totalBills: supplierBills.length };
@@ -139,23 +171,29 @@ export default function SupplierDetail() {
   };
 
   const getStatusBadge = (status: string, dueDate: string) => {
-    const isOverdue = new Date(dueDate) < new Date() && status === 'aberto';
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const dueDateObj = new Date(dueDate + 'T23:59:59');
+    
+    const isOverdue = dueDateObj < today && (status === 'aberto' || status === 'pendente');
     const currentStatus = isOverdue ? 'vencido' : status;
     
     const statusLabels = {
       'aberto': 'Pendente',
+      'pendente': 'Pendente',
       'pago': 'Pago', 
       'vencido': 'Vencido'
     };
     
     const variants = {
       'aberto': 'secondary' as const,
+      'pendente': 'secondary' as const,
       'pago': 'default' as const,
       'vencido': 'destructive' as const,
     };
     
     return (
-      <Badge variant={variants[currentStatus as keyof typeof variants] || 'secondary'}>
+      <Badge variant={variants[currentStatus as keyof typeof variants] || 'secondary'} className="text-white">
         {statusLabels[currentStatus as keyof typeof statusLabels] || currentStatus}
       </Badge>
     );
