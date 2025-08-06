@@ -169,7 +169,7 @@ export function PayablesTable({
     },
     documentNumber: {
       key: 'documentNumber',
-      header: 'Nº NFe',
+      header: 'Nº Documento',
       sortable: true,
       cell: (item) => (
         <div className="font-mono text-sm">
