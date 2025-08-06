@@ -3,7 +3,7 @@
  * Utiliza o DataTable genérico com configurações específicas para o domínio
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { EnhancedDataTable, Column } from '@/components/ui/enhanced-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { BillToPayInstallment } from '@/types/payables';
 import { cn } from '@/lib/utils';
+import { ColumnCustomizer, ColumnConfig } from './ColumnCustomizer';
+import { useColumnCustomization } from '@/hooks/useColumnCustomization';
 
 interface PayablesTableProps {
   data: BillToPayInstallment[];
@@ -43,6 +45,24 @@ export function PayablesTable({
   onView,
   onBulkEdit,
 }: PayablesTableProps) {
+  // Configuração padrão das colunas
+  const defaultColumns: ColumnConfig[] = [
+    { key: 'supplier', header: 'Fornecedor', visible: true, order: 0 },
+    { key: 'description', header: 'Descrição', visible: true, order: 1 },
+    { key: 'documentNumber', header: 'Nº Documento', visible: true, order: 2 },
+    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 3 },
+    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 4 },
+    { key: 'installment', header: 'Parcela', visible: true, order: 5 },
+    { key: 'dueDate', header: 'Vencimento', visible: true, order: 6 },
+    { key: 'status', header: 'Status', visible: true, order: 7 },
+    { key: 'actions', header: '', visible: true, order: 8 },
+  ];
+
+  const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
+    defaultColumns,
+    storageKey: 'payables-table-columns'
+  });
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -119,8 +139,9 @@ export function PayablesTable({
     </DropdownMenu>
   );
 
-  const columns: Column<BillToPayInstallment>[] = [
-    {
+  // Definição de todas as colunas disponíveis
+  const allColumns: Record<string, Column<BillToPayInstallment>> = {
+    supplier: {
       key: 'supplier',
       header: 'Fornecedor',
       sortable: true,
@@ -133,7 +154,7 @@ export function PayablesTable({
         </div>
       ),
     },
-    {
+    description: {
       key: 'description',
       header: 'Descrição',
       sortable: true,
@@ -146,7 +167,7 @@ export function PayablesTable({
         </div>
       ),
     },
-    {
+    documentNumber: {
       key: 'documentNumber',
       header: 'Nº Documento',
       sortable: true,
@@ -156,7 +177,7 @@ export function PayablesTable({
         </div>
       ),
     },
-    {
+    amount: {
       key: 'amount',
       header: 'Valor da Parcela',
       sortable: true,
@@ -165,7 +186,7 @@ export function PayablesTable({
       ),
       className: 'text-right',
     },
-    {
+    totalAmount: {
       key: 'totalAmount',
       header: 'Valor Total',
       sortable: true,
@@ -176,7 +197,7 @@ export function PayablesTable({
       ),
       className: 'text-right',
     },
-    {
+    installment: {
       key: 'installment',
       header: 'Parcela',
       sortable: true,
@@ -187,7 +208,7 @@ export function PayablesTable({
       ),
       className: 'text-center',
     },
-    {
+    dueDate: {
       key: 'dueDate',
       header: 'Vencimento',
       sortable: true,
@@ -200,19 +221,24 @@ export function PayablesTable({
         );
       },
     },
-    {
+    status: {
       key: 'status',
       header: 'Status',
       sortable: true,
       cell: (item) => getStatusBadge(item.status, item.dueDate),
     },
-    {
+    actions: {
       key: 'actions',
       header: '',
       cell: (item) => <ActionDropdown item={item} />,
       className: 'w-12',
     },
-  ];
+  };
+
+  // Gerar colunas baseadas na configuração
+  const columns = useMemo(() => {
+    return visibleColumns.map(config => allColumns[config.key]).filter(Boolean);
+  }, [visibleColumns]);
 
   const bulkActions = selectedItems.length > 0 && (
     <div className="flex items-center gap-2">
@@ -250,19 +276,29 @@ export function PayablesTable({
   );
 
   return (
-    <EnhancedDataTable
-      data={data}
-      columns={columns}
-      loading={loading}
-      selectable={true}
-      selectedItems={selectedItems}
-      onSelectionChange={onSelectionChange}
-      onRowClick={onRowClick}
-      getItemId={(item) => item.id}
-      actions={bulkActions}
-      emptyMessage="Nenhuma conta a pagar encontrada"
-      pagination={true}
-      defaultPageSize={25}
-    />
+    <div className="space-y-4">
+      {/* Barra de ferramentas com customização de colunas */}
+      <div className="flex justify-end">
+        <ColumnCustomizer
+          columns={columnConfig}
+          onColumnsChange={saveColumns}
+        />
+      </div>
+
+      <EnhancedDataTable
+        data={data}
+        columns={columns}
+        loading={loading}
+        selectable={true}
+        selectedItems={selectedItems}
+        onSelectionChange={onSelectionChange}
+        onRowClick={onRowClick}
+        getItemId={(item) => item.id}
+        actions={bulkActions}
+        emptyMessage="Nenhuma conta a pagar encontrada"
+        pagination={true}
+        defaultPageSize={25}
+      />
+    </div>
   );
 }

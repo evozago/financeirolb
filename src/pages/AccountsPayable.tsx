@@ -66,11 +66,50 @@ export default function AccountsPayable() {
   const loadInstallments = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('ap_installments')
-        .select('*')
-        .order('data_vencimento', { ascending: true });
       
+      // Construir query com filtros
+      let query = supabase
+        .from('ap_installments')
+        .select('*');
+
+      // Aplicar filtros de categoria
+      if (filters.category) {
+        query = query.eq('categoria', filters.category);
+      }
+
+      // Aplicar filtros de status
+      if (filters.status?.length) {
+        if (filters.status.includes('aberto')) {
+          query = query.eq('status', 'aberto');
+        } else if (filters.status.includes('pago')) {
+          query = query.eq('status', 'pago');
+        } else if (filters.status.includes('vencido')) {
+          query = query.eq('status', 'vencido');
+        }
+      }
+
+      // Aplicar filtros de data
+      if (filters.dueDateFrom) {
+        query = query.gte('data_vencimento', filters.dueDateFrom);
+      }
+      if (filters.dueDateTo) {
+        query = query.lte('data_vencimento', filters.dueDateTo);
+      }
+
+      // Aplicar filtros de valor
+      if (filters.amountFrom) {
+        query = query.gte('valor', filters.amountFrom);
+      }
+      if (filters.amountTo) {
+        query = query.lte('valor', filters.amountTo);
+      }
+
+      // Aplicar busca textual
+      if (filters.search) {
+        query = query.or(`descricao.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,numero_documento.ilike.%${filters.search}%`);
+      }
+
+      const { data, error } = await query.order('data_vencimento', { ascending: true });
       
       if (error) {
         console.error('Error loading installments:', error);
@@ -127,7 +166,7 @@ export default function AccountsPayable() {
   useEffect(() => {
     loadInstallments();
     loadSuppliers();
-  }, []);
+  }, [filters]); // Recarregar quando filtros mudarem
   
 
   // Aplicar filtro baseado na URL (navegação drill-down)

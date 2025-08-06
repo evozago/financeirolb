@@ -60,6 +60,7 @@ export function PayableFilters({
     let count = 0;
     if (filters.search) count++;
     if (filters.status?.length) count++;
+    if (filters.category) count++;
     if (filters.supplierId) count++;
     if (filters.dueDateFrom || filters.dueDateTo) count++;
     if (filters.amountFrom || filters.amountTo) count++;
@@ -150,6 +151,32 @@ export function PayableFilters({
                         {supplier.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Categoria */}
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Select
+                  value={filters.category || 'all'}
+                  onValueChange={(value) => updateFilter('category', value === 'all' ? undefined : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as categorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as categorias</SelectItem>
+                    <SelectItem value="Geral">Geral</SelectItem>
+                    <SelectItem value="Energia">Energia</SelectItem>
+                    <SelectItem value="Internet">Internet</SelectItem>
+                    <SelectItem value="Telefone">Telefone</SelectItem>
+                    <SelectItem value="Aluguel">Aluguel</SelectItem>
+                    <SelectItem value="Fornecedores">Fornecedores</SelectItem>
+                    <SelectItem value="Serviços">Serviços</SelectItem>
+                    <SelectItem value="Material">Material</SelectItem>
+                    <SelectItem value="Transporte">Transporte</SelectItem>
+                    <SelectItem value="Impostos">Impostos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -258,6 +285,16 @@ export function PayableFilters({
                   updateFilter('dueDateFrom', undefined);
                   updateFilter('dueDateTo', undefined);
                 }}
+              />
+            </Badge>
+          )}
+          
+          {filters.category && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Categoria: {filters.category}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => updateFilter('category', undefined)}
               />
             </Badge>
           )}
