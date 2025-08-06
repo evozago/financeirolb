@@ -71,6 +71,13 @@ export default function AccountsPayable() {
         .select('*')
         .order('data_vencimento', { ascending: true });
       
+      console.log('Dados brutos do Supabase:', data);
+      console.log('Primeiros 3 registros:', data?.slice(0, 3).map(item => ({
+        id: item.id,
+        descricao: item.descricao,
+        numero_documento: item.numero_documento
+      })));
+      
       if (error) {
         console.error('Error loading installments:', error);
         toast({
@@ -82,6 +89,11 @@ export default function AccountsPayable() {
       }
       
       const transformedData = transformInstallmentData(data || []);
+      console.log('Dados transformados:', transformedData.slice(0, 3).map(item => ({
+        id: item.id,
+        numero_documento: item.numero_documento,
+        bill_description: item.bill?.description
+      })));
       setInstallments(transformedData);
     } catch (error) {
       console.error('Error:', error);
@@ -126,6 +138,16 @@ export default function AccountsPayable() {
   useEffect(() => {
     loadInstallments();
     loadSuppliers();
+  }, []);
+  
+  // Forçar recarregamento a cada 30 segundos para debug
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('Recarregando dados automaticamente...');
+      loadInstallments();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Aplicar filtro baseado na URL (navegação drill-down)
@@ -654,6 +676,9 @@ export default function AccountsPayable() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={loadInstallments}>
+              🔄 Recarregar
+            </Button>
             <Button variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
               Exportar
