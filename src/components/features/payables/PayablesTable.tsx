@@ -49,15 +49,14 @@ export function PayablesTable({
   const defaultColumns: ColumnConfig[] = [
     { key: 'supplier', header: 'Fornecedor', visible: true, order: 0 },
     { key: 'description', header: 'Descrição', visible: true, order: 1 },
-    { key: 'category', header: 'Categoria', visible: true, order: 2 },
-    { key: 'documentNumber', header: 'Nº Documento', visible: true, order: 3 },
-    { key: 'nfeNumber', header: 'Nº NFe', visible: true, order: 4 },
-    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 5 },
-    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 6 },
-    { key: 'installment', header: 'Parcela', visible: true, order: 7 },
-    { key: 'dueDate', header: 'Vencimento', visible: true, order: 8 },
-    { key: 'status', header: 'Status', visible: true, order: 9 },
-    { key: 'actions', header: '', visible: true, order: 10 },
+    { key: 'nfeNumber', header: 'Nº Nota Fiscal', visible: true, order: 2 },
+    { key: 'category', header: 'Categoria', visible: true, order: 3 },
+    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 4 },
+    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 5 },
+    { key: 'installment', header: 'Parcela', visible: true, order: 6 },
+    { key: 'dueDate', header: 'Vencimento', visible: true, order: 7 },
+    { key: 'status', header: 'Status', visible: true, order: 8 },
+    { key: 'actions', header: '', visible: true, order: 9 },
   ];
 
   const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
@@ -181,40 +180,15 @@ export function PayablesTable({
         </div>
       ),
     },
-    documentNumber: {
-      key: 'documentNumber',
-      header: 'Nº Documento',
+    nfeNumber: {
+      key: 'nfeNumber',
+      header: 'Nº Nota Fiscal',
       sortable: true,
       cell: (item) => (
         <div className="font-mono text-sm">
-          {item.numero_documento || '-'}
+          {item.numero_nfe || '-'}
         </div>
       ),
-    },
-    nfeNumber: {
-      key: 'nfeNumber',
-      header: 'Nº NFe',
-      sortable: true,
-      cell: (item) => {
-        // Usar diretamente o campo numero_documento
-        let nfeNumber = item.numero_documento;
-        
-        // Se não tiver número, tentar extrair da descrição como último recurso
-        if (!nfeNumber) {
-          const match = item.bill?.description?.match(/NFe\s+(\d+)/i);
-          nfeNumber = match ? match[1] : null;
-        }
-        
-        const installmentInfo = item.bill?.totalInstallments && item.bill.totalInstallments > 1 
-          ? `-${item.installmentNumber}/${item.bill.totalInstallments}` 
-          : '';
-        
-        return (
-          <div className="font-mono text-sm">
-            {nfeNumber ? `${nfeNumber}${installmentInfo}` : '-'}
-          </div>
-        );
-      },
     },
     amount: {
       key: 'amount',
