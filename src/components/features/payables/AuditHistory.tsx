@@ -116,8 +116,8 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
       // INSERT operation
       return (
         <div className="text-sm text-muted-foreground">
-          <p>Novo registro criado</p>
-          {newData.descricao && <p><strong>Descrição:</strong> {newData.descricao}</p>}
+          <p className="font-medium text-green-700">Novo registro criado</p>
+          {newData.descricao && <p className="mt-1"><strong>Descrição:</strong> {newData.descricao}</p>}
           {newData.valor && <p><strong>Valor:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newData.valor)}</p>}
           {newData.status && <p><strong>Status:</strong> {newData.status}</p>}
         </div>
@@ -126,7 +126,7 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
     
     // UPDATE operation - show only changed fields
     const changes: string[] = [];
-    const fieldsToCheck = ['status', 'valor', 'data_vencimento', 'data_pagamento', 'categoria', 'forma_pagamento', 'banco', 'observacoes'];
+    const fieldsToCheck = ['status', 'valor', 'data_vencimento', 'data_pagamento', 'categoria', 'forma_pagamento', 'banco', 'observacoes', 'data_hora_pagamento'];
     
     fieldsToCheck.forEach(field => {
       if (oldData[field] !== newData[field]) {
@@ -139,6 +139,10 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
           const oldFormatted = oldValue !== 'Vazio' ? new Date(oldValue).toLocaleDateString('pt-BR') : 'Vazio';
           const newFormatted = newValue !== 'Vazio' ? new Date(newValue).toLocaleDateString('pt-BR') : 'Vazio';
           changes.push(`${getFieldLabel(field)}: ${oldFormatted} → ${newFormatted}`);
+        } else if (field === 'data_hora_pagamento') {
+          const oldFormatted = oldValue !== 'Vazio' ? formatDateTime(oldValue) : 'Vazio';
+          const newFormatted = newValue !== 'Vazio' ? formatDateTime(newValue) : 'Vazio';
+          changes.push(`${getFieldLabel(field)}: ${oldFormatted} → ${newFormatted}`);
         } else {
           changes.push(`${getFieldLabel(field)}: ${oldValue} → ${newValue}`);
         }
@@ -146,9 +150,9 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
     });
     
     return changes.length > 0 ? (
-      <div className="text-sm text-muted-foreground">
+      <div className="text-sm text-muted-foreground space-y-1">
         {changes.map((change, index) => (
-          <p key={index}>{change}</p>
+          <p key={index} className="bg-blue-50 p-2 rounded text-blue-800">{change}</p>
         ))}
       </div>
     ) : (
@@ -164,6 +168,7 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
       valor: 'Valor',
       data_vencimento: 'Data de Vencimento',
       data_pagamento: 'Data de Pagamento',
+      data_hora_pagamento: 'Data/Hora do Pagamento',
       categoria: 'Categoria',
       forma_pagamento: 'Forma de Pagamento',
       banco: 'Banco',
@@ -204,29 +209,53 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
             <p className="text-muted-foreground">Nenhuma alteração registrada</p>
           </div>
         ) : (
-          <ScrollArea className="h-64">
-            <div className="space-y-4">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="flex gap-3 p-3 border rounded-lg bg-muted/30">
-                  <div className="flex-shrink-0 mt-1">
-                    {getOperationIcon(log.operation)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge 
-                        variant="outline" 
-                        className={cn("text-xs", getOperationColor(log.operation))}
-                      >
-                        {getOperationLabel(log.operation)}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(log.changed_at)}
-                      </span>
+          <ScrollArea className="h-80">
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute left-6 top-8 bottom-0 w-px bg-border"></div>
+              
+              <div className="space-y-6">
+                {auditLogs.map((log, index) => (
+                  <div key={log.id} className="relative flex gap-4">
+                    {/* Timeline icon */}
+                    <div className="flex-shrink-0 relative z-10">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-background bg-card shadow-sm">
+                        {getOperationIcon(log.operation)}
+                      </div>
                     </div>
-                    {formatChanges(log.old_data, log.new_data)}
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pb-6">
+                      <div className="rounded-lg border bg-card p-4 shadow-sm">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <Badge 
+                            variant="outline" 
+                            className={cn("text-xs font-medium", getOperationColor(log.operation))}
+                          >
+                            {getOperationLabel(log.operation)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {formatDateTime(log.changed_at)}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {formatChanges(log.old_data, log.new_data)}
+                        </div>
+                        
+                        {log.changed_by && (
+                          <div className="mt-3 pt-2 border-t border-border/50">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              <span>Por: {log.changed_by}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </ScrollArea>
         )}
