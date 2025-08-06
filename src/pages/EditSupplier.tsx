@@ -53,7 +53,7 @@ export default function EditSupplier() {
     email: '',
     endereco: '',
     ativo: true,
-    categoria_id: '',
+    categoria_id: 'none',
   });
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export default function EditSupplier() {
           email: data.email || '',
           endereco: data.endereco || '',
           ativo: data.ativo ?? true,
-          categoria_id: data.categoria_id || '',
+          categoria_id: data.categoria_id || 'none',
         });
       }
     } catch (error: any) {
@@ -368,12 +368,12 @@ export default function EditSupplier() {
 
                 <div className="space-y-2">
                   <Label htmlFor="categoria">Categoria</Label>
-                  <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange('categoria_id', value)}>
+                  <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange('categoria_id', value === 'none' ? '' : value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma categoria</SelectItem>
+                      <SelectItem value="none">Nenhuma categoria</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.nome}
