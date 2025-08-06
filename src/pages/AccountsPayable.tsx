@@ -561,7 +561,7 @@ export default function AccountsPayable() {
               .from('entidades')
               .select('id')
               .eq('cnpj_cpf', cnpj)
-              .eq('tipo', 'fornecedor')
+              .eq('tipo', 'PJ')  // Usar 'PJ' em vez de 'fornecedor'
               .maybeSingle();
             
             if (selectError) {
@@ -581,7 +581,7 @@ export default function AccountsPayable() {
                 .insert({
                   nome: supplierName,
                   cnpj_cpf: cnpj,
-                  tipo: 'fornecedor',
+                  tipo: 'PJ',  // Usar 'PJ' em vez de 'fornecedor'
                   ativo: true
                 })
                 .select('id')
