@@ -57,14 +57,40 @@ export default function AccountsPayable() {
   const { addUndoAction } = useUndoActions();
   
   const [installments, setInstallments] = useState<BillToPayInstallment[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedItems, setSelectedItems] = useState<BillToPayInstallment[]>([]);
   const [filters, setFilters] = useState<PayablesFilter>({});
-  const [loading, setLoading] = useState(true);
+  // Estados para ordenação
+  const [sortKey, setSortKey] = useState<string>('dueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importMode, setImportMode] = useState<'xml' | 'spreadsheet'>('xml');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
+
+  // Mapear chaves da interface para colunas do banco
+  const getOrderColumn = (key: string) => {
+    const mapping: Record<string, string> = {
+      'supplier': 'fornecedor',
+      'description': 'descricao',
+      'nfeNumber': 'numero_documento',
+      'category': 'categoria',
+      'amount': 'valor',
+      'totalAmount': 'valor_total_titulo',
+      'installment': 'numero_parcela',
+      'issueDate': 'data_emissao',
+      'dueDate': 'data_vencimento',
+      'status': 'status',
+    };
+    return mapping[key] || null;
+  };
+
+  // Callback para mudança de ordenação
+  const handleSortChange = (key: string, direction: 'asc' | 'desc') => {
+    setSortKey(key);
+    setSortDirection(direction);
+  };
 
   // Load installments from Supabase
   const loadInstallments = async () => {
@@ -108,6 +134,15 @@ export default function AccountsPayable() {
         query = query.lte('data_vencimento', filters.dueDateTo);
       }
 
+      // Aplicar ordenação
+      const orderColumn = getOrderColumn(sortKey);
+      if (orderColumn) {
+        query = query.order(orderColumn, { ascending: sortDirection === 'asc' });
+      } else {
+        // Ordenação padrão
+        query = query.order('data_vencimento', { ascending: true });
+      }
+
       // Aplicar filtros de valor
       if (filters.amountFrom) {
         query = query.gte('valor', filters.amountFrom);
@@ -121,7 +156,7 @@ export default function AccountsPayable() {
         query = query.or(`descricao.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,numero_documento.ilike.%${filters.search}%`);
       }
 
-      const { data, error } = await query.order('data_vencimento', { ascending: true });
+      const { data, error } = await query;
       
       if (error) {
         console.error('Error loading installments:', error);
@@ -174,11 +209,11 @@ export default function AccountsPayable() {
     }
   };
 
-  // Load data on component mount
+  // Load data on component mount e quando filtros ou ordenação mudarem
   useEffect(() => {
     loadInstallments();
     loadSuppliers();
-  }, [filters]); // Recarregar quando filtros mudarem
+  }, [filters, sortKey, sortDirection]); // Recarregar quando filtros ou ordenação mudarem
   
 
   // Aplicar filtro baseado na URL (navegação drill-down)
@@ -949,6 +984,10 @@ export default function AccountsPayable() {
             onView={handleView}
             onEdit={handleEdit}
             onBulkEdit={handleBulkEdit}
+            // Props de ordenação
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSortChange={handleSortChange}
           />
         </div>
       </div>

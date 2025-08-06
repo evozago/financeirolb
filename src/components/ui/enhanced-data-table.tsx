@@ -46,6 +46,10 @@ export interface EnhancedDataTableProps<T> {
   className?: string;
   pagination?: boolean;
   defaultPageSize?: number;
+  // Novos props para ordenação no backend
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSortChange?: (key: string, direction: 'asc' | 'desc') => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500];
@@ -64,12 +68,21 @@ export function EnhancedDataTable<T>({
   className,
   pagination = true,
   defaultPageSize = 25,
+  // Novos props para ordenação no backend
+  sortKey: externalSortKey,
+  sortDirection: externalSortDirection,
+  onSortChange,
 }: EnhancedDataTableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Usar ordenação externa se disponível, senão ordenação interna
+  const [internalSortKey, setInternalSortKey] = useState<string | null>(null);
+  const [internalSortDirection, setInternalSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  
+  // Determinar se usar ordenação externa ou interna
+  const sortKey = externalSortKey || internalSortKey;
+  const sortDirection = externalSortDirection || internalSortDirection;
   
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     () => {
@@ -83,8 +96,13 @@ export function EnhancedDataTable<T>({
 
   const filteredColumns = columns.filter(col => visibleColumns[col.key as string]);
 
-  // Dados ordenados
+  // Dados ordenados - só usar ordenação local se não tiver callback de ordenação externa
   const sortedData = useMemo(() => {
+    if (onSortChange) {
+      // Se tem callback de ordenação externa, não ordenar localmente
+      return data;
+    }
+    
     if (!sortKey) return data;
 
     return [...data].sort((a, b) => {
@@ -96,7 +114,7 @@ export function EnhancedDataTable<T>({
       const result = aValue < bValue ? -1 : 1;
       return sortDirection === 'asc' ? result : -result;
     });
-  }, [data, sortKey, sortDirection]);
+  }, [data, sortKey, sortDirection, onSortChange]);
 
   // Dados paginados
   const paginatedData = useMemo(() => {
@@ -125,11 +143,18 @@ export function EnhancedDataTable<T>({
   }, [sortedData.length, currentPage, pageSize]);
 
   const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    if (onSortChange) {
+      // Se tem callback de ordenação externa, usar ele
+      const newDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
+      onSortChange(key, newDirection);
     } else {
-      setSortKey(key);
-      setSortDirection('asc');
+      // Senão, usar ordenação interna
+      if (internalSortKey === key) {
+        setInternalSortDirection(internalSortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        setInternalSortKey(key);
+        setInternalSortDirection('asc');
+      }
     }
   };
 

@@ -31,6 +31,10 @@ interface PayablesTableProps {
   onDelete?: (items: BillToPayInstallment[]) => void;
   onView?: (item: BillToPayInstallment) => void;
   onBulkEdit?: (items: BillToPayInstallment[]) => void;
+  // Novos props para ordenação
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSortChange?: (key: string, direction: 'asc' | 'desc') => void;
 }
 
 export function PayablesTable({
@@ -44,6 +48,10 @@ export function PayablesTable({
   onDelete,
   onView,
   onBulkEdit,
+  // Novos props para ordenação
+  sortKey,
+  sortDirection,
+  onSortChange,
 }: PayablesTableProps) {
   // Configuração padrão das colunas
   const defaultColumns: ColumnConfig[] = [
@@ -322,6 +330,10 @@ export function PayablesTable({
         emptyMessage="Nenhuma conta a pagar encontrada"
         pagination={true}
         defaultPageSize={25}
+        // Passar props de ordenação
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSortChange={onSortChange}
       />
     </div>
   );
