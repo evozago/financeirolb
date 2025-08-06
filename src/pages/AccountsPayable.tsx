@@ -121,14 +121,7 @@ export default function AccountsPayable() {
         return;
       }
       
-      console.log('=== DEBUG CARREGAMENTO ===');
-      console.log('Data raw da Supabase:', data?.length || 0, 'registros');
-      
       const transformedData = transformInstallmentData(data || []);
-      console.log('Data transformada:', transformedData.length, 'registros');
-      console.log('Primeira entrada transformada:', transformedData[0]);
-      console.log('=== FIM DEBUG ===');
-      
       setInstallments(transformedData);
     } catch (error) {
       console.error('Error:', error);
@@ -383,106 +376,59 @@ export default function AccountsPayable() {
               continue;
             }
 
-            // Extrair número da NFe com múltiplas tentativas
-            let nfeNumber = '';
+            // Extrair número da NFe e chave de acesso para verificar duplicação
+            const nfeNumber = xmlDoc.querySelector('nNF')?.textContent?.trim() || 
+                            xmlDoc.querySelector('ide nNF')?.textContent?.trim() || '';
+            const chaveAcesso = nfeElement.getAttribute('Id')?.replace('NFe', '') || 
+                              xmlDoc.querySelector('chNFe')?.textContent?.trim() || '';
             
-            // Tentar múltiplos seletores CSS para encontrar o número da NFe
-            const possibleSelectors = [
-              'nNF',           // Padrão mais comum
-              'ide nNF',       // Dentro da tag ide
-              'infNFe ide nNF', // Caminho completo
-              'NFe infNFe ide nNF' // Caminho completo alternativo
-            ];
+            console.log(`NFe processando: ${file.name} - Número extraído: "${nfeNumber}", Chave: "${chaveAcesso}"`);
             
-            for (const selector of possibleSelectors) {
-              const element = xmlDoc.querySelector(selector);
-              if (element && element.textContent?.trim()) {
-                nfeNumber = element.textContent.trim();
-                break;
-              }
-            }
-            
-            // Extrair chave de acesso
-            let chaveAcesso = '';
-            
-            // Tentar múltiplos métodos para extrair chave
-            const infNFeElement = xmlDoc.querySelector('infNFe');
-            if (infNFeElement) {
-              const id = infNFeElement.getAttribute('Id');
-              if (id) {
-                chaveAcesso = id.replace('NFe', '').trim();
-              }
-            }
-            
-            // Alternativa: buscar pela tag chNFe
-            if (!chaveAcesso) {
-              const chaveElement = xmlDoc.querySelector('chNFe');
-              if (chaveElement && chaveElement.textContent) {
-                chaveAcesso = chaveElement.textContent.trim();
-              }
-            }
-            
-            console.log(`=== PROCESSANDO ARQUIVO: ${file.name} ===`);
-            console.log(`Número NFe extraído: "${nfeNumber}"`);
-            console.log(`Chave de acesso extraída: "${chaveAcesso}"`);
-            
-            // Se conseguiu extrair o número da NFe, usar para verificar duplicação
-            
-            // Verificar duplicação de forma mais robusta
+            // Verificar duplicação usando múltiplos critérios
             let isDuplicate = false;
             let duplicateReason = '';
             
-            // 1. Primeiro, verificar se o número da NFe já existe (mais confiável)
+            // 1. Verificar por número da NFe (se existir)
             if (nfeNumber) {
-              console.log(`Verificando duplicação por número da NFe: ${nfeNumber}`);
               const { data: existingByNumber, error: numberCheckError } = await supabase
                 .from('ap_installments')
-                .select('id, numero_documento, descricao, fornecedor')
+                .select('id, numero_documento, descricao')
                 .eq('numero_documento', nfeNumber)
-                .limit(5); // Verificar até 5 para ver duplicatas
+                .limit(1);
               
               if (numberCheckError) {
                 console.error('Erro ao verificar NFe por número:', numberCheckError);
               } else if (existingByNumber && existingByNumber.length > 0) {
                 isDuplicate = true;
-                duplicateReason = `número da NFe ${nfeNumber} (${existingByNumber.length} registros encontrados)`;
-                console.log(`DUPLICATA ENCONTRADA por número:`, existingByNumber);
+                duplicateReason = `número da NFe ${nfeNumber}`;
               }
             }
             
-            // 2. Se não encontrou por número mas tem chave, verificar por chave
-            if (!isDuplicate && chaveAcesso && chaveAcesso.length >= 8) {
-              console.log(`Verificando duplicação por chave de acesso: ${chaveAcesso}`);
+            // 2. Verificar por chave de acesso (se existir e não encontrou duplicata por número)
+            if (!isDuplicate && chaveAcesso) {
               const { data: existingByKey, error: keyCheckError } = await supabase
                 .from('ap_installments')
-                .select('id, numero_documento, descricao, observacoes, fornecedor')
-                .or(`observacoes.ilike.%${chaveAcesso}%,descricao.ilike.%${chaveAcesso}%`)
-                .limit(3);
+                .select('id, numero_documento, descricao')
+                .or(`descricao.ilike.%${chaveAcesso}%,observacoes.ilike.%${chaveAcesso}%`)
+                .limit(1);
               
               if (keyCheckError) {
                 console.error('Erro ao verificar NFe por chave:', keyCheckError);
               } else if (existingByKey && existingByKey.length > 0) {
                 isDuplicate = true;
-                duplicateReason = `chave de acesso ${chaveAcesso} (${existingByKey.length} registros encontrados)`;
-                console.log(`DUPLICATA ENCONTRADA por chave:`, existingByKey);
+                duplicateReason = `chave de acesso ${chaveAcesso}`;
               }
             }
             
-            // Se encontrou duplicata, avisar e pular
+            // Se encontrou duplicata, pular este arquivo
             if (isDuplicate) {
-              const warningMsg = `❌ DUPLICATA DETECTADA: ${file.name} - ${duplicateReason}`;
-              console.warn(warningMsg);
-              warnings.push(warningMsg);
+              warnings.push(`NFe ${nfeNumber || 'sem número'} já importada anteriormente (${duplicateReason}) - arquivo: ${file.name}`);
               continue;
             }
             
-            console.log(`✅ NFe ${nfeNumber || 'sem número'} - OK para importar`);
-            
-            // Validar se pelo menos um identificador foi extraído
+            // Se não conseguiu extrair nem número nem chave, é suspeito
             if (!nfeNumber && !chaveAcesso) {
-              const errorMsg = `❌ ERRO: ${file.name} - Não foi possível extrair número da NFe nem chave de acesso. XML pode estar corrompido.`;
-              console.error(errorMsg);
-              errors.push(errorMsg);
+              errors.push(`${file.name}: Não foi possível extrair número da NFe nem chave de acesso. Verifique se o arquivo XML está válido.`);
               continue;
             }
 
@@ -571,13 +517,11 @@ export default function AccountsPayable() {
             
             if (duplicatas.length === 0) {
               // Criar parcela única - sem vencimento = usar data emissão e marcar como pago
-              const documentNumber = nfeNumber || `CH${chaveAcesso.slice(-8)}`;
-              console.log(`Criando parcela única com número documento: ${documentNumber}`);
-              
+              const documentNumber = nfeNumber || `CH${chaveAcesso.slice(-8)}` || file.name.replace('.xml', '');
               const { error: insertError } = await supabase
                 .from('ap_installments')
                 .insert({
-                  descricao: `NFe ${nfeNumber || 'sem número'} - Parcela única`,
+                  descricao: `NFe ${nfeNumber || 'sem número'} - Parcela única (Chave: ${chaveAcesso})`,
                   fornecedor: supplierName,
                   valor: totalAmount,
                   valor_total_titulo: totalAmount,
@@ -603,8 +547,7 @@ export default function AccountsPayable() {
               console.log(`NFe ${nfeNumber || 'sem número'} importada com sucesso (parcela única)`);
             } else {
               // Processar duplicatas normalmente
-              const documentNumber = nfeNumber || `CH${chaveAcesso.slice(-8)}`;
-              console.log(`Criando ${duplicatas.length} parcelas com número documento: ${documentNumber}`);
+              const documentNumber = nfeNumber || `CH${chaveAcesso.slice(-8)}` || file.name.replace('.xml', '');
               
               for (let i = 0; i < duplicatas.length; i++) {
                 const dup = duplicatas[i];
@@ -623,7 +566,7 @@ export default function AccountsPayable() {
                 const { error: insertError } = await supabase
                   .from('ap_installments')
                   .insert({
-                    descricao: `NFe ${nfeNumber || 'sem número'} - Parcela ${i + 1}/${duplicatas.length}`,
+                    descricao: `NFe ${nfeNumber || 'sem número'} - Parcela ${i + 1}/${duplicatas.length} (Chave: ${chaveAcesso})`,
                     fornecedor: supplierName,
                     valor: parcelaValue,
                     valor_total_titulo: totalAmount,

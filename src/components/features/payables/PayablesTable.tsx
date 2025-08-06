@@ -237,20 +237,7 @@ export function PayablesTable({
 
   // Gerar colunas baseadas na configuração
   const columns = useMemo(() => {
-    console.log('=== DEBUG COLUNAS ===');
-    console.log('visibleColumns:', visibleColumns);
-    console.log('allColumns keys:', Object.keys(allColumns));
-    
-    const generatedColumns = visibleColumns.map(config => {
-      const column = allColumns[config.key];
-      console.log(`Coluna ${config.key}:`, column ? 'ENCONTRADA' : 'NÃO ENCONTRADA');
-      return column;
-    }).filter(Boolean);
-    
-    console.log('Colunas geradas:', generatedColumns.length);
-    console.log('=== FIM DEBUG ===');
-    
-    return generatedColumns;
+    return visibleColumns.map(config => allColumns[config.key]).filter(Boolean);
   }, [visibleColumns]);
 
   const bulkActions = selectedItems.length > 0 && (
