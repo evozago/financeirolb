@@ -475,8 +475,10 @@ export default function AccountsPayable() {
             // Se não encontrou número da NFe, tentar extrair dos últimos 9 dígitos da chave
             if (!nfeNumber && chaveAcesso && chaveAcesso.length >= 44) {
               // A chave de acesso tem 44 dígitos, o número da NFe são os dígitos 26-34 (9 dígitos)
-              nfeNumber = chaveAcesso.substring(25, 34);
-              console.log(`Número NFe extraído da chave de acesso: ${nfeNumber}`);
+              const extractedNumber = chaveAcesso.substring(25, 34);
+              // Remover zeros à esquerda
+              nfeNumber = extractedNumber.replace(/^0+/, '') || extractedNumber;
+              console.log(`Número NFe extraído da chave de acesso: ${nfeNumber} (original: ${extractedNumber})`);
             }
             
             console.log(`NFe processando: ${file.name} - Número: "${nfeNumber}", Chave: "${chaveAcesso}"`);
@@ -631,9 +633,9 @@ export default function AccountsPayable() {
             
             if (duplicatas.length === 0) {
               // Criar parcela única - sem vencimento = usar data emissão e marcar como pago
-              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' 
+              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' && finalNfeNumber !== 'undefined'
                 ? finalNfeNumber 
-                : (chaveAcesso?.slice(-8) || file.name.replace('.xml', ''));
+                : null;
               
               console.log(`Document number for single parcel: "${documentNumber}" (finalNfeNumber: "${finalNfeNumber}", chave slice: "${chaveAcesso?.slice(-8)}")`);
               
@@ -666,9 +668,9 @@ export default function AccountsPayable() {
               console.log(`NFe ${finalNfeNumber || 'sem número'} importada com sucesso (parcela única)`);
             } else {
               // Processar duplicatas normalmente
-              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' 
+              const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' && finalNfeNumber !== 'undefined'
                 ? finalNfeNumber 
-                : (chaveAcesso?.slice(-8) || file.name.replace('.xml', ''));
+                : null;
               
               console.log(`Document number for multiple parcels: "${documentNumber}" (finalNfeNumber: "${finalNfeNumber}", chave slice: "${chaveAcesso?.slice(-8)}")`);
               

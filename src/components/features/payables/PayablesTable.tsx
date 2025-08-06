@@ -196,13 +196,13 @@ export function PayablesTable({
       header: 'Nº NFe',
       sortable: true,
       cell: (item) => {
-        // Primeiro tentar usar o campo numero_documento
+        // Usar diretamente o campo numero_documento
         let nfeNumber = item.numero_documento;
         
-        // Se não tiver, tentar extrair da descrição como fallback
-        if (!nfeNumber || nfeNumber === '-') {
+        // Se não tiver número, tentar extrair da descrição como último recurso
+        if (!nfeNumber) {
           const match = item.bill?.description?.match(/NFe\s+(\d+)/i);
-          nfeNumber = match ? match[1] : '';
+          nfeNumber = match ? match[1] : null;
         }
         
         const installmentInfo = item.bill?.totalInstallments && item.bill.totalInstallments > 1 
@@ -211,7 +211,7 @@ export function PayablesTable({
         
         return (
           <div className="font-mono text-sm">
-            {nfeNumber && nfeNumber !== '-' ? `${nfeNumber}${installmentInfo}` : '-'}
+            {nfeNumber ? `${nfeNumber}${installmentInfo}` : '-'}
           </div>
         );
       },
