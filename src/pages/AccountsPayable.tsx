@@ -26,16 +26,7 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     dueDate: item.data_vencimento,
     status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
     billId: item.id,
-    numero_documento: (() => {
-      // Se tem NFe vinculada, usar o número da NFe + parcela
-      if (item.nfe_data?.numero_nfe) {
-        const nfeNumber = item.nfe_data.numero_nfe;
-        const installmentInfo = item.total_parcelas > 1 ? `-${item.numero_parcela}/${item.total_parcelas}` : '';
-        return `${nfeNumber}${installmentInfo}`;
-      }
-      // Senão, usar numero_documento ou '-'
-      return item.numero_documento || '-';
-    })(),
+    numero_documento: item.numero_documento || '-',
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
@@ -76,16 +67,10 @@ export default function AccountsPayable() {
     try {
       setLoading(true);
       
-      // Construir query com filtros, incluindo dados NFe
+      // Construir query com filtros
       let query = supabase
         .from('ap_installments')
-        .select(`
-          *,
-          nfe_data:numero_nfe (
-            numero_nfe,
-            serie
-          )
-        `);
+        .select('*');
 
       // Aplicar filtros de categoria
       if (filters.category) {

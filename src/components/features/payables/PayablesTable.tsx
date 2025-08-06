@@ -50,12 +50,13 @@ export function PayablesTable({
     { key: 'supplier', header: 'Fornecedor', visible: true, order: 0 },
     { key: 'description', header: 'Descrição', visible: true, order: 1 },
     { key: 'documentNumber', header: 'Nº Documento', visible: true, order: 2 },
-    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 3 },
-    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 4 },
-    { key: 'installment', header: 'Parcela', visible: true, order: 5 },
-    { key: 'dueDate', header: 'Vencimento', visible: true, order: 6 },
-    { key: 'status', header: 'Status', visible: true, order: 7 },
-    { key: 'actions', header: '', visible: true, order: 8 },
+    { key: 'nfeNumber', header: 'Nº NFe', visible: true, order: 3 },
+    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 4 },
+    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 5 },
+    { key: 'installment', header: 'Parcela', visible: true, order: 6 },
+    { key: 'dueDate', header: 'Vencimento', visible: true, order: 7 },
+    { key: 'status', header: 'Status', visible: true, order: 8 },
+    { key: 'actions', header: '', visible: true, order: 9 },
   ];
 
   const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
@@ -176,6 +177,25 @@ export function PayablesTable({
           {item.numero_documento || '-'}
         </div>
       ),
+    },
+    nfeNumber: {
+      key: 'nfeNumber',
+      header: 'Nº NFe',
+      sortable: true,
+      cell: (item) => {
+        // Extrair número da NFe da descrição se disponível
+        const match = item.bill?.description?.match(/Nfe_.*?(\d{9})/);
+        const nfeNumber = match ? match[1] : '';
+        const installmentInfo = item.bill?.totalInstallments && item.bill.totalInstallments > 1 
+          ? `-${item.installmentNumber}/${item.bill.totalInstallments}` 
+          : '';
+        
+        return (
+          <div className="font-mono text-sm">
+            {nfeNumber ? `${nfeNumber}${installmentInfo}` : '-'}
+          </div>
+        );
+      },
     },
     amount: {
       key: 'amount',

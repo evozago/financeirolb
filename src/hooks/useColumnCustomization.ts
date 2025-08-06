@@ -33,7 +33,7 @@ export function useColumnCustomization({ defaultColumns, storageKey }: UseColumn
       console.error('Erro ao carregar configuração de colunas:', error);
       setColumns(defaultColumns);
     }
-  }, [defaultColumns, storageKey]);
+  }, [storageKey]); // Remover defaultColumns das dependências
 
   // Salvar configuração no localStorage
   const saveColumns = (newColumns: ColumnConfig[]) => {
