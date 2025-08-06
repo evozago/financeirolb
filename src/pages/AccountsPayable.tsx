@@ -530,7 +530,16 @@ export default function AccountsPayable() {
             }
             
             // Se não tem número mas tem chave, usar número extraído da chave
-            const finalNfeNumber = nfeNumber || (chaveAcesso ? chaveAcesso.substring(25, 34) : '');
+            let finalNfeNumber = nfeNumber || (chaveAcesso ? chaveAcesso.substring(25, 34) : '');
+            
+            // Se ainda não tem número, tentar extrair da descrição como fallback
+            if (!finalNfeNumber && file.name) {
+              const fileNumberMatch = file.name.match(/(\d{8,9})/);
+              if (fileNumberMatch) {
+                finalNfeNumber = fileNumberMatch[1];
+                console.log(`Número NFe extraído do nome do arquivo: ${finalNfeNumber}`);
+              }
+            }
             
             console.log(`Final NFe number: "${finalNfeNumber}" (original: "${nfeNumber}", from key: "${chaveAcesso ? chaveAcesso.substring(25, 34) : ''}")`);
 
