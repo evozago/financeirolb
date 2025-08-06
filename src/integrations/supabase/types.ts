@@ -65,8 +65,8 @@ export type Database = {
           fornecedor: string
           funcionario_id: string | null
           id: string
-          nfe_id: string | null
           numero_documento: string | null
+          numero_nfe: string | null
           numero_parcela: number | null
           observacoes: string | null
           status: string
@@ -94,8 +94,8 @@ export type Database = {
           fornecedor: string
           funcionario_id?: string | null
           id?: string
-          nfe_id?: string | null
           numero_documento?: string | null
+          numero_nfe?: string | null
           numero_parcela?: number | null
           observacoes?: string | null
           status?: string
@@ -123,8 +123,8 @@ export type Database = {
           fornecedor?: string
           funcionario_id?: string | null
           id?: string
-          nfe_id?: string | null
           numero_documento?: string | null
+          numero_nfe?: string | null
           numero_parcela?: number | null
           observacoes?: string | null
           status?: string
@@ -151,8 +151,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ap_installments_nfe_id_fkey"
-            columns: ["nfe_id"]
+            foreignKeyName: "ap_installments_numero_nfe_fkey"
+            columns: ["numero_nfe"]
             isOneToOne: false
             referencedRelation: "nfe_data"
             referencedColumns: ["id"]
