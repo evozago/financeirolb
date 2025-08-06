@@ -16,6 +16,7 @@ import { BulkEditModal, BulkEditData } from '@/components/features/payables/Bulk
 import { BillToPayInstallment, PayablesFilter, Supplier } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useUndoActions } from '@/hooks/useUndoActions';
 
 // Transform Supabase data to app format
 const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
@@ -52,6 +53,7 @@ export default function AccountsPayable() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { addUndoAction } = useUndoActions();
   
   const [installments, setInstallments] = useState<BillToPayInstallment[]>([]);
   const [selectedItems, setSelectedItems] = useState<BillToPayInstallment[]>([]);
@@ -280,6 +282,14 @@ export default function AccountsPayable() {
     try {
       const itemIds = items.map(item => item.id);
       
+      // Armazenar dados originais para undo
+      const originalData = items.map(item => ({
+        id: item.id,
+        status: item.status,
+        data_pagamento: null,
+        data_hora_pagamento: null,
+      }));
+      
       const { error } = await supabase
         .from('ap_installments')
         .update({ 
@@ -300,6 +310,18 @@ export default function AccountsPayable() {
       ));
       
       setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `markAsPaid-${Date.now()}`,
+        type: 'markAsPaid',
+        data: { itemIds },
+        originalData: { status: originalData },
+      }, () => {
+        // Callback para atualizar UI quando desfazer
+        loadInstallments();
+      });
+      
       toast({
         title: "Sucesso",
         description: `${items.length} conta(s) marcada(s) como paga(s)`,
@@ -321,6 +343,16 @@ export default function AccountsPayable() {
     try {
       const itemIds = items.map(item => item.id);
       
+      // Armazenar dados originais para undo (dados completos do supabase)
+      const { data: originalItems, error: fetchError } = await supabase
+        .from('ap_installments')
+        .select('*')
+        .in('id', itemIds);
+      
+      if (fetchError) {
+        throw fetchError;
+      }
+      
       const { error } = await supabase
         .from('ap_installments')
         .delete()
@@ -333,6 +365,18 @@ export default function AccountsPayable() {
       setInstallments(prev => prev.filter(installment => !itemIds.includes(installment.id)));
       
       setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `delete-${Date.now()}`,
+        type: 'delete',
+        data: { itemIds, count: items.length },
+        originalData: { items: originalItems || [] },
+      }, () => {
+        // Callback para atualizar UI quando desfazer
+        loadInstallments();
+      });
+      
       toast({
         title: "Sucesso",
         description: `${items.length} conta(s) excluída(s)`,
@@ -717,6 +761,16 @@ export default function AccountsPayable() {
     try {
       const itemIds = selectedItems.map(item => item.id);
       
+      // Armazenar dados originais para undo
+      const originalItems = selectedItems.map(item => ({
+        id: item.id,
+        categoria: item.categoria,
+        status: item.status,
+        // Usar propriedades corretas do tipo
+        dueDate: item.dueDate,
+        amount: item.amount,
+      }));
+      
       // Preparar dados para atualização
       const updateData: any = {};
       
@@ -764,6 +818,17 @@ export default function AccountsPayable() {
 
       setSelectedItems([]);
       setBulkEditModalOpen(false);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `bulkEdit-${Date.now()}`,
+        type: 'bulkEdit',
+        data: { itemIds, count: selectedItems.length },
+        originalData: { items: originalItems },
+      }, () => {
+        // Callback para atualizar UI quando desfazer
+        loadInstallments();
+      });
       
       toast({
         title: "Sucesso",
