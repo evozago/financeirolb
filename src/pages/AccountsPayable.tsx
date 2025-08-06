@@ -433,41 +433,39 @@ export default function AccountsPayable() {
             
             console.log(`NFe processando: ${file.name} - Número: "${nfeNumber}", Chave: "${chaveAcesso}"`);
             
-            // Sistema robusto de verificação de duplicação
+            // Sistema robusto de verificação de duplicação usando tabela nfe_data
             let isDuplicate = false;
             let duplicateReason = '';
+            let nfeId = null;
             
-            // Critério 1: Verificar por número da NFe (mais confiável)
-            if (nfeNumber) {
-              const { data: existingByNumber, error: numberCheckError } = await supabase
-                .from('ap_installments')
-                .select('id, numero_documento, descricao, observacoes')
-                .eq('numero_documento', nfeNumber)
+            // Critério 1: Verificar se NFe já existe na tabela nfe_data por chave de acesso
+            if (chaveAcesso) {
+              const { data: existingNfe, error: nfeCheckError } = await supabase
+                .from('nfe_data')
+                .select('id, numero_nfe')
+                .eq('chave_acesso', chaveAcesso)
                 .limit(1);
               
-              if (numberCheckError) {
-                console.error('Erro ao verificar NFe por número:', numberCheckError);
-              } else if (existingByNumber && existingByNumber.length > 0) {
-                isDuplicate = true;
-                duplicateReason = `número da NFe ${nfeNumber}`;
-                console.log(`Duplicata encontrada por número da NFe: ${nfeNumber}`);
-              }
-            }
-            
-            // Critério 2: Verificar por chave de acesso completa (se não encontrou duplicata por número)
-            if (!isDuplicate && chaveAcesso) {
-              const { data: existingByKey, error: keyCheckError } = await supabase
-                .from('ap_installments')
-                .select('id, numero_documento, descricao, observacoes')
-                .or(`observacoes.ilike.%${chaveAcesso}%`)
-                .limit(1);
-              
-              if (keyCheckError) {
-                console.error('Erro ao verificar NFe por chave:', keyCheckError);
-              } else if (existingByKey && existingByKey.length > 0) {
-                isDuplicate = true;
-                duplicateReason = `chave de acesso ${chaveAcesso.substring(0, 10)}...`;
-                console.log(`Duplicata encontrada por chave de acesso: ${chaveAcesso}`);
+              if (nfeCheckError) {
+                console.error('Erro ao verificar NFe na tabela nfe_data:', nfeCheckError);
+              } else if (existingNfe && existingNfe.length > 0) {
+                nfeId = existingNfe[0].id;
+                console.log(`NFe encontrada na tabela nfe_data, ID: ${nfeId}`);
+                
+                // Verificar se já existe conta a pagar para essa NFe
+                const { data: existingInstallment, error: installmentCheckError } = await supabase
+                  .from('ap_installments')
+                  .select('id')
+                  .eq('numero_nfe', nfeId)
+                  .limit(1);
+                
+                if (installmentCheckError) {
+                  console.error('Erro ao verificar conta a pagar:', installmentCheckError);
+                } else if (existingInstallment && existingInstallment.length > 0) {
+                  isDuplicate = true;
+                  duplicateReason = `NFe ${nfeNumber} já possui conta a pagar`;
+                  console.log(`Duplicata encontrada - conta a pagar já existe para NFe: ${nfeNumber}`);
+                }
               }
             }
             
@@ -572,6 +570,34 @@ export default function AccountsPayable() {
             const dataEmissao = xmlDoc.querySelector('dhEmi')?.textContent?.split('T')[0] || 
                                new Date().toISOString().split('T')[0];
             
+            // Se não existe NFe na tabela nfe_data, criar
+            if (!nfeId && chaveAcesso) {
+              console.log('Inserindo NFe na tabela nfe_data');
+              const { data: newNfe, error: nfeInsertError } = await supabase
+                .from('nfe_data')
+                .insert({
+                  numero_nfe: finalNfeNumber,
+                  serie: '1', // Campo obrigatório - usar padrão
+                  chave_acesso: chaveAcesso,
+                  nome_emitente: supplierName,
+                  cnpj_emitente: cnpj,
+                  data_emissao: dataEmissao,
+                  valor_total: totalAmount,
+                  xml_content: await file.text()
+                })
+                .select('id')
+                .single();
+
+              if (nfeInsertError) {
+                console.error('Erro ao inserir NFe na tabela nfe_data:', nfeInsertError);
+                errors.push(`Erro ao inserir NFe ${finalNfeNumber}: ${nfeInsertError.message}`);
+                continue;
+              }
+
+              nfeId = newNfe.id;
+              console.log(`NFe inserida na tabela nfe_data com ID: ${nfeId}`);
+            }
+
             if (duplicatas.length === 0) {
               // Criar parcela única - sem vencimento = usar data emissão e marcar como pago
               const documentNumber = finalNfeNumber && finalNfeNumber.trim() !== '' 
@@ -591,6 +617,7 @@ export default function AccountsPayable() {
                   data_pagamento: dataEmissao,
                   status: 'pago',
                   numero_documento: documentNumber,
+                  numero_nfe: nfeId, // Link para nfe_data
                   categoria: 'Mercadorias',
                   entidade_id: entidadeId,
                   numero_parcela: 1,
@@ -640,6 +667,7 @@ export default function AccountsPayable() {
                     data_pagamento: dataPagamento,
                     status: status,
                     numero_documento: documentNumber,
+                    numero_nfe: nfeId, // Link para nfe_data
                     categoria: 'Mercadorias',
                     entidade_id: entidadeId,
                     numero_parcela: i + 1,
