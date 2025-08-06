@@ -83,9 +83,9 @@ export function PayablesTable({
     } as const;
 
     const colors = {
-      'Pendente': 'bg-status-pending text-status-pending',
-      'Pago': 'bg-status-paid text-status-paid',
-      'Vencido': 'bg-status-overdue text-status-overdue',
+      'Pendente': 'bg-status-pending text-white',
+      'Pago': 'bg-status-paid text-white',
+      'Vencido': 'bg-status-overdue text-white',
     };
 
     return (
