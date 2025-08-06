@@ -49,14 +49,15 @@ export function PayablesTable({
   const defaultColumns: ColumnConfig[] = [
     { key: 'supplier', header: 'Fornecedor', visible: true, order: 0 },
     { key: 'description', header: 'Descrição', visible: true, order: 1 },
-    { key: 'documentNumber', header: 'Nº Documento', visible: true, order: 2 },
-    { key: 'nfeNumber', header: 'Nº NFe', visible: true, order: 3 },
-    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 4 },
-    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 5 },
-    { key: 'installment', header: 'Parcela', visible: true, order: 6 },
-    { key: 'dueDate', header: 'Vencimento', visible: true, order: 7 },
-    { key: 'status', header: 'Status', visible: true, order: 8 },
-    { key: 'actions', header: '', visible: true, order: 9 },
+    { key: 'category', header: 'Categoria', visible: true, order: 2 },
+    { key: 'documentNumber', header: 'Nº Documento', visible: true, order: 3 },
+    { key: 'nfeNumber', header: 'Nº NFe', visible: true, order: 4 },
+    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 5 },
+    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 6 },
+    { key: 'installment', header: 'Parcela', visible: true, order: 7 },
+    { key: 'dueDate', header: 'Vencimento', visible: true, order: 8 },
+    { key: 'status', header: 'Status', visible: true, order: 9 },
+    { key: 'actions', header: '', visible: true, order: 10 },
   ];
 
   const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
@@ -164,6 +165,18 @@ export function PayablesTable({
           <div className="font-medium">{item.bill?.description}</div>
           <div className="text-sm text-muted-foreground">
             ID: {item.bill?.id.slice(-8)}
+          </div>
+        </div>
+      ),
+    },
+    category: {
+      key: 'category',
+      header: 'Categoria',
+      sortable: true,
+      cell: (item) => (
+        <div>
+          <div className="font-medium text-sm">
+            {item.categoria || 'Geral'}
           </div>
         </div>
       ),

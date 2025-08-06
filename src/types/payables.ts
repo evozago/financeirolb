@@ -41,6 +41,7 @@ export interface BillToPayInstallment {
   billId: string;
   bill?: BillToPay;
   numero_documento?: string;
+  categoria?: string;
 }
 
 export interface PayablesSummary {

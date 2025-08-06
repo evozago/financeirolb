@@ -27,6 +27,7 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
     billId: item.id,
     numero_documento: item.numero_documento || '-',
+    categoria: item.categoria || 'Geral',
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
