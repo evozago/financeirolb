@@ -42,6 +42,7 @@ export interface BillToPayInstallment {
   bill?: BillToPay;
   numero_documento?: string;
   categoria?: string;
+  data_emissao?: string; // Adicionar campo para data de emissão
 }
 
 export interface PayablesSummary {

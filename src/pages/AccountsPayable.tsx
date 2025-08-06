@@ -29,6 +29,7 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     billId: item.id,
     numero_documento: item.numero_documento || '-',
     categoria: item.categoria || 'Geral',
+    data_emissao: item.data_emissao, // Adicionar data de emissão
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
@@ -643,9 +644,10 @@ export default function AccountsPayable() {
                   valor_total_titulo: totalAmount,
                   data_vencimento: dataEmissao,
                   data_pagamento: dataEmissao,
+                  data_emissao: dataEmissao, // Adicionar data de emissão
                   status: 'pago',
                   numero_documento: documentNumber,
-                  numero_nfe: finalNfeNumber || documentNumber, // Garantir que numero_nfe seja preenchido
+                  numero_nfe: finalNfeNumber || documentNumber,
                   categoria: 'Mercadorias',
                   entidade_id: entidadeId,
                   numero_parcela: 1,
@@ -693,9 +695,10 @@ export default function AccountsPayable() {
                     valor_total_titulo: totalAmount,
                     data_vencimento: vencimento,
                     data_pagamento: dataPagamento,
+                    data_emissao: dataEmissao, // Adicionar data de emissão
                     status: status,
                     numero_documento: documentNumber,
-                    numero_nfe: finalNfeNumber || documentNumber, // Garantir que numero_nfe seja preenchido
+                    numero_nfe: finalNfeNumber || documentNumber,
                     categoria: 'Mercadorias',
                     entidade_id: entidadeId,
                     numero_parcela: i + 1,

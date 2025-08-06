@@ -54,9 +54,10 @@ export function PayablesTable({
     { key: 'amount', header: 'Valor da Parcela', visible: true, order: 4 },
     { key: 'totalAmount', header: 'Valor Total', visible: true, order: 5 },
     { key: 'installment', header: 'Parcela', visible: true, order: 6 },
-    { key: 'dueDate', header: 'Vencimento', visible: true, order: 7 },
-    { key: 'status', header: 'Status', visible: true, order: 8 },
-    { key: 'actions', header: '', visible: true, order: 9 },
+    { key: 'issueDate', header: 'Data Emissão', visible: true, order: 7 },
+    { key: 'dueDate', header: 'Vencimento', visible: true, order: 8 },
+    { key: 'status', header: 'Status', visible: true, order: 9 },
+    { key: 'actions', header: '', visible: true, order: 10 },
   ];
 
   const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
@@ -220,6 +221,16 @@ export function PayablesTable({
         </div>
       ),
       className: 'text-center',
+    },
+    issueDate: {
+      key: 'issueDate',
+      header: 'Data Emissão',
+      sortable: true,
+      cell: (item) => (
+        <div className="font-mono text-sm">
+          {item.data_emissao ? formatDate(item.data_emissao) : '-'}
+        </div>
+      ),
     },
     dueDate: {
       key: 'dueDate',

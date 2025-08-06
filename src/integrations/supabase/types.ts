@@ -55,6 +55,7 @@ export type Database = {
           conta_bancaria_id: string | null
           created_at: string
           dados_pagamento: string | null
+          data_emissao: string | null
           data_hora_pagamento: string | null
           data_pagamento: string | null
           data_vencimento: string
@@ -88,6 +89,7 @@ export type Database = {
           conta_bancaria_id?: string | null
           created_at?: string
           dados_pagamento?: string | null
+          data_emissao?: string | null
           data_hora_pagamento?: string | null
           data_pagamento?: string | null
           data_vencimento: string
@@ -121,6 +123,7 @@ export type Database = {
           conta_bancaria_id?: string | null
           created_at?: string
           dados_pagamento?: string | null
+          data_emissao?: string | null
           data_hora_pagamento?: string | null
           data_pagamento?: string | null
           data_vencimento?: string
