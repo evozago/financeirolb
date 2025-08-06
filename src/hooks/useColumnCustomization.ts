@@ -11,29 +11,35 @@ interface UseColumnCustomizationProps {
 }
 
 export function useColumnCustomization({ defaultColumns, storageKey }: UseColumnCustomizationProps) {
-  const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
+  const [columns, setColumns] = useState<ColumnConfig[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Carregar configuração salva do localStorage
+  // Carregar configuração salva do localStorage apenas uma vez
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const savedColumns = JSON.parse(saved);
-        // Verificar se todas as colunas padrão existem na configuração salva
-        const mergedColumns = defaultColumns.map(defaultCol => {
-          const savedCol = savedColumns.find((col: ColumnConfig) => col.key === defaultCol.key);
-          return savedCol ? { ...defaultCol, ...savedCol } : defaultCol;
-        });
-        
-        // Ordenar pelas configurações salvas
-        mergedColumns.sort((a, b) => a.order - b.order);
-        setColumns(mergedColumns);
+    if (!isInitialized) {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const savedColumns = JSON.parse(saved);
+          // Verificar se todas as colunas padrão existem na configuração salva
+          const mergedColumns = defaultColumns.map(defaultCol => {
+            const savedCol = savedColumns.find((col: ColumnConfig) => col.key === defaultCol.key);
+            return savedCol ? { ...defaultCol, ...savedCol } : defaultCol;
+          });
+          
+          // Ordenar pelas configurações salvas
+          mergedColumns.sort((a, b) => a.order - b.order);
+          setColumns(mergedColumns);
+        } else {
+          setColumns(defaultColumns);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar configuração de colunas:', error);
+        setColumns(defaultColumns);
       }
-    } catch (error) {
-      console.error('Erro ao carregar configuração de colunas:', error);
-      setColumns(defaultColumns);
+      setIsInitialized(true);
     }
-  }, [defaultColumns, storageKey]);
+  }, [isInitialized, storageKey]); // Remover defaultColumns das dependências
 
   // Salvar configuração no localStorage
   const saveColumns = (newColumns: ColumnConfig[]) => {
