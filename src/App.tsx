@@ -18,6 +18,10 @@ import NewSupplier from "./pages/NewSupplier";
 import EditSupplier from "./pages/EditSupplier";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
+import BankAccounts from "./pages/BankAccounts";
+import NewBankAccount from "./pages/NewBankAccount";
+import EditBankAccount from "./pages/EditBankAccount";
+import BankAccountDetail from "./pages/BankAccountDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +55,10 @@ function AppContent() {
           <Route path="/suppliers/new" element={<NewSupplier />} />
           <Route path="/suppliers/:id" element={<SupplierDetail />} />
           <Route path="/suppliers/:id/edit" element={<EditSupplier />} />
+          <Route path="/bank-accounts" element={<BankAccounts />} />
+          <Route path="/bank-accounts/new" element={<NewBankAccount />} />
+          <Route path="/bank-accounts/:id" element={<BankAccountDetail />} />
+          <Route path="/bank-accounts/:id/edit" element={<EditBankAccount />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<Reports />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
