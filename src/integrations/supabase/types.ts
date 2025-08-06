@@ -324,6 +324,7 @@ export type Database = {
       fornecedores: {
         Row: {
           ativo: boolean
+          categoria_id: string | null
           cnpj_cpf: string | null
           created_at: string
           data_cadastro: string | null
@@ -336,6 +337,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          categoria_id?: string | null
           cnpj_cpf?: string | null
           created_at?: string
           data_cadastro?: string | null
@@ -348,6 +350,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          categoria_id?: string | null
           cnpj_cpf?: string | null
           created_at?: string
           data_cadastro?: string | null
@@ -358,7 +361,15 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funcionarios: {
         Row: {

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +22,11 @@ interface Brand {
   fornecedor_id?: string;
 }
 
+interface Category {
+  id: string;
+  nome: string;
+}
+
 interface SupplierFormData {
   nome: string;
   cnpj_cpf: string;
@@ -28,6 +34,7 @@ interface SupplierFormData {
   email: string;
   endereco: string;
   ativo: boolean;
+  categoria_id: string;
 }
 
 export default function EditSupplier() {
@@ -38,6 +45,7 @@ export default function EditSupplier() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<SupplierFormData>({
     nome: '',
     cnpj_cpf: '',
@@ -45,14 +53,35 @@ export default function EditSupplier() {
     email: '',
     endereco: '',
     ativo: true,
+    categoria_id: '',
   });
 
   useEffect(() => {
     if (id) {
       loadSupplier();
       loadBrands();
+      loadCategories();
     }
   }, [id]);
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_produtos')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Error loading categories:', error);
+        return;
+      }
+
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   const loadBrands = async () => {
     try {
@@ -100,6 +129,7 @@ export default function EditSupplier() {
           email: data.email || '',
           endereco: data.endereco || '',
           ativo: data.ativo ?? true,
+          categoria_id: data.categoria_id || '',
         });
       }
     } catch (error: any) {
@@ -216,6 +246,7 @@ export default function EditSupplier() {
           email: formData.email || null,
           endereco: formData.endereco || null,
           ativo: formData.ativo,
+          categoria_id: formData.categoria_id || null,
         })
         .eq('id', id);
 
@@ -333,6 +364,23 @@ export default function EditSupplier() {
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     placeholder="fornecedor@exemplo.com"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="categoria">Categoria</Label>
+                  <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange('categoria_id', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma categoria</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
