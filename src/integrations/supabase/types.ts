@@ -162,13 +162,6 @@ export type Database = {
             referencedRelation: "funcionarios"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ap_installments_numero_nfe_fkey"
-            columns: ["numero_nfe"]
-            isOneToOne: false
-            referencedRelation: "nfe_data"
-            referencedColumns: ["id"]
-          },
         ]
       }
       categorias_produtos: {
