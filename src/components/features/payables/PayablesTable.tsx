@@ -15,39 +15,40 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
 import { BillToPayInstallment } from '@/types/payables';
+import { cn } from '@/lib/utils';
+import { ColumnCustomizer, ColumnConfig } from './ColumnCustomizer';
+import { useColumnCustomization } from '@/hooks/useColumnCustomization';
 
-// Propriedades do componente
-type PayablesTableProps = {
+interface PayablesTableProps {
   data: BillToPayInstallment[];
   loading?: boolean;
-  currency?: string;
   selectedItems?: BillToPayInstallment[];
-  onSelectionChange?: (selectedItems: BillToPayInstallment[]) => void;
+  onSelectionChange?: (items: BillToPayInstallment[]) => void;
   onRowClick?: (item: BillToPayInstallment) => void;
-  onView?: (item: BillToPayInstallment) => void;
+  onMarkAsPaid?: (items: BillToPayInstallment[]) => void;
   onEdit?: (item: BillToPayInstallment) => void;
-  onPay?: (item: BillToPayInstallment) => void;
-  onDelete?: (item: BillToPayInstallment) => void;
-};
+  onDelete?: (items: BillToPayInstallment[]) => void;
+  onView?: (item: BillToPayInstallment) => void;
+  onBulkEdit?: (items: BillToPayInstallment[]) => void;
+}
 
-// Componente principal
 export function PayablesTable({
   data,
-  loading = false,
-  currency = 'BRL',
+  loading,
   selectedItems = [],
   onSelectionChange,
   onRowClick,
-  onView,
+  onMarkAsPaid,
   onEdit,
-  onPay,
   onDelete,
+  onView,
+  onBulkEdit,
 }: PayablesTableProps) {
-  // Configurações de colunas padrão
-  const defaultColumns: { key: string; header: string; visible: boolean; order: number }[] = [
-    { key: 'supplier', header: 'Fornecedor', visible: true, order: 1 },
+  // Configuração padrão das colunas
+  const defaultColumns: ColumnConfig[] = [
+    { key: 'supplier', header: 'Fornecedor', visible: true, order: 0 },
+    { key: 'description', header: 'Descrição', visible: true, order: 1 },
     { key: 'category', header: 'Categoria', visible: true, order: 2 },
     { key: 'documentNumber', header: 'Nº Documento', visible: true, order: 3 },
     { key: 'nfeNumber', header: 'Nº NFe', visible: true, order: 4 },
@@ -59,45 +60,41 @@ export function PayablesTable({
     { key: 'actions', header: '', visible: true, order: 10 },
   ];
 
-  // Hook fictício de customização de colunas (mantenha o seu se já existir)
-  const useColumnCustomization = (args: any) => ({
-    columns: defaultColumns,
-    visibleColumns: defaultColumns.map((c) => c.key),
-    saveColumns: (_: any) => {},
-  });
-
   const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
     defaultColumns,
-    storageKey: 'payables-table-columns',
+    storageKey: 'payables-table-columns'
   });
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency,
+      currency: 'BRL',
     }).format(value);
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return new Intl.DateTimeFormat('pt-BR').format(d);
-  };
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('pt-BR');
 
-  const getStatusBadge = (status: BillToPayInstallment['status'], dueDate: string) => {
-    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-    let currentStatus = status;
+  const getStatusBadge = (status: string, dueDate: string) => {
+    const isOverdue = new Date(dueDate) < new Date() && status === 'Pendente';
+    const currentStatus = isOverdue ? 'Vencido' : status;
 
-    if (status === 'Pendente') {
-      const isOverdue = new Date(dueDate) < new Date();
-      variant = isOverdue ? 'destructive' : 'secondary';
-      currentStatus = isOverdue ? 'Vencido' : 'Pendente';
-    } else if (status === 'Pago') {
-      variant = 'default';
-    } else if (status === 'Vencido') {
-      variant = 'destructive';
-    }
+    const variants = {
+      'Pendente': 'default',
+      'Pago': 'default',
+      'Vencido': 'destructive',
+    } as const;
+
+    const colors = {
+      'Pendente': 'bg-status-pending text-white',
+      'Pago': 'bg-status-paid text-white',
+      'Vencido': 'bg-status-overdue text-white',
+    };
 
     return (
-      <Badge variant={variant} className="font-medium">
+      <Badge 
+        variant={variants[currentStatus as keyof typeof variants]} 
+        className={cn('text-xs', colors[currentStatus as keyof typeof colors])}
+      >
         {currentStatus}
       </Badge>
     );
@@ -112,47 +109,65 @@ export function PayablesTable({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onView?.(item)}>
-          <Eye className="mr-2 h-4 w-4" />
-          <span>Ver</span>
+          <Eye className="h-4 w-4 mr-2" />
+          Visualizar
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onEdit?.(item)}>
-          <Edit3 className="mr-2 h-4 w-4" />
-          <span>Editar</span>
+          <Edit className="h-4 w-4 mr-2" />
+          Editar
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onPay?.(item)}>
-          <CheckCircle className="mr-2 h-4 w-4" />
-          <span>Marcar como pago</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(item)}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          <span>Excluir</span>
-        </DropdownMenuItem>
+        {onMarkAsPaid && item.status !== 'Pago' && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onMarkAsPaid([item])}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Marcar como Pago
+            </DropdownMenuItem>
+          </>
+        )}
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => onDelete([item])}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 
+  // Definição de todas as colunas disponíveis
+  
+  // -----------------------------------------------------------
   // Helper para obter o Nº da NFe de forma robusta
-  const extractNumeroNfe = (item: BillToPayInstallment): string | null => {
-    // Primeiro verificar o numero_documento que é onde deve estar salvo
-    if (item.numero_documento && item.numero_documento !== '-') {
-      return item.numero_documento;
+  // Prioridades:
+  // 1) coluna numero_nfe
+  // 2) JSON aditor.numero_nfe
+  // 3) chave de acesso invoice_number_norm (posições 26..34)
+  // 4) fallback por descrição
+  // -----------------------------------------------------------
+  const extractNumeroNfe = (item: any): string | null => {
+    const direct = item?.numero_nfe ?? item?.aditor?.numero_nfe;
+    if (direct) return String(direct);
+
+    const chave: string | undefined = item?.invoice_number_norm;
+    if (chave && typeof chave === 'string' && chave.length === 44) {
+      return chave.slice(25, 34);
     }
 
-    // Fallback: tentar extrair da descrição
-    const desc = item.bill?.description;
+    const desc: string | undefined = item?.bill?.description;
     if (desc) {
-      const match = desc.match(/NFe\s+(\d+)/i);
-      if (match) {
-        return match[1];
-      }
+      const m = desc.match(/NFe\s+(\d{1,9})/i);
+      if (m) return m[1].padStart(9, '0');
     }
-
     return null;
   };
-
-  // Definição de todas as colunas disponíveis
-  const allColumns: Record<string, Column<BillToPayInstallment>> = {
+const allColumns: Record<string, Column<BillToPayInstallment>> = {
     supplier: {
       key: 'supplier',
       header: 'Fornecedor',
@@ -160,7 +175,9 @@ export function PayablesTable({
       cell: (item) => (
         <div>
           <div className="font-medium">{item.bill?.supplier.name}</div>
-          <div className="text-sm text-muted-foreground">{item.bill?.supplier.cnpj}</div>
+          <div className="text-sm text-muted-foreground">
+            {item.bill?.supplier.cnpj}
+          </div>
         </div>
       ),
     },
@@ -171,7 +188,9 @@ export function PayablesTable({
       cell: (item) => (
         <div>
           <div className="font-medium">{item.bill?.description}</div>
-          <div className="text-sm text-muted-foreground">ID: {item.bill?.id.slice(-8)}</div>
+          <div className="text-sm text-muted-foreground">
+            ID: {item.bill?.id.slice(-8)}
+          </div>
         </div>
       ),
     },
@@ -181,7 +200,9 @@ export function PayablesTable({
       sortable: true,
       cell: (item) => (
         <div>
-          <div className="font-medium text-sm">{item.categoria || 'Geral'}</div>
+          <div className="font-medium text-sm">
+            {item.categoria || 'Geral'}
+          </div>
         </div>
       ),
     },
@@ -189,10 +210,12 @@ export function PayablesTable({
       key: 'documentNumber',
       header: 'Nº Documento',
       sortable: true,
-      cell: (item) => <div className="font-mono text-sm">{item.numero_documento || '-'}</div>,
+      cell: (item) => (
+        <div className="font-mono text-sm">
+          {item.numero_documento || '-'}
+        </div>
+      ),
     },
-
-    // ======== COLUNA EDITADA: Nº NFe ========
     nfeNumber: {
       key: 'nfeNumber',
       header: 'Nº NFe',
@@ -202,12 +225,14 @@ export function PayablesTable({
         return <div className="font-mono text-sm text-center">{nfe ?? '–'}</div>;
       },
     },
-
+    },
     amount: {
       key: 'amount',
       header: 'Valor da Parcela',
       sortable: true,
-      cell: (item) => <div className="font-mono">{formatCurrency(item.amount)}</div>,
+      cell: (item) => (
+        <div className="font-mono">{formatCurrency(item.amount)}</div>
+      ),
       className: 'text-right',
     },
     totalAmount: {
@@ -237,8 +262,7 @@ export function PayablesTable({
       header: 'Vencimento',
       sortable: true,
       cell: (item) => {
-        const isOverdue =
-          new Date(item.dueDate) < new Date() && item.status === 'Pendente';
+        const isOverdue = new Date(item.dueDate) < new Date() && item.status === 'Pendente';
         return (
           <div className={cn('font-mono', isOverdue && 'text-destructive font-medium')}>
             {formatDate(item.dueDate)}
@@ -260,27 +284,56 @@ export function PayablesTable({
     },
   };
 
-  // Filtra e ordena as colunas com base nas preferências do usuário
+  // Gerar colunas baseadas na configuração
   const columns = useMemo(() => {
-    const result: Column<BillToPayInstallment>[] = [];
+    return visibleColumns.map(config => allColumns[config.key]).filter(Boolean);
+  }, [visibleColumns]);
 
-    columnConfig
-      .filter((col) => visibleColumns.includes(col.key))
-      .sort((a, b) => a.order - b.order)
-      .forEach((col) => {
-        if (allColumns[col.key]) {
-          result.push(allColumns[col.key]);
-        }
-      });
-
-    return result;
-  }, [columnConfig, visibleColumns]);
-
-  // Ações em massa (exemplo)
-  const bulkActions = null;
+  const bulkActions = selectedItems.length > 0 && (
+    <div className="flex items-center gap-2">
+      {onBulkEdit && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onBulkEdit(selectedItems)}
+        >
+          <Edit3 className="h-4 w-4 mr-2" />
+          Editar em Massa ({selectedItems.length})
+        </Button>
+      )}
+      {onMarkAsPaid && (
+        <Button
+          size="sm"
+          onClick={() => onMarkAsPaid(selectedItems)}
+          disabled={selectedItems.every(item => item.status === 'Pago')}
+        >
+          <CheckCircle className="h-4 w-4 mr-2" />
+          Marcar como Pago
+        </Button>
+      )}
+      {onDelete && (
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => onDelete(selectedItems)}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Excluir Selecionados
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-4">
+      {/* Barra de ferramentas com customização de colunas */}
+      <div className="flex justify-end">
+        <ColumnCustomizer
+          columns={columnConfig}
+          onColumnsChange={saveColumns}
+        />
+      </div>
+
       <EnhancedDataTable
         data={data}
         columns={columns}
