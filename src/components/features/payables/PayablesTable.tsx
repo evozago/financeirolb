@@ -200,14 +200,18 @@ export function PayablesTable({
         let nfeNumber = item.numero_documento;
         
         // Se não tiver número, tentar extrair da descrição como último recurso
-        if (!nfeNumber && item.bill?.description) {
-          const match = item.bill.description.match(/NFe\s+\w*_\d*_\d*_\d*_\d*_\d*_(\d+)/);
+        if (!nfeNumber) {
+          const match = item.bill?.description?.match(/NFe\s+(\d+)/i);
           nfeNumber = match ? match[1] : null;
         }
         
+        const installmentInfo = item.bill?.totalInstallments && item.bill.totalInstallments > 1 
+          ? `-${item.installmentNumber}/${item.bill.totalInstallments}` 
+          : '';
+        
         return (
           <div className="font-mono text-sm">
-            {nfeNumber || '-'}
+            {nfeNumber ? `${nfeNumber}${installmentInfo}` : '-'}
           </div>
         );
       },
