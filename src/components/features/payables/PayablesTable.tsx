@@ -150,18 +150,11 @@ export function PayablesTable({
       key: 'documentNumber',
       header: 'Nº Documento',
       sortable: true,
-      cell: (item) => {
-        console.log('Item na célula número documento:', {
-          id: item.id,
-          numero_documento: item.numero_documento,
-          bill_description: item.bill?.description
-        });
-        return (
-          <div className="font-mono text-sm">
-            {item.numero_documento || '-'}
-          </div>
-        );
-      },
+      cell: (item) => (
+        <div className="font-mono text-sm">
+          {item.numero_documento || '-'}
+        </div>
+      ),
     },
     {
       key: 'amount',
