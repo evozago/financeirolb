@@ -429,13 +429,16 @@ export default function AccountsPayable() {
               'ide nNF',
               'nNF', 
               'infNFe ide nNF',
-              'NFe infNFe ide nNF'
+              'NFe infNFe ide nNF',
+              'protNFe infProt nNF' // Para NFe processada
             ];
             
             for (const selector of possibleSelectors) {
               const element = xmlDoc.querySelector(selector);
               if (element && element.textContent?.trim()) {
                 nfeNumber = element.textContent.trim();
+                // Remover zeros à esquerda se necessário
+                nfeNumber = nfeNumber.replace(/^0+/, '') || nfeNumber;
                 console.log(`Número NFe encontrado usando seletor "${selector}": ${nfeNumber}`);
                 break;
               }
