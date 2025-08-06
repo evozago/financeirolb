@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SummaryCardsGrid } from '@/components/features/dashboard/PayablesSummaryCard';
 import { FinancialPanel } from '@/components/features/dashboard/FinancialPanel';
+import { ExpensesByCategoryChart } from '@/components/features/dashboard/ExpensesByCategoryChart';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -331,6 +332,9 @@ export default function DashboardPayables() {
         <div className="space-y-8">
           {/* Financial Panel - Main Focus */}
           <FinancialPanel onCardClick={handleCardClick} />
+
+          {/* Expenses by Category Chart */}
+          <ExpensesByCategoryChart />
 
           {/* Quick Actions */}
           <Card>

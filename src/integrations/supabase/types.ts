@@ -1070,6 +1070,14 @@ export type Database = {
           pagos_mes_atual: number
         }[]
       }
+      get_expenses_by_category: {
+        Args: { p_start_date?: string; p_end_date?: string }
+        Returns: {
+          categoria: string
+          total_valor: number
+          count_items: number
+        }[]
+      }
       get_financial_panel_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
