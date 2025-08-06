@@ -121,7 +121,14 @@ export default function AccountsPayable() {
         return;
       }
       
+      console.log('=== DEBUG CARREGAMENTO ===');
+      console.log('Data raw da Supabase:', data?.length || 0, 'registros');
+      
       const transformedData = transformInstallmentData(data || []);
+      console.log('Data transformada:', transformedData.length, 'registros');
+      console.log('Primeira entrada transformada:', transformedData[0]);
+      console.log('=== FIM DEBUG ===');
+      
       setInstallments(transformedData);
     } catch (error) {
       console.error('Error:', error);
