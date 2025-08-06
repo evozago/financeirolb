@@ -146,7 +146,7 @@ export function PayablesTable({
       header: 'Fornecedor',
       sortable: true,
       cell: (item) => (
-        <div className="text-white">
+        <div className="text-black">
           <div className="font-medium">{item.bill?.supplier.name}</div>
           <div className="text-sm text-muted-foreground">
             {item.bill?.supplier.cnpj}
