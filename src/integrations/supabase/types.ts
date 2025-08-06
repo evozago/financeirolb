@@ -65,11 +65,15 @@ export type Database = {
           fornecedor: string
           funcionario_id: string | null
           id: string
+          installment_norm: string | null
+          invoice_number_norm: string | null
+          is_duplicate: boolean | null
           numero_documento: string | null
           numero_nfe: string | null
           numero_parcela: number | null
           observacoes: string | null
           status: string
+          supplier_key: string | null
           tipo_recorrencia: string | null
           total_parcelas: number | null
           updated_at: string
@@ -94,11 +98,15 @@ export type Database = {
           fornecedor: string
           funcionario_id?: string | null
           id?: string
+          installment_norm?: string | null
+          invoice_number_norm?: string | null
+          is_duplicate?: boolean | null
           numero_documento?: string | null
           numero_nfe?: string | null
           numero_parcela?: number | null
           observacoes?: string | null
           status?: string
+          supplier_key?: string | null
           tipo_recorrencia?: string | null
           total_parcelas?: number | null
           updated_at?: string
@@ -123,11 +131,15 @@ export type Database = {
           fornecedor?: string
           funcionario_id?: string | null
           id?: string
+          installment_norm?: string | null
+          invoice_number_norm?: string | null
+          is_duplicate?: boolean | null
           numero_documento?: string | null
           numero_nfe?: string | null
           numero_parcela?: number | null
           observacoes?: string | null
           status?: string
+          supplier_key?: string | null
           tipo_recorrencia?: string | null
           total_parcelas?: number | null
           updated_at?: string
@@ -996,6 +1008,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      extract_invoice_number: {
+        Args: { description: string }
+        Returns: string
+      }
       get_ap_installments_complete: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1059,6 +1075,14 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      normalize_installment_info: {
+        Args: { numero_parcela: number; total_parcelas: number; valor: number }
+        Returns: string
+      }
+      normalize_supplier_name: {
+        Args: { supplier_name: string }
+        Returns: string
       }
       promote_user_to_admin: {
         Args: { user_email: string }
