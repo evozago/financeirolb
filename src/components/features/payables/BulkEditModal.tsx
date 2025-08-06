@@ -3,7 +3,7 @@
  * Permite alterar campos comuns de múltiplas parcelas simultaneamente
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BulkEditModalProps {
   open: boolean;
@@ -49,14 +50,10 @@ const PAYMENT_METHODS = [
   { value: 'Cheque', label: 'Cheque' }
 ];
 
-const CATEGORIES = [
-  { value: 'Geral', label: 'Geral' },
-  { value: 'Fornecedores', label: 'Fornecedores' },
-  { value: 'Serviços', label: 'Serviços' },
-  { value: 'Impostos', label: 'Impostos' },
-  { value: 'Aluguel', label: 'Aluguel' },
-  { value: 'Utilidades', label: 'Utilidades' }
-];
+interface Category {
+  id: string;
+  nome: string;
+}
 
 export function BulkEditModal({ 
   open, 
@@ -67,6 +64,32 @@ export function BulkEditModal({
 }: BulkEditModalProps) {
   const [formData, setFormData] = useState<BulkEditData>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      loadCategories();
+    }
+  }, [open]);
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_produtos')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Erro ao carregar categorias:', error);
+        return;
+      }
+
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+    }
+  };
 
   const handleSave = () => {
     const updates: BulkEditData = {};
@@ -116,9 +139,9 @@ export function BulkEditModal({
                   <SelectValue placeholder="Selecionar categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(category => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
+                  {categories.map(category => (
+                    <SelectItem key={category.id} value={category.nome}>
+                      {category.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
