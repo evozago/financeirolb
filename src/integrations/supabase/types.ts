@@ -1009,6 +1009,7 @@ export type Database = {
           status: string
           status_calculado: string
           numero_documento: string
+          numero_nfe_display: string
           banco: string
           forma_pagamento: string
           observacoes: string
