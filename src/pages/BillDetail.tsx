@@ -16,7 +16,8 @@ import {
   DollarSign,
   FileText,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,10 +25,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { BillToPay, BillToPayInstallment } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { AuditHistory } from '@/components/features/payables/AuditHistory';
+import { StatusChangeControl } from '@/components/features/payables/StatusChangeControl';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -44,6 +48,11 @@ interface BillData {
   fornecedor: string;
   created_at: string;
   updated_at: string;
+  data_pagamento?: string;
+  categoria?: string;
+  forma_pagamento?: string;
+  banco?: string;
+  observacoes?: string;
 }
 
 export default function BillDetail() {
@@ -184,13 +193,20 @@ export default function BillDetail() {
     }).length;
   };
 
+  const handleStatusChanged = () => {
+    // Recarregar dados quando status for alterado
+    loadBillData();
+  };
+
   const handleMarkInstallmentAsPaid = async (installment: BillData) => {
     try {
       const { error } = await supabase
         .from('ap_installments')
         .update({ 
           status: 'pago',
-          data_pagamento: new Date().toISOString().split('T')[0]
+          data_pagamento: new Date().toISOString().split('T')[0],
+          data_hora_pagamento: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', installment.id);
       
@@ -198,11 +214,13 @@ export default function BillDetail() {
       
       // Atualizar estado local
       if (bill?.id === installment.id) {
-        setBill(prev => prev ? { ...prev, status: 'pago' } : null);
+        setBill(prev => prev ? { ...prev, status: 'pago', data_pagamento: new Date().toISOString().split('T')[0] } : null);
       } else {
         setRelatedInstallments(prev => 
           prev.map(inst => 
-            inst.id === installment.id ? { ...inst, status: 'pago' } : inst
+            inst.id === installment.id 
+              ? { ...inst, status: 'pago', data_pagamento: new Date().toISOString().split('T')[0] } 
+              : inst
           )
         );
       }
@@ -357,74 +375,147 @@ export default function BillDetail() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Coluna Principal */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Informações Gerais */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Informações da Conta
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-lg">{bill.descricao}</h3>
-                  <p className="text-muted-foreground">
-                    Criada em {formatDateTime(bill.created_at)}
-                  </p>
-                  {bill.created_at !== bill.updated_at && (
-                    <p className="text-xs text-muted-foreground">
-                      Atualizada em {formatDateTime(bill.updated_at)}
-                    </p>
-                  )}
-                </div>
-                
-                <Separator />
-                
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="flex items-center gap-3">
-                    <DollarSign className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Valor Total</p>
-                      <p className="text-2xl font-bold">{formatCurrency(bill.valor_total_titulo || bill.valor)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Parcelas</p>
-                      <p className="text-2xl font-bold">{bill.total_parcelas}x</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Abas principais */}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                <TabsTrigger value="status">Alterar Status</TabsTrigger>
+                <TabsTrigger value="history">Histórico</TabsTrigger>
+              </TabsList>
 
-            {/* Alertas */}
-            {overdueCount > 0 && (
-              <Alert className="border-destructive">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <AlertDescription>
-                  <strong>Atenção:</strong> {overdueCount} parcela{overdueCount > 1 ? 's' : ''} vencida{overdueCount > 1 ? 's' : ''}. 
-                  É necessário regularizar o pagamento.
-                </AlertDescription>
-              </Alert>
-            )}
+              <TabsContent value="overview" className="space-y-6">
+                {/* Informações Gerais */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Informações da Conta
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">{bill.descricao}</h3>
+                      <p className="text-muted-foreground">
+                        Criada em {formatDateTime(bill.created_at)}
+                      </p>
+                      {bill.created_at !== bill.updated_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Atualizada em {formatDateTime(bill.updated_at)}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="flex items-center gap-3">
+                        <DollarSign className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Valor Total</p>
+                          <p className="text-2xl font-bold">{formatCurrency(bill.valor_total_titulo || bill.valor)}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Parcelas</p>
+                          <p className="text-2xl font-bold">{bill.total_parcelas}x</p>
+                        </div>
+                      </div>
+                    </div>
 
-            {/* Tabela de Parcelas */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Parcelas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DataTable
-                  data={allInstallments}
-                  columns={installmentColumns}
-                  getItemId={(item) => item.id}
-                  emptyMessage="Nenhuma parcela encontrada"
+                    {/* Informações adicionais */}
+                    {(bill.categoria || bill.forma_pagamento || bill.banco) && (
+                      <>
+                        <Separator />
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {bill.categoria && (
+                            <div>
+                              <p className="font-medium text-muted-foreground">Categoria</p>
+                              <p>{bill.categoria}</p>
+                            </div>
+                          )}
+                          {bill.forma_pagamento && (
+                            <div>
+                              <p className="font-medium text-muted-foreground">Forma de Pagamento</p>
+                              <p>{bill.forma_pagamento}</p>
+                            </div>
+                          )}
+                          {bill.banco && (
+                            <div>
+                              <p className="font-medium text-muted-foreground">Banco</p>
+                              <p>{bill.banco}</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {bill.observacoes && (
+                      <>
+                        <Separator />
+                        <div>
+                          <p className="font-medium text-muted-foreground">Observações</p>
+                          <p className="text-sm">{bill.observacoes}</p>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Alertas */}
+                {overdueCount > 0 && (
+                  <Alert className="border-destructive">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <AlertDescription>
+                      <strong>Atenção:</strong> {overdueCount} parcela{overdueCount > 1 ? 's' : ''} vencida{overdueCount > 1 ? 's' : ''}. 
+                      É necessário regularizar o pagamento.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Tabela de Parcelas */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Parcelas</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DataTable
+                      data={allInstallments}
+                      columns={installmentColumns}
+                      getItemId={(item) => item.id}
+                      emptyMessage="Nenhuma parcela encontrada"
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="status" className="space-y-6">
+                <StatusChangeControl
+                  installments={allInstallments}
+                  onStatusChanged={handleStatusChanged}
                 />
-              </CardContent>
-            </Card>
+              </TabsContent>
+
+              <TabsContent value="history" className="space-y-6">
+                <AuditHistory recordId={bill.id} />
+                
+                {/* Histórico de parcelas relacionadas */}
+                {relatedInstallments.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Histórico das Parcelas Relacionadas</h3>
+                    {relatedInstallments.map((installment) => (
+                      <AuditHistory 
+                        key={installment.id} 
+                        recordId={installment.id}
+                        className="border-l-4 border-l-muted-foreground/20"
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Sidebar */}
