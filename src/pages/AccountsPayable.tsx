@@ -645,6 +645,7 @@ export default function AccountsPayable() {
                   data_pagamento: dataEmissao,
                   status: 'pago',
                   numero_documento: documentNumber,
+                  numero_nfe: finalNfeNumber || documentNumber, // Garantir que numero_nfe seja preenchido
                   categoria: 'Mercadorias',
                   entidade_id: entidadeId,
                   numero_parcela: 1,
@@ -694,6 +695,7 @@ export default function AccountsPayable() {
                     data_pagamento: dataPagamento,
                     status: status,
                     numero_documento: documentNumber,
+                    numero_nfe: finalNfeNumber || documentNumber, // Garantir que numero_nfe seja preenchido
                     categoria: 'Mercadorias',
                     entidade_id: entidadeId,
                     numero_parcela: i + 1,
