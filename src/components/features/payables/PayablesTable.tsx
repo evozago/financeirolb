@@ -16,37 +16,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-
-// Tipos de dados para parcelas de contas a pagar
-type BillToPayInstallment = {
-  id: string;
-  amount: number;
-  dueDate: string;
-  status: 'Pendente' | 'Pago' | 'Atrasado' | 'Agendado';
-  installmentNumber: number;
-  categoria?: string | null;
-  numero_documento?: string | null;
-  // Os campos abaixo podem não estar tipados no modelo original,
-  // por isso vamos acessá-los com "any" no helper.
-  bill?: {
-    id: string;
-    description?: string | null;
-    totalInstallments?: number | null;
-    totalAmount?: number | null;
-    supplier: {
-      name: string;
-      cnpj?: string | null;
-    };
-  };
-};
+import { BillToPayInstallment } from '@/types/payables';
 
 // Propriedades do componente
 type PayablesTableProps = {
   data: BillToPayInstallment[];
   loading?: boolean;
   currency?: string;
-  selectedItems?: string[];
-  onSelectionChange?: (selectedIds: string[]) => void;
+  selectedItems?: BillToPayInstallment[];
+  onSelectionChange?: (selectedItems: BillToPayInstallment[]) => void;
   onRowClick?: (item: BillToPayInstallment) => void;
   onView?: (item: BillToPayInstallment) => void;
   onEdit?: (item: BillToPayInstallment) => void;
@@ -114,6 +92,8 @@ export function PayablesTable({
       currentStatus = isOverdue ? 'Vencido' : 'Pendente';
     } else if (status === 'Pago') {
       variant = 'default';
+    } else if (status === 'Vencido') {
+      variant = 'destructive';
     }
 
     return (
@@ -152,28 +132,22 @@ export function PayablesTable({
     </DropdownMenu>
   );
 
-  // -----------------------------------------------------------
   // Helper para obter o Nº da NFe de forma robusta
-  // Prioridades:
-  // 1) coluna numero_nfe
-  // 2) JSON aditor.numero_nfe
-  // 3) chave de acesso invoice_number_norm (posições 26..34)
-  // 4) fallback por descrição
-  // -----------------------------------------------------------
-  const extractNumeroNfe = (item: any): string | null => {
-    const direct = item?.numero_nfe ?? item?.aditor?.numero_nfe;
-    if (direct) return String(direct);
-
-    const chave: string | undefined = item?.invoice_number_norm;
-    if (chave && typeof chave === 'string' && chave.length === 44) {
-      return chave.slice(25, 34);
+  const extractNumeroNfe = (item: BillToPayInstallment): string | null => {
+    // Primeiro verificar o numero_documento que é onde deve estar salvo
+    if (item.numero_documento && item.numero_documento !== '-') {
+      return item.numero_documento;
     }
 
-    const desc: string | undefined = item?.bill?.description;
+    // Fallback: tentar extrair da descrição
+    const desc = item.bill?.description;
     if (desc) {
-      const m = desc.match(/NFe\s+(\d{1,9})/i);
-      if (m) return m[1].padStart(9, '0');
+      const match = desc.match(/NFe\s+(\d+)/i);
+      if (match) {
+        return match[1];
+      }
     }
+
     return null;
   };
 

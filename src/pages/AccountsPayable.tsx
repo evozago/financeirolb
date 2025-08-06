@@ -936,11 +936,10 @@ export default function AccountsPayable() {
             selectedItems={selectedItems}
             onSelectionChange={setSelectedItems}
             onRowClick={handleRowClick}
-            onMarkAsPaid={handleMarkAsPaid}
-            onDelete={handleDelete}
             onView={handleView}
             onEdit={handleEdit}
-            onBulkEdit={handleBulkEdit}
+            onPay={(item) => handleMarkAsPaid([item])}
+            onDelete={(item) => handleDelete([item])}
           />
         </div>
       </div>
