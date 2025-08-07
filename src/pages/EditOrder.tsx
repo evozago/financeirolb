@@ -18,6 +18,7 @@ interface OrderData {
   valor_total_bruto: number;
   desconto_porcentagem: number;
   desconto_valor: number;
+  tipo_desconto: string;
   valor_total_liquido: number;
   valor_medio_peca: number;
   data_pedido: string;
@@ -28,6 +29,13 @@ interface OrderData {
   codigo_barras: string;
   fornecedor_id: string;
   marca_id: string;
+  produto_id: string;
+  arquivo_origem: string;
+  numero_pedido: string;
+  quantidade_referencias: number;
+  representante_nome: string;
+  representante_telefone: string;
+  representante_email: string;
 }
 
 interface Supplier {
@@ -126,6 +134,7 @@ export default function EditOrder() {
           valor_total_bruto: order.valor_total_bruto,
           desconto_porcentagem: order.desconto_porcentagem,
           desconto_valor: order.desconto_valor,
+          tipo_desconto: order.tipo_desconto,
           data_pedido: order.data_pedido,
           status: order.status,
           observacoes: order.observacoes,
@@ -134,6 +143,13 @@ export default function EditOrder() {
           codigo_barras: order.codigo_barras,
           fornecedor_id: order.fornecedor_id,
           marca_id: order.marca_id,
+          produto_id: order.produto_id,
+          arquivo_origem: order.arquivo_origem,
+          numero_pedido: order.numero_pedido,
+          quantidade_referencias: order.quantidade_referencias,
+          representante_nome: order.representante_nome,
+          representante_telefone: order.representante_telefone,
+          representante_email: order.representante_email,
         })
         .eq('id', id);
 
@@ -246,6 +262,23 @@ export default function EditOrder() {
                 onChange={(e) => setOrder({ ...order, codigo_barras: e.target.value })}
               />
             </div>
+            <div>
+              <Label htmlFor="numero_pedido">Número do Pedido</Label>
+              <Input
+                id="numero_pedido"
+                value={order.numero_pedido || ''}
+                onChange={(e) => setOrder({ ...order, numero_pedido: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="quantidade_referencias">Quantidade de Referências</Label>
+              <Input
+                id="quantidade_referencias"
+                type="number"
+                value={order.quantidade_referencias || 0}
+                onChange={(e) => setOrder({ ...order, quantidade_referencias: parseInt(e.target.value) || 0 })}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -337,6 +370,54 @@ export default function EditOrder() {
                 onChange={(e) => setOrder({ ...order, desconto_valor: parseFloat(e.target.value) || 0 })}
               />
             </div>
+            <div>
+              <Label htmlFor="tipo_desconto">Tipo de Desconto</Label>
+              <Select
+                value={order.tipo_desconto || 'valor'}
+                onValueChange={(value) => setOrder({ ...order, tipo_desconto: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="valor">Valor</SelectItem>
+                  <SelectItem value="porcentagem">Porcentagem</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Dados do Representante</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="representante_nome">Nome do Representante</Label>
+              <Input
+                id="representante_nome"
+                value={order.representante_nome || ''}
+                onChange={(e) => setOrder({ ...order, representante_nome: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="representante_telefone">Telefone do Representante</Label>
+              <Input
+                id="representante_telefone"
+                value={order.representante_telefone || ''}
+                onChange={(e) => setOrder({ ...order, representante_telefone: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="representante_email">Email do Representante</Label>
+              <Input
+                id="representante_email"
+                type="email"
+                value={order.representante_email || ''}
+                onChange={(e) => setOrder({ ...order, representante_email: e.target.value })}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -371,6 +452,16 @@ export default function EditOrder() {
                   <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="arquivo_origem">Link/Anexo</Label>
+              <Textarea
+                id="arquivo_origem"
+                value={order.arquivo_origem || ''}
+                onChange={(e) => setOrder({ ...order, arquivo_origem: e.target.value })}
+                rows={2}
+                placeholder="Cole aqui o link ou caminho do arquivo de origem"
+              />
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="observacoes">Observações</Label>
