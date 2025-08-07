@@ -322,39 +322,48 @@ export type Database = {
           ativo: boolean
           categoria_id: string | null
           cnpj_cpf: string | null
+          contato_representante: string | null
           created_at: string
           data_cadastro: string | null
           email: string | null
+          email_representante: string | null
           endereco: string | null
           id: string
           nome: string
           telefone: string | null
+          telefone_representante: string | null
           updated_at: string
         }
         Insert: {
           ativo?: boolean
           categoria_id?: string | null
           cnpj_cpf?: string | null
+          contato_representante?: string | null
           created_at?: string
           data_cadastro?: string | null
           email?: string | null
+          email_representante?: string | null
           endereco?: string | null
           id?: string
           nome: string
           telefone?: string | null
+          telefone_representante?: string | null
           updated_at?: string
         }
         Update: {
           ativo?: boolean
           categoria_id?: string | null
           cnpj_cpf?: string | null
+          contato_representante?: string | null
           created_at?: string
           data_cadastro?: string | null
           email?: string | null
+          email_representante?: string | null
           endereco?: string | null
           id?: string
           nome?: string
           telefone?: string | null
+          telefone_representante?: string | null
           updated_at?: string
         }
         Relationships: [
