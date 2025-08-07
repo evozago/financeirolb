@@ -330,6 +330,9 @@ export type Database = {
           endereco: string | null
           id: string
           nome: string
+          representante_email: string | null
+          representante_nome: string | null
+          representante_telefone: string | null
           telefone: string | null
           telefone_representante: string | null
           updated_at: string
@@ -346,6 +349,9 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome: string
+          representante_email?: string | null
+          representante_nome?: string | null
+          representante_telefone?: string | null
           telefone?: string | null
           telefone_representante?: string | null
           updated_at?: string
@@ -362,6 +368,9 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome?: string
+          representante_email?: string | null
+          representante_nome?: string | null
+          representante_telefone?: string | null
           telefone?: string | null
           telefone_representante?: string | null
           updated_at?: string
@@ -601,17 +610,28 @@ export type Database = {
           created_at: string
           custo_unitario: number
           data_pedido: string | null
+          desconto_porcentagem: number | null
+          desconto_valor: number | null
           descricao: string | null
           fornecedor_id: string | null
           id: string
           marca_id: string | null
+          numero_pedido: string | null
           observacoes: string | null
           produto_id: string | null
           quantidade: number
+          quantidade_referencias: number | null
           referencia: string
+          representante_email: string | null
+          representante_nome: string | null
+          representante_telefone: string | null
           status: string
           tamanho: string | null
+          tipo_desconto: string | null
           updated_at: string
+          valor_medio_peca: number | null
+          valor_total_bruto: number | null
+          valor_total_liquido: number | null
         }
         Insert: {
           arquivo_origem?: string | null
@@ -620,17 +640,28 @@ export type Database = {
           created_at?: string
           custo_unitario?: number
           data_pedido?: string | null
+          desconto_porcentagem?: number | null
+          desconto_valor?: number | null
           descricao?: string | null
           fornecedor_id?: string | null
           id?: string
           marca_id?: string | null
+          numero_pedido?: string | null
           observacoes?: string | null
           produto_id?: string | null
           quantidade?: number
+          quantidade_referencias?: number | null
           referencia: string
+          representante_email?: string | null
+          representante_nome?: string | null
+          representante_telefone?: string | null
           status?: string
           tamanho?: string | null
+          tipo_desconto?: string | null
           updated_at?: string
+          valor_medio_peca?: number | null
+          valor_total_bruto?: number | null
+          valor_total_liquido?: number | null
         }
         Update: {
           arquivo_origem?: string | null
@@ -639,17 +670,28 @@ export type Database = {
           created_at?: string
           custo_unitario?: number
           data_pedido?: string | null
+          desconto_porcentagem?: number | null
+          desconto_valor?: number | null
           descricao?: string | null
           fornecedor_id?: string | null
           id?: string
           marca_id?: string | null
+          numero_pedido?: string | null
           observacoes?: string | null
           produto_id?: string | null
           quantidade?: number
+          quantidade_referencias?: number | null
           referencia?: string
+          representante_email?: string | null
+          representante_nome?: string | null
+          representante_telefone?: string | null
           status?: string
           tamanho?: string | null
+          tipo_desconto?: string | null
           updated_at?: string
+          valor_medio_peca?: number | null
+          valor_total_bruto?: number | null
+          valor_total_liquido?: number | null
         }
         Relationships: [
           {
