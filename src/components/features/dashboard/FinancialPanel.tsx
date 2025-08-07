@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -9,6 +9,7 @@ interface FinancialPanelStats {
   contas_pagas_hoje: number;
   contas_vencendo_ate_fim_mes: number;
   contas_vencidas: number;
+  contas_pendentes_nao_recorrentes: number;
 }
 
 interface FinancialPanelProps {
@@ -21,13 +22,14 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
     contas_vencendo_hoje: 0,
     contas_pagas_hoje: 0,
     contas_vencendo_ate_fim_mes: 0,
-    contas_vencidas: 0
+    contas_vencidas: 0,
+    contas_pendentes_nao_recorrentes: 0
   });
   const [loading, setLoading] = useState(true);
 
   const loadFinancialStats = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_financial_panel_stats');
+      const { data, error } = await supabase.rpc('get_financial_panel_stats_extended');
       
       if (error) {
         console.error('Error loading financial panel stats:', error);
@@ -80,7 +82,7 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
         <CardTitle>Painel Financeiro - Situação Atual</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {/* Contas a vencer hoje */}
           <div 
             className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800 cursor-pointer hover:shadow-md transition-shadow"
@@ -150,6 +152,24 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
                 </p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+            </div>
+          </div>
+
+          {/* Contas pendentes não recorrentes */}
+          <div 
+            className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => handleCardClick('non-recurring')}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                  Pendentes Não Recorrentes
+                </p>
+                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                  {loading ? '...' : formatCurrency(stats.contas_pendentes_nao_recorrentes)}
+                </p>
+              </div>
+              <FileText className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
         </div>

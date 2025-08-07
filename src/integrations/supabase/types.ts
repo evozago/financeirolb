@@ -1087,6 +1087,16 @@ export type Database = {
           contas_vencidas: number
         }[]
       }
+      get_financial_panel_stats_extended: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          contas_vencendo_hoje: number
+          contas_pagas_hoje: number
+          contas_vencendo_ate_fim_mes: number
+          contas_vencidas: number
+          contas_pendentes_nao_recorrentes: number
+        }[]
+      }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
