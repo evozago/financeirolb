@@ -515,6 +515,15 @@ export default function NewOrder() {
                       </FormItem>
                     )}
                   />
+
+                  <div>
+                    <Label>Valor Total Bruto (Informado)</Label>
+                    <div className="mt-2 p-3 bg-muted rounded-md">
+                      <span className="font-medium">
+                        R$ {calculatedValues.valorTotalBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Desconto Section */}
