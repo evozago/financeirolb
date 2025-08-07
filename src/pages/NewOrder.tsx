@@ -22,7 +22,7 @@ const orderSchema = z.object({
   marca_id: z.string().optional(),
   quantidade: z.number().min(1, 'Quantidade deve ser maior que 0'),
   quantidade_referencias: z.number().min(0, 'Quantidade de referências deve ser maior ou igual a 0'),
-  custo_unitario: z.number().min(0, 'Custo unitário deve ser maior ou igual a 0'),
+  valor_total_bruto: z.number().min(0, 'Valor total bruto deve ser maior ou igual a 0'),
   tipo_desconto: z.enum(['valor', 'porcentagem']),
   desconto_valor: z.number().min(0, 'Desconto deve ser maior ou igual a 0').optional(),
   desconto_porcentagem: z.number().min(0).max(100, 'Porcentagem deve estar entre 0 e 100').optional(),
@@ -65,7 +65,7 @@ export default function NewOrder() {
       marca_id: '',
       quantidade: 1,
       quantidade_referencias: 0,
-      custo_unitario: 0,
+      valor_total_bruto: 0,
       tipo_desconto: 'valor',
       desconto_valor: 0,
       desconto_porcentagem: 0,
@@ -168,8 +168,7 @@ export default function NewOrder() {
 
   const calculateValues = () => {
     const quantidade = watchedValues.quantidade || 0;
-    const custoUnitario = watchedValues.custo_unitario || 0;
-    const valorTotalBruto = quantidade * custoUnitario;
+    const valorTotalBruto = watchedValues.valor_total_bruto || 0;
     
     let descontoValor = 0;
     if (watchedValues.tipo_desconto === 'porcentagem') {
@@ -229,7 +228,7 @@ export default function NewOrder() {
           marca_id: data.marca_id || null,
           quantidade: data.quantidade,
           quantidade_referencias: data.quantidade_referencias,
-          custo_unitario: data.custo_unitario,
+          valor_total_bruto: data.valor_total_bruto,
           tipo_desconto: data.tipo_desconto,
           desconto_valor: data.tipo_desconto === 'valor' ? data.desconto_valor : null,
           desconto_porcentagem: data.tipo_desconto === 'porcentagem' ? data.desconto_porcentagem : null,
@@ -500,10 +499,10 @@ export default function NewOrder() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="custo_unitario"
+                    name="valor_total_bruto"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Custo Unitário *</FormLabel>
+                        <FormLabel>Valor Total Bruto *</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -516,15 +515,6 @@ export default function NewOrder() {
                       </FormItem>
                     )}
                   />
-
-                  <div>
-                    <Label>Valor Total Bruto</Label>
-                    <div className="mt-2 p-3 bg-muted rounded-md">
-                      <span className="font-medium">
-                        R$ {calculatedValues.valorTotalBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Desconto Section */}
