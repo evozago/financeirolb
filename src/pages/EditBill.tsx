@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Calendar, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
@@ -25,12 +26,14 @@ const EditBill = () => {
   const [formData, setFormData] = useState({
     descricao: "",
     fornecedor: "",
-    valor: "",
-    data_vencimento: "",
-    numero_parcela: "1",
+    valor_total: "",
+    total_parcelas: "1",
     categoria: "",
     observacoes: ""
   });
+
+  const [installmentDates, setInstallmentDates] = useState<string[]>([]);
+  const [currentBillsGroup, setCurrentBillsGroup] = useState<any[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -50,15 +53,33 @@ const EditBill = () => {
       if (error) throw error;
 
       setBill(data);
+      
+      // Carregar todas as parcelas do mesmo grupo
+      const { data: groupBills, error: groupError } = await supabase
+        .from('ap_installments')
+        .select('*')
+        .eq('valor_total_titulo', data.valor_total_titulo || data.valor)
+        .eq('fornecedor', data.fornecedor)
+        .order('numero_parcela');
+
+      if (groupError) throw groupError;
+
+      const bills = groupBills || [data];
+      setCurrentBillsGroup(bills);
+      
       setFormData({
         descricao: data.descricao || "",
         fornecedor: data.fornecedor || "",
-        valor: data.valor?.toString() || "",
-        data_vencimento: data.data_vencimento || "",
-        numero_parcela: data.numero_parcela?.toString() || "1",
+        valor_total: (data.valor_total_titulo || data.valor)?.toString() || "",
+        total_parcelas: (data.total_parcelas || bills.length)?.toString() || "1",
         categoria: data.categoria || "",
         observacoes: data.observacoes || ""
       });
+
+      // Configurar datas das parcelas
+      const dates = bills.map(bill => bill.data_vencimento);
+      setInstallmentDates(dates);
+      
     } catch (error) {
       console.error('Error loading bill:', error);
       toast({
@@ -86,10 +107,37 @@ const EditBill = () => {
   };
 
   const handleInputChange = (field: string, value: string) => {
+    if (field === 'total_parcelas') {
+      const newTotal = parseInt(value) || 1;
+      const currentDates = [...installmentDates];
+      
+      // Ajustar array de datas
+      if (newTotal > currentDates.length) {
+        // Adicionar novas datas (30 dias entre parcelas)
+        const lastDate = currentDates[currentDates.length - 1] || new Date().toISOString().split('T')[0];
+        for (let i = currentDates.length; i < newTotal; i++) {
+          const date = new Date(lastDate);
+          date.setMonth(date.getMonth() + i);
+          currentDates.push(date.toISOString().split('T')[0]);
+        }
+      } else if (newTotal < currentDates.length) {
+        // Remover datas extras
+        currentDates.splice(newTotal);
+      }
+      
+      setInstallmentDates(currentDates);
+    }
+    
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleDateChange = (index: number, date: string) => {
+    const newDates = [...installmentDates];
+    newDates[index] = date;
+    setInstallmentDates(newDates);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,20 +146,68 @@ const EditBill = () => {
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      const totalValue = parseFloat(formData.valor_total);
+      const totalInstallments = parseInt(formData.total_parcelas);
+      const valuePerInstallment = totalValue / totalInstallments;
+
+      // Primeiro, deletar todas as parcelas do grupo atual (exceto a atual)
+      if (currentBillsGroup.length > 1) {
+        const otherBillIds = currentBillsGroup
+          .filter(b => b.id !== bill.id)
+          .map(b => b.id);
+
+        if (otherBillIds.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('ap_installments')
+            .delete()
+            .in('id', otherBillIds);
+
+          if (deleteError) throw deleteError;
+        }
+      }
+
+      // Atualizar a parcela atual
+      const { error: updateError } = await supabase
         .from('ap_installments')
         .update({
           descricao: formData.descricao,
           fornecedor: formData.fornecedor,
-          valor: parseFloat(formData.valor),
-          data_vencimento: formData.data_vencimento,
-          numero_parcela: parseInt(formData.numero_parcela),
+          valor: valuePerInstallment,
+          valor_total_titulo: totalValue,
+          data_vencimento: installmentDates[0],
+          numero_parcela: 1,
+          total_parcelas: totalInstallments,
           categoria: formData.categoria,
           observacoes: formData.observacoes
         })
         .eq('id', bill.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Criar novas parcelas se necessário
+      if (totalInstallments > 1) {
+        const newInstallments = [];
+        for (let i = 1; i < totalInstallments; i++) {
+          newInstallments.push({
+            descricao: formData.descricao,
+            fornecedor: formData.fornecedor,
+            valor: valuePerInstallment,
+            valor_total_titulo: totalValue,
+            data_vencimento: installmentDates[i],
+            numero_parcela: i + 1,
+            total_parcelas: totalInstallments,
+            categoria: formData.categoria,
+            observacoes: formData.observacoes,
+            status: 'aberto'
+          });
+        }
+
+        const { error: insertError } = await supabase
+          .from('ap_installments')
+          .insert(newInstallments);
+
+        if (insertError) throw insertError;
+      }
 
       toast({
         title: "Sucesso",
@@ -206,7 +302,7 @@ const EditBill = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="md:col-span-2">
                 <Label htmlFor="descricao">Descrição *</Label>
                 <Input
                   id="descricao"
@@ -227,41 +323,6 @@ const EditBill = () => {
               </div>
 
               <div>
-                <Label htmlFor="valor">Valor *</Label>
-                <Input
-                  id="valor"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.valor}
-                  onChange={(e) => handleInputChange('valor', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="data_vencimento">Data de Vencimento *</Label>
-                <Input
-                  id="data_vencimento"
-                  type="date"
-                  value={formData.data_vencimento}
-                  onChange={(e) => handleInputChange('data_vencimento', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="numero_parcela">Número da Parcela</Label>
-                <Input
-                  id="numero_parcela"
-                  type="number"
-                  min="1"
-                  value={formData.numero_parcela}
-                  onChange={(e) => handleInputChange('numero_parcela', e.target.value)}
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="categoria">Categoria</Label>
                 <Input
                   id="categoria"
@@ -269,7 +330,102 @@ const EditBill = () => {
                   onChange={(e) => handleInputChange('categoria', e.target.value)}
                 />
               </div>
+
+              <div>
+                <Label htmlFor="valor_total">Valor Total *</Label>
+                <Input
+                  id="valor_total"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.valor_total}
+                  onChange={(e) => handleInputChange('valor_total', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="total_parcelas">Quantidade de Parcelas *</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const current = parseInt(formData.total_parcelas) || 1;
+                      if (current > 1) {
+                        handleInputChange('total_parcelas', (current - 1).toString());
+                      }
+                    }}
+                    disabled={parseInt(formData.total_parcelas) <= 1}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    id="total_parcelas"
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={formData.total_parcelas}
+                    onChange={(e) => handleInputChange('total_parcelas', e.target.value)}
+                    className="text-center"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const current = parseInt(formData.total_parcelas) || 1;
+                      if (current < 99) {
+                        handleInputChange('total_parcelas', (current + 1).toString());
+                      }
+                    }}
+                    disabled={parseInt(formData.total_parcelas) >= 99}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Valor por parcela: {formData.valor_total && formData.total_parcelas ? 
+                    new Intl.NumberFormat('pt-BR', { 
+                      style: 'currency', 
+                      currency: 'BRL' 
+                    }).format(parseFloat(formData.valor_total) / parseInt(formData.total_parcelas)) : 
+                    'R$ 0,00'
+                  }
+                </p>
+              </div>
             </div>
+
+            {/* Datas das Parcelas */}
+            {parseInt(formData.total_parcelas) > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="flex items-center gap-2 mb-4">
+                    <Calendar className="h-4 w-4" />
+                    Datas de Vencimento das Parcelas
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: parseInt(formData.total_parcelas) || 1 }, (_, index) => (
+                      <div key={index}>
+                        <Label htmlFor={`date-${index}`} className="text-sm">
+                          {index + 1}ª Parcela
+                        </Label>
+                        <Input
+                          id={`date-${index}`}
+                          type="date"
+                          value={installmentDates[index] || ''}
+                          onChange={(e) => handleDateChange(index, e.target.value)}
+                          required
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div>
               <Label htmlFor="observacoes">Observações</Label>
