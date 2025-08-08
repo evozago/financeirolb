@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { ImportExportModal } from '@/components/features/orders/ImportExportModal';
 
 interface OrderData {
   id: string;
@@ -208,6 +209,7 @@ export default function Orders() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <ImportExportModal onImportSuccess={loadOrders} />
               <Button onClick={() => navigate('/orders/new')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Pedido
