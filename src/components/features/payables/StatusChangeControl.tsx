@@ -7,6 +7,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PaymentModal, PaymentData } from './PaymentModal';
 
 interface InstallmentData {
   id: string;
@@ -34,6 +35,7 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
   const [selectedInstallments, setSelectedInstallments] = useState<string[]>([]);
   const [newStatus, setNewStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
@@ -87,6 +89,17 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
       return;
     }
 
+    // Se o status for 'pago', abrir modal de pagamento
+    if (newStatus === 'pago') {
+      setPaymentModalOpen(true);
+      return;
+    }
+
+    // Para outros status, processar diretamente
+    await processStatusChange();
+  };
+
+  const processStatusChange = async () => {
     setLoading(true);
     try {
       const updateData: any = {
@@ -94,14 +107,12 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
         updated_at: new Date().toISOString()
       };
 
-      // Se status for 'pago', adicionar data de pagamento
-      if (newStatus === 'pago') {
-        updateData.data_pagamento = new Date().toISOString().split('T')[0];
-        updateData.data_hora_pagamento = new Date().toISOString();
-      } else if (newStatus === 'aberto') {
-        // Se voltar para aberto, remover data de pagamento
+      // Se voltar para aberto, remover dados de pagamento
+      if (newStatus === 'aberto') {
         updateData.data_pagamento = null;
         updateData.data_hora_pagamento = null;
+        updateData.valor_pago = null;
+        updateData.banco_pagador = null;
       }
 
       const { error } = await supabase
@@ -129,6 +140,52 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
       toast({
         title: "Erro",
         description: "Falha ao alterar status das parcelas",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentConfirm = async (paymentData: PaymentData[]) => {
+    setLoading(true);
+    try {
+      // Processar cada pagamento
+      for (const payment of paymentData) {
+        const updateData = {
+          status: 'pago',
+          data_pagamento: payment.dataPagamento,
+          data_hora_pagamento: new Date().toISOString(),
+          valor_pago: payment.valorPago,
+          banco_pagador: payment.bancoPagador || null,
+          observacoes: payment.observacoes || null,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+          .from('ap_installments')
+          .update(updateData)
+          .eq('id', payment.installmentId);
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      toast({
+        title: "Sucesso",
+        description: `${paymentData.length} parcela(s) marcada(s) como paga(s)`,
+      });
+
+      setSelectedInstallments([]);
+      setNewStatus('');
+      setPaymentModalOpen(false);
+      onStatusChanged();
+    } catch (error) {
+      console.error('Erro ao processar pagamentos:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao processar pagamentos",
         variant: "destructive",
       });
     } finally {
@@ -237,6 +294,15 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
             </Button>
           </div>
         )}
+
+        {/* Modal de Pagamento Avançado */}
+        <PaymentModal
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          installments={installments.filter(inst => selectedInstallments.includes(inst.id))}
+          onPaymentConfirm={handlePaymentConfirm}
+          loading={loading}
+        />
       </CardContent>
     </Card>
   );

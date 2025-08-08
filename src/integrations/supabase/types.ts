@@ -50,6 +50,7 @@ export type Database = {
       ap_installments: {
         Row: {
           banco: string | null
+          banco_pagador: string | null
           categoria: string | null
           comprovante_path: string | null
           conta_bancaria_id: string | null
@@ -80,10 +81,12 @@ export type Database = {
           updated_at: string
           valor: number
           valor_fixo: boolean | null
+          valor_pago: number | null
           valor_total_titulo: number | null
         }
         Insert: {
           banco?: string | null
+          banco_pagador?: string | null
           categoria?: string | null
           comprovante_path?: string | null
           conta_bancaria_id?: string | null
@@ -114,10 +117,12 @@ export type Database = {
           updated_at?: string
           valor: number
           valor_fixo?: boolean | null
+          valor_pago?: number | null
           valor_total_titulo?: number | null
         }
         Update: {
           banco?: string | null
+          banco_pagador?: string | null
           categoria?: string | null
           comprovante_path?: string | null
           conta_bancaria_id?: string | null
@@ -148,6 +153,7 @@ export type Database = {
           updated_at?: string
           valor?: number
           valor_fixo?: boolean | null
+          valor_pago?: number | null
           valor_total_titulo?: number | null
         }
         Relationships: [
