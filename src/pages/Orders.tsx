@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Plus, ShoppingCart, FileText } from 'lucide-react';
+import { ArrowLeft, Search, Plus, ShoppingCart, FileText, ArrowUpDown, ArrowUp, ArrowDown, Package, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,12 +29,17 @@ interface OrderData {
   marcas?: { nome: string };
 }
 
+type SortField = 'referencia' | 'fornecedor' | 'marca' | 'quantidade' | 'custo_unitario' | 'valor_total' | 'data_pedido' | 'status';
+type SortDirection = 'asc' | 'desc';
+
 export default function Orders() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState<SortField>('data_pedido');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const loadOrders = async () => {
     try {
@@ -71,16 +76,80 @@ export default function Orders() {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    if (!search) return orders;
+    let filtered = orders;
     
-    const searchLower = search.toLowerCase();
-    return orders.filter(order =>
-      order.referencia.toLowerCase().includes(searchLower) ||
-      order.descricao?.toLowerCase().includes(searchLower) ||
-      order.fornecedores?.nome.toLowerCase().includes(searchLower) ||
-      order.marcas?.nome.toLowerCase().includes(searchLower)
-    );
-  }, [search, orders]);
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = orders.filter(order =>
+        order.referencia.toLowerCase().includes(searchLower) ||
+        order.descricao?.toLowerCase().includes(searchLower) ||
+        order.fornecedores?.nome.toLowerCase().includes(searchLower) ||
+        order.marcas?.nome.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Aplicar ordenação
+    return filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'referencia':
+          aValue = a.referencia;
+          bValue = b.referencia;
+          break;
+        case 'fornecedor':
+          aValue = a.fornecedores?.nome || '';
+          bValue = b.fornecedores?.nome || '';
+          break;
+        case 'marca':
+          aValue = a.marcas?.nome || '';
+          bValue = b.marcas?.nome || '';
+          break;
+        case 'quantidade':
+          aValue = a.quantidade;
+          bValue = b.quantidade;
+          break;
+        case 'custo_unitario':
+          aValue = a.custo_unitario || a.valor_medio_peca || 0;
+          bValue = b.custo_unitario || b.valor_medio_peca || 0;
+          break;
+        case 'valor_total':
+          aValue = a.valor_total_liquido || a.valor_total_bruto || (a.custo_unitario * a.quantidade) || 0;
+          bValue = b.valor_total_liquido || b.valor_total_bruto || (b.custo_unitario * b.quantidade) || 0;
+          break;
+        case 'data_pedido':
+          aValue = new Date(a.data_pedido || 0);
+          bValue = new Date(b.data_pedido || 0);
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [search, orders, sortField, sortDirection]);
+
+  // Calcular totalizadores
+  const totals = useMemo(() => {
+    const totalPecas = filteredOrders.reduce((sum, order) => sum + order.quantidade, 0);
+    const totalValor = filteredOrders.reduce((sum, order) => {
+      const valor = order.valor_total_liquido || order.valor_total_bruto || (order.custo_unitario * order.quantidade) || 0;
+      return sum + valor;
+    }, 0);
+    
+    return {
+      totalPecas,
+      totalValor,
+      totalPedidos: filteredOrders.length
+    };
+  }, [filteredOrders]);
 
   const handleRowClick = (order: OrderData) => {
     navigate(`/orders/${order.id}`);
@@ -100,6 +169,20 @@ export default function Orders() {
       case 'recebido': return 'outline';
       default: return 'default';
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
   return (
@@ -136,6 +219,51 @@ export default function Orders() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
+          {/* Dashboard - Totalizadores */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <ShoppingCart className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total de Pedidos</p>
+                    <p className="text-2xl font-bold">{totals.totalPedidos}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-blue-500/10">
+                    <Package className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total de Peças</p>
+                    <p className="text-2xl font-bold">{totals.totalPecas.toLocaleString('pt-BR')}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-green-500/10">
+                    <DollarSign className="h-6 w-6 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
+                    <p className="text-2xl font-bold">{formatCurrency(totals.totalValor)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Busca */}
           <Card>
             <CardHeader>
@@ -164,20 +292,92 @@ export default function Orders() {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Referência</TableHead>
-                      <TableHead>Fornecedor</TableHead>
-                      <TableHead>Marca</TableHead>
-                      <TableHead>Quantidade</TableHead>
-                      <TableHead>Valor Unit.</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('referencia')}
+                          >
+                            Referência {getSortIcon('referencia')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('fornecedor')}
+                          >
+                            Fornecedor {getSortIcon('fornecedor')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('marca')}
+                          >
+                            Marca {getSortIcon('marca')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('quantidade')}
+                          >
+                            Quantidade {getSortIcon('quantidade')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('custo_unitario')}
+                          >
+                            Valor Unit. {getSortIcon('custo_unitario')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('valor_total')}
+                          >
+                            Total {getSortIcon('valor_total')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('data_pedido')}
+                          >
+                            Data {getSortIcon('data_pedido')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 font-semibold"
+                            onClick={() => handleSort('status')}
+                          >
+                            Status {getSortIcon('status')}
+                          </Button>
+                        </TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {filteredOrders.length === 0 ? (
                       <TableRow>
