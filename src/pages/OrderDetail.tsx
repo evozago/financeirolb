@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,10 +40,33 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderDetailData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attachmentFiles, setAttachmentFiles] = useState<string[]>([]);
 
   useEffect(() => {
     loadOrder();
   }, [id]);
+
+  const loadOrderAttachments = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('order-attachments')
+        .list(orderId, {
+          limit: 100,
+          offset: 0,
+        });
+
+      if (error) {
+        console.error('Error loading attachments:', error);
+        return;
+      }
+
+      if (data) {
+        setAttachmentFiles(data.map(file => file.name));
+      }
+    } catch (error) {
+      console.error('Error loading attachments:', error);
+    }
+  };
 
   const loadOrder = async () => {
     try {
@@ -71,6 +94,10 @@ export default function OrderDetail() {
       }
 
       setOrder(data);
+      // Load attachments from storage
+      if (data.id) {
+        await loadOrderAttachments(data.id);
+      }
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro inesperado ao carregar pedido');
@@ -127,6 +154,35 @@ export default function OrderDetail() {
         return 'destructive';
       default:
         return 'default';
+    }
+  };
+
+  const downloadFile = async (fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('order-attachments')
+        .download(`${id}/${fileName}`);
+
+      if (error) {
+        console.error('Error downloading file:', error);
+        toast.error('Erro ao baixar arquivo');
+        return;
+      }
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Arquivo baixado com sucesso');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error('Erro ao baixar arquivo');
     }
   };
 
@@ -365,10 +421,35 @@ export default function OrderDetail() {
                 );
               })()}
               
-              {order.arquivo_origem && (
+              {attachmentFiles.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Arquivos Anexados</Label>
-                  <p className="font-medium">{order.arquivo_origem}</p>
+                  <div className="space-y-2">
+                    {attachmentFiles.map((fileName, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{fileName}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadFile(fileName)}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Baixar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {order.arquivo_origem && attachmentFiles.length === 0 && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Arquivos Mencionados</Label>
+                  <p className="font-medium text-muted-foreground text-sm">{order.arquivo_origem}</p>
+                  <p className="text-xs text-muted-foreground">Arquivos não encontrados no storage</p>
                 </div>
               )}
             </CardContent>
