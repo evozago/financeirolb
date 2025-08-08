@@ -13,6 +13,7 @@ import { PayablesTable } from '@/components/features/payables/PayablesTable';
 import { PayableFilters } from '@/components/features/payables/PayableFilters';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BulkEditModal, BulkEditData } from '@/components/features/payables/BulkEditModal';
+import { StatusChangeControl } from '@/components/features/payables/StatusChangeControl';
 import { BillToPayInstallment, PayablesFilter, Supplier } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -989,6 +990,25 @@ export default function AccountsPayable() {
             sortDirection={sortDirection}
             onSortChange={handleSortChange}
           />
+
+          {/* Controle de Status - visível apenas quando há itens selecionados */}
+          {selectedItems.length > 0 && (
+            <StatusChangeControl
+              installments={selectedItems.map(item => ({
+                id: item.id,
+                numero_parcela: item.installmentNumber,
+                total_parcelas: item.bill?.totalInstallments || 1,
+                valor: item.amount,
+                data_vencimento: item.dueDate,
+                status: item.status === 'Pendente' ? 'aberto' : item.status === 'Pago' ? 'pago' : 'aberto',
+                data_pagamento: undefined
+              }))}
+              onStatusChanged={() => {
+                loadInstallments();
+                setSelectedItems([]);
+              }}
+            />
+          )}
         </div>
       </div>
 
