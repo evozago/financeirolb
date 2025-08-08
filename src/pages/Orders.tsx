@@ -208,9 +208,9 @@ export default function Orders() {
                           <TableCell>{order.fornecedores?.nome || '-'}</TableCell>
                           <TableCell>{order.marcas?.nome || '-'}</TableCell>
                           <TableCell>{order.quantidade}</TableCell>
-                          <TableCell>{formatCurrency(order.valor_medio_peca || 0)}</TableCell>
+                          <TableCell>{formatCurrency(order.custo_unitario || order.valor_medio_peca || 0)}</TableCell>
                           <TableCell className="font-medium">
-                            {formatCurrency(order.valor_total_liquido || order.valor_total_bruto || 0)}
+                            {formatCurrency(order.valor_total_liquido || order.valor_total_bruto || (order.custo_unitario * order.quantidade) || 0)}
                           </TableCell>
                           <TableCell>
                             {order.data_pedido ? new Date(order.data_pedido).toLocaleDateString('pt-BR') : '-'}
