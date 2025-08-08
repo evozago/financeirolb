@@ -237,6 +237,7 @@ export default function NewOrder() {
           representante_telefone: data.representante_telefone,
           representante_email: data.representante_email,
           observacoes: observacoesWithLinks,
+          arquivo_origem: attachments.length > 0 ? attachments.map(f => f.name).join(', ') : null,
           status: 'pendente',
         })
         .select()

@@ -20,6 +20,8 @@ interface OrderDetailData {
   desconto_porcentagem: number | null;
   valor_total_liquido: number | null;
   valor_medio_peca: number | null;
+  observacoes: string | null;
+  arquivo_origem: string | null;
   data_pedido: string | null;
   status: string;
   representante_nome: string | null;
@@ -312,6 +314,61 @@ export default function OrderDetail() {
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Email</Label>
                   <p className="font-medium">{order.representante_email}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Additional Information */}
+        {(order.observacoes || order.arquivo_origem) && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Informações Adicionais</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.observacoes && (() => {
+                // Parse observações para separar texto e links
+                const observacoesText = order.observacoes.replace(/\n\nLinks:\n.*$/s, '');
+                const linksMatch = order.observacoes.match(/Links:\n(.*?)$/s);
+                const links = linksMatch ? linksMatch[1].split('\n').filter(link => link.trim()) : [];
+                
+                return (
+                  <>
+                    {observacoesText && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Observações</Label>
+                        <p className="font-medium whitespace-pre-wrap">{observacoesText}</p>
+                      </div>
+                    )}
+                    
+                    {links.length > 0 && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Links Relacionados</Label>
+                        <div className="space-y-1">
+                          {links.map((link, index) => (
+                            <div key={index}>
+                              <a 
+                                href={link.startsWith('http') ? link : `https://${link}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline break-all"
+                              >
+                                {link}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              
+              {order.arquivo_origem && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Arquivos Anexados</Label>
+                  <p className="font-medium">{order.arquivo_origem}</p>
                 </div>
               )}
             </CardContent>
