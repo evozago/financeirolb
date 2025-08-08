@@ -25,6 +25,7 @@ import BankAccountDetail from "./pages/BankAccountDetail";
 import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
 import OrderDetail from "./pages/OrderDetail";
+import EditOrder from "./pages/EditOrder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ function AppContent() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/new" element={<NewOrder />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/orders/:id/edit" element={<EditOrder />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<Reports />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
