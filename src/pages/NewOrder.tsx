@@ -65,7 +65,7 @@ export default function NewOrder() {
       marca_id: '',
       quantidade: 1,
       quantidade_referencias: 0,
-      valor_total_bruto: 0,
+      valor_total_bruto: 1,
       tipo_desconto: 'valor',
       desconto_valor: 0,
       desconto_porcentagem: 0,
@@ -219,9 +219,6 @@ export default function NewOrder() {
         validLinks.length > 0 ? `\n\nLinks:\n${validLinks.join('\n')}` : ''
       ].filter(Boolean).join('');
 
-      // Calcular custo unitário baseado no valor total bruto
-      const custoUnitario = data.quantidade > 0 ? data.valor_total_bruto / data.quantidade : 0;
-      
       const { data: order, error } = await supabase
         .from('pedidos_produtos')
         .insert({
@@ -231,7 +228,6 @@ export default function NewOrder() {
           marca_id: data.marca_id || null,
           quantidade: data.quantidade,
           quantidade_referencias: data.quantidade_referencias,
-          custo_unitario: custoUnitario,
           valor_total_bruto: data.valor_total_bruto,
           tipo_desconto: data.tipo_desconto,
           desconto_valor: data.tipo_desconto === 'valor' ? data.desconto_valor : null,
