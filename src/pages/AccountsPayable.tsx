@@ -164,6 +164,23 @@ export default function AccountsPayable() {
         query = query.or(`descricao.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,numero_documento.ilike.%${filters.search}%`);
       }
 
+      // Filtros especiais baseados no parâmetro 'filter' da URL
+      const urlFilter = searchParams.get('filter');
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (urlFilter === 'paid-today') {
+        query = query.eq('status', 'pago').eq('data_pagamento', todayStr);
+      } else if (urlFilter === 'non-recurring') {
+        query = query.or('eh_recorrente.is.null,eh_recorrente.eq.false').neq('status', 'pago');
+      } else if (urlFilter === 'due-today') {
+        query = query.eq('data_vencimento', todayStr).neq('status', 'pago');
+      } else if (urlFilter === 'due-month') {
+        const endOfMonth = new Date();
+        endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+        endOfMonth.setDate(0);
+        const endStr = endOfMonth.toISOString().split('T')[0];
+        query = query.gte('data_vencimento', todayStr).lte('data_vencimento', endStr).neq('status', 'pago');
+      }
+
       const { data, error } = await query;
       
       if (error) {
@@ -232,29 +249,49 @@ export default function AccountsPayable() {
       const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
       const monthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-      switch (filter) {
-        case 'overdue':
-          setFilters({ status: ['Vencido'] });
-          break;
-        case 'thisWeek':
-          setFilters({ 
-            dueDateFrom: today.toISOString().split('T')[0],
-            dueDateTo: weekFromNow.toISOString().split('T')[0]
-          });
-          break;
-        case 'thisMonth':
-          setFilters({ 
-            dueDateFrom: today.toISOString().split('T')[0],
-            dueDateTo: monthFromNow.toISOString().split('T')[0]
-          });
-          break;
-        case 'pending':
-          setFilters({ status: ['Pendente'] });
-          break;
-        case 'paid':
-          setFilters({ status: ['Pago'] });
-          break;
-      }
+        switch (filter) {
+          case 'overdue':
+            setFilters({ status: ['Vencido'] });
+            break;
+          case 'due-today': {
+            const todayStr = today.toISOString().split('T')[0];
+            setFilters({ status: ['Pendente'], dueDateFrom: todayStr, dueDateTo: todayStr });
+            break;
+          }
+          case 'paid-today':
+            // Data de pagamento de hoje será aplicada diretamente na query
+            setFilters({ status: ['Pago'] });
+            break;
+          case 'due-month': {
+            const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const todayStr = today.toISOString().split('T')[0];
+            const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
+            setFilters({ status: ['Pendente'], dueDateFrom: todayStr, dueDateTo: endOfMonthStr });
+            break;
+          }
+          case 'thisWeek':
+            setFilters({ 
+              dueDateFrom: today.toISOString().split('T')[0],
+              dueDateTo: weekFromNow.toISOString().split('T')[0]
+            });
+            break;
+          case 'thisMonth':
+            setFilters({ 
+              dueDateFrom: today.toISOString().split('T')[0],
+              dueDateTo: monthFromNow.toISOString().split('T')[0]
+            });
+            break;
+          case 'pending':
+            setFilters({ status: ['Pendente'] });
+            break;
+          case 'paid':
+            setFilters({ status: ['Pago'] });
+            break;
+          case 'non-recurring':
+            // Será aplicado na query (eh_recorrente false/null)
+            setFilters({ status: ['Pendente'] });
+            break;
+        }
     }
   }, [searchParams]);
 

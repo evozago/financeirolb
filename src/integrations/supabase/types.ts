@@ -1148,10 +1148,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: {
           contas_vencendo_hoje: number
+          contas_vencendo_hoje_count: number
           contas_pagas_hoje: number
+          contas_pagas_hoje_count: number
           contas_vencendo_ate_fim_mes: number
+          contas_vencendo_ate_fim_mes_count: number
           contas_vencidas: number
+          contas_vencidas_count: number
           contas_pendentes_nao_recorrentes: number
+          contas_pendentes_nao_recorrentes_count: number
         }[]
       }
       is_admin: {

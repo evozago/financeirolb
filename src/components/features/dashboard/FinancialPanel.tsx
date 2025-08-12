@@ -6,10 +6,15 @@ import { useToast } from '@/hooks/use-toast';
 
 interface FinancialPanelStats {
   contas_vencendo_hoje: number;
+  contas_vencendo_hoje_count?: number;
   contas_pagas_hoje: number;
+  contas_pagas_hoje_count?: number;
   contas_vencendo_ate_fim_mes: number;
+  contas_vencendo_ate_fim_mes_count?: number;
   contas_vencidas: number;
+  contas_vencidas_count?: number;
   contas_pendentes_nao_recorrentes: number;
+  contas_pendentes_nao_recorrentes_count?: number;
 }
 
 interface FinancialPanelProps {
@@ -20,10 +25,15 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
   const { toast } = useToast();
   const [stats, setStats] = useState<FinancialPanelStats>({
     contas_vencendo_hoje: 0,
+    contas_vencendo_hoje_count: 0,
     contas_pagas_hoje: 0,
+    contas_pagas_hoje_count: 0,
     contas_vencendo_ate_fim_mes: 0,
+    contas_vencendo_ate_fim_mes_count: 0,
     contas_vencidas: 0,
-    contas_pendentes_nao_recorrentes: 0
+    contas_vencidas_count: 0,
+    contas_pendentes_nao_recorrentes: 0,
+    contas_pendentes_nao_recorrentes_count: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -96,6 +106,9 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
                 <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
                   {loading ? '...' : formatCurrency(stats.contas_vencendo_hoje)}
                 </p>
+                <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
+                  {loading ? '...' : `${stats.contas_vencendo_hoje_count ?? 0} títulos`}
+                </p>
               </div>
               <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             </div>
@@ -113,6 +126,9 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
                 </p>
                 <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
                   {loading ? '...' : formatCurrency(stats.contas_pagas_hoje)}
+                </p>
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
+                  {loading ? '...' : `${stats.contas_pagas_hoje_count ?? 0} títulos`}
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
@@ -132,6 +148,9 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
                 <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                   {loading ? '...' : formatCurrency(stats.contas_vencendo_ate_fim_mes)}
                 </p>
+                <p className="text-xs text-blue-700/80 dark:text-blue-300/80">
+                  {loading ? '...' : `${stats.contas_vencendo_ate_fim_mes_count ?? 0} títulos`}
+                </p>
               </div>
               <Calendar className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </div>
@@ -150,6 +169,9 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
                 <p className="text-2xl font-bold text-red-900 dark:text-red-100">
                   {loading ? '...' : formatCurrency(stats.contas_vencidas)}
                 </p>
+                <p className="text-xs text-red-700/80 dark:text-red-300/80">
+                  {loading ? '...' : `${stats.contas_vencidas_count ?? 0} títulos`}
+                </p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
             </div>
@@ -167,6 +189,9 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
                 </p>
                 <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                   {loading ? '...' : formatCurrency(stats.contas_pendentes_nao_recorrentes)}
+                </p>
+                <p className="text-xs text-purple-700/80 dark:text-purple-300/80">
+                  {loading ? '...' : `${stats.contas_pendentes_nao_recorrentes_count ?? 0} títulos`}
                 </p>
               </div>
               <FileText className="h-8 w-8 text-purple-600 dark:text-purple-400" />
