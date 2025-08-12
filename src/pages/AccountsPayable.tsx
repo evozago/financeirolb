@@ -109,20 +109,28 @@ export default function AccountsPayable() {
 
       // Aplicar filtros de status
       if (filters.status?.length) {
-        // Converter status da interface para valores do banco
-        const dbStatus = filters.status.map(status => {
-          switch(status) {
-            case 'Pendente': return 'aberto';
-            case 'Pago': return 'pago';  
-            case 'Vencido': return 'vencido';
-            default: return status.toLowerCase();
-          }
-        });
-        
-        if (dbStatus.length === 1) {
-          query = query.eq('status', dbStatus[0]);
+        // Caso especial: "Vencido" não existe no banco, é derivado por data_vencimento < hoje e status != 'pago'
+        if (filters.status.length === 1 && filters.status[0] === 'Vencido') {
+          const todayStr = new Date().toISOString().split('T')[0];
+          query = query.lte('data_vencimento', todayStr).neq('status', 'pago');
         } else {
-          query = query.in('status', dbStatus);
+          // Converter status da interface para valores do banco
+          const dbStatus = filters.status.map(status => {
+            switch (status) {
+              case 'Pendente':
+                return 'aberto';
+              case 'Pago':
+                return 'pago';
+              default:
+                return status.toLowerCase();
+            }
+          });
+
+          if (dbStatus.length === 1) {
+            query = query.eq('status', dbStatus[0]);
+          } else {
+            query = query.in('status', dbStatus);
+          }
         }
       }
 
