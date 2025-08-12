@@ -100,7 +100,8 @@ export default function AccountsPayable() {
       // Construir query com filtros
       let query = supabase
         .from('ap_installments')
-        .select('*');
+        .select('*')
+        .is('deleted_at', null);
 
       // Aplicar filtros de categoria
       if (filters.category) {
@@ -444,9 +445,9 @@ export default function AccountsPayable() {
       
       const { error } = await supabase
         .from('ap_installments')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .in('id', itemIds);
-      
+
       if (error) {
         throw error;
       }
@@ -460,12 +461,12 @@ export default function AccountsPayable() {
         id: `delete-${Date.now()}`,
         type: 'delete',
         data: { itemIds, count: items.length },
-        originalData: { items: originalItems || [] },
+        originalData: {},
       }, () => {
         // Callback para atualizar UI quando desfazer
         loadInstallments();
       });
-      
+
       toast({
         title: "Sucesso",
         description: `${items.length} conta(s) excluída(s)`,

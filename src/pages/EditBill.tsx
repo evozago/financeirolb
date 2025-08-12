@@ -159,7 +159,7 @@ const EditBill = () => {
         if (otherBillIds.length > 0) {
           const { error: deleteError } = await supabase
             .from('ap_installments')
-            .delete()
+            .update({ deleted_at: new Date().toISOString() })
             .in('id', otherBillIds);
 
           if (deleteError) throw deleteError;
@@ -235,7 +235,7 @@ const EditBill = () => {
     try {
       const { error } = await supabase
         .from('ap_installments')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', bill.id);
 
       if (error) throw error;

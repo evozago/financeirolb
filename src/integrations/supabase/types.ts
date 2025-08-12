@@ -60,6 +60,7 @@ export type Database = {
           data_hora_pagamento: string | null
           data_pagamento: string | null
           data_vencimento: string
+          deleted_at: string | null
           descricao: string
           eh_recorrente: boolean | null
           entidade_id: string | null
@@ -96,6 +97,7 @@ export type Database = {
           data_hora_pagamento?: string | null
           data_pagamento?: string | null
           data_vencimento: string
+          deleted_at?: string | null
           descricao: string
           eh_recorrente?: boolean | null
           entidade_id?: string | null
@@ -132,6 +134,7 @@ export type Database = {
           data_hora_pagamento?: string | null
           data_pagamento?: string | null
           data_vencimento?: string
+          deleted_at?: string | null
           descricao?: string
           eh_recorrente?: boolean | null
           entidade_id?: string | null

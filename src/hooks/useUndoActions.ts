@@ -84,10 +84,11 @@ export function useUndoActions() {
         break;
 
       case 'delete':
-        // Restaurar registros deletados
+        // Restaurar registros marcando como não deletados (soft delete)
         const { error: restoreError } = await supabase
           .from('ap_installments')
-          .insert(action.originalData.items);
+          .update({ deleted_at: null })
+          .in('id', action.data.itemIds);
         
         if (restoreError) throw restoreError;
         break;
