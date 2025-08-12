@@ -79,6 +79,7 @@ export default function BillDetail() {
         .from('ap_installments')
         .select('*')
         .eq('id', id)
+        .is('deleted_at', null)
         .single();
       
       if (error) {
@@ -112,7 +113,8 @@ export default function BillDetail() {
         .select('*')
         .eq('valor_total_titulo', installment.valor_total_titulo || installment.valor)
         .eq('fornecedor', installment.fornecedor)
-        .neq('id', installment.id);
+        .neq('id', installment.id)
+        .is('deleted_at', null);
       
       if (relatedError) {
         console.error('Erro ao carregar parcelas relacionadas:', relatedError);
@@ -237,6 +239,22 @@ export default function BillDetail() {
       });
     }
   };
+  
+  const handleDelete = async () => {
+    if (!bill) return;
+    try {
+      const { error } = await supabase
+        .from('ap_installments')
+        .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', bill.id);
+      if (error) throw error;
+      toast({ title: "Conta excluída", description: "A conta foi movida para a lixeira." });
+      navigate('/accounts-payable');
+    } catch (err) {
+      console.error('Erro ao excluir conta:', err);
+      toast({ title: "Erro", description: "Falha ao excluir conta.", variant: "destructive" });
+    }
+  };
 
   const installmentColumns: Column<BillData>[] = [
     {
@@ -353,13 +371,8 @@ export default function BillDetail() {
               <Button 
                 variant="destructive"
                 onClick={() => {
-                  if (confirm('Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita.')) {
-                    // Mock exclusão - substituir por chamada real da API
-                    toast({
-                      title: "Conta excluída",
-                      description: "A conta foi excluída com sucesso.",
-                    });
-                    navigate('/accounts-payable');
+                  if (confirm('Tem certeza que deseja excluir esta conta? Esta ação pode ser desfeita.')) {
+                    handleDelete();
                   }
                 }}
               >

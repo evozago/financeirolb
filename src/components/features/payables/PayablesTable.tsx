@@ -193,11 +193,13 @@ export function PayablesTable({
       key: 'nfeNumber',
       header: 'Nº Nota Fiscal',
       sortable: true,
-      cell: (item) => (
-        <div className="font-mono text-sm">
-          {item.numero_documento || '-'}
-        </div>
-      ),
+      cell: (item) => {
+        const raw = item.numero_documento ?? '';
+        const formatted = raw.replace(/^0+/, '') || (raw ? '0' : '-');
+        return (
+          <div className="font-mono text-sm">{formatted}</div>
+        );
+      },
     },
     amount: {
       key: 'amount',
