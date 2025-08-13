@@ -39,6 +39,12 @@ interface BankAccount {
   agencia?: string;
 }
 
+interface Filial {
+  id: string;
+  nome: string;
+  cnpj: string;
+}
+
 interface PayableFiltersProps {
   filters: PayablesFilter;
   onFiltersChange: (filters: PayablesFilter) => void;
@@ -54,6 +60,7 @@ export function PayableFilters({
 }: PayableFiltersProps) {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [filiais, setFiliais] = useState<Filial[]>([]);
   
   const statusOptions = [
     { value: 'Pendente', label: 'Pendente' },
@@ -64,6 +71,7 @@ export function PayableFilters({
   useEffect(() => {
     loadEntities();
     loadBankAccounts();
+    loadFiliais();
   }, []);
 
   const loadEntities = async () => {
@@ -105,6 +113,25 @@ export function PayableFilters({
     }
   };
 
+  const loadFiliais = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('filiais')
+        .select('id, nome, cnpj')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Erro ao carregar filiais:', error);
+        return;
+      }
+
+      setFiliais(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar filiais:', error);
+    }
+  };
+
   const formatCNPJ = (cnpj?: string) => {
     if (!cnpj) return '';
     return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
@@ -131,6 +158,7 @@ export function PayableFilters({
     if (filters.supplierId) count++;
     if (filters.entityId) count++;
     if (filters.bankAccountId) count++;
+    if (filters.filialId) count++;
     if (filters.dueDateFrom || filters.dueDateTo) count++;
     if (filters.amountFrom || filters.amountTo) count++;
     return count;
@@ -248,6 +276,32 @@ export function PayableFilters({
                               {formatCNPJ(entity.cnpj_cpf)}
                             </span>
                           )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filial */}
+              <div className="space-y-2">
+                <Label>Filial</Label>
+                <Select
+                  value={filters.filialId || 'all'}
+                  onValueChange={(value) => updateFilter('filialId', value === 'all' ? undefined : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as filiais" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as filiais</SelectItem>
+                    {filiais.map((filial) => (
+                      <SelectItem key={filial.id} value={filial.id}>
+                        <div className="flex flex-col items-start">
+                          <span>{filial.nome}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatCNPJ(filial.cnpj)}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}
@@ -411,6 +465,16 @@ export function PayableFilters({
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => updateFilter('entityId', undefined)}
+              />
+            </Badge>
+          )}
+
+          {filters.filialId && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Filial: {filiais.find(f => f.id === filters.filialId)?.nome}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => updateFilter('filialId', undefined)}
               />
             </Badge>
           )}

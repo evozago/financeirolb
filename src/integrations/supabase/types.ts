@@ -64,6 +64,7 @@ export type Database = {
           descricao: string
           eh_recorrente: boolean | null
           entidade_id: string | null
+          filial_id: string | null
           forma_pagamento: string | null
           fornecedor: string
           funcionario_id: string | null
@@ -101,6 +102,7 @@ export type Database = {
           descricao: string
           eh_recorrente?: boolean | null
           entidade_id?: string | null
+          filial_id?: string | null
           forma_pagamento?: string | null
           fornecedor: string
           funcionario_id?: string | null
@@ -138,6 +140,7 @@ export type Database = {
           descricao?: string
           eh_recorrente?: boolean | null
           entidade_id?: string | null
+          filial_id?: string | null
           forma_pagamento?: string | null
           fornecedor?: string
           funcionario_id?: string | null
@@ -165,6 +168,13 @@ export type Database = {
             columns: ["conta_bancaria_id"]
             isOneToOne: false
             referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_installments_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
             referencedColumns: ["id"]
           },
           {
@@ -233,6 +243,7 @@ export type Database = {
           ativo: boolean
           conta: string | null
           created_at: string
+          filial_id: string | null
           id: string
           nome_banco: string
           observacoes: string | null
@@ -245,6 +256,7 @@ export type Database = {
           ativo?: boolean
           conta?: string | null
           created_at?: string
+          filial_id?: string | null
           id?: string
           nome_banco: string
           observacoes?: string | null
@@ -257,6 +269,7 @@ export type Database = {
           ativo?: boolean
           conta?: string | null
           created_at?: string
+          filial_id?: string | null
           id?: string
           nome_banco?: string
           observacoes?: string | null
@@ -264,7 +277,15 @@ export type Database = {
           tipo_conta?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contas_bancarias_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       detalhes_produtos: {
         Row: {
@@ -326,6 +347,33 @@ export type Database = {
         }
         Relationships: []
       }
+      filiais: {
+        Row: {
+          ativo: boolean
+          cnpj: string
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj: string
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cnpj?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fornecedores: {
         Row: {
           ativo: boolean
@@ -337,6 +385,7 @@ export type Database = {
           email: string | null
           email_representante: string | null
           endereco: string | null
+          filial_id: string | null
           id: string
           nome: string
           representante_email: string | null
@@ -356,6 +405,7 @@ export type Database = {
           email?: string | null
           email_representante?: string | null
           endereco?: string | null
+          filial_id?: string | null
           id?: string
           nome: string
           representante_email?: string | null
@@ -375,6 +425,7 @@ export type Database = {
           email?: string | null
           email_representante?: string | null
           endereco?: string | null
+          filial_id?: string | null
           id?: string
           nome?: string
           representante_email?: string | null
@@ -390,6 +441,13 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fornecedores_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
             referencedColumns: ["id"]
           },
         ]
@@ -1165,6 +1223,10 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      map_cnpj_to_filial: {
+        Args: { cnpj_emitente: string }
+        Returns: string
       }
       normalize_installment_info: {
         Args: { numero_parcela: number; total_parcelas: number; valor: number }

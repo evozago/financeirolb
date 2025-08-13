@@ -30,7 +30,9 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     numero_documento: item.numero_documento || '-',
     categoria: item.categoria || 'Geral',
     data_emissao: item.data_emissao,
-    filial: item.filial_nome || 'Não definida', // Add filial field with fallback
+    filial: item.filial?.nome || 'Não definida', // Add filial field with fallback
+    filial_id: item.filial_id,
+    filial_nome: item.filial?.nome,
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
@@ -101,7 +103,10 @@ export default function AccountsPayable() {
       // Construir query com filtros
       let query = supabase
         .from('ap_installments')
-        .select('*')
+        .select(`
+          *,
+          filial:filiais(nome)
+        `)
         .is('deleted_at', null);
 
       // Aplicar filtros de categoria
@@ -117,6 +122,11 @@ export default function AccountsPayable() {
       // Aplicar filtro de conta bancária
       if (filters.bankAccountId) {
         query = query.eq('conta_bancaria_id', filters.bankAccountId);
+      }
+
+      // Aplicar filtro de filial
+      if (filters.filialId) {
+        query = query.eq('filial_id', filters.filialId);
       }
 
       // Aplicar filtros de status

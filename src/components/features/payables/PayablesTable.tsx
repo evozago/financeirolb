@@ -197,7 +197,7 @@ export function PayablesTable({
       cell: (item) => (
         <div>
           <div className="font-medium text-sm">
-            {item.filial || 'Não definida'}
+            {item.filial_nome || item.filial || 'Não definida'}
           </div>
         </div>
       ),

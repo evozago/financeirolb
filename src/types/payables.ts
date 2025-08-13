@@ -44,6 +44,17 @@ export interface BillToPayInstallment {
   categoria?: string;
   data_emissao?: string; // Adicionar campo para data de emissão
   filial?: string; // Adicionar campo para filial
+  filial_id?: string; // ID da filial
+  filial_nome?: string; // Nome da filial
+}
+
+export interface Filial {
+  id: string;
+  nome: string;
+  cnpj: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PayablesSummary {
@@ -61,6 +72,7 @@ export interface PayablesFilter {
   supplierId?: string;
   entityId?: string;
   bankAccountId?: string;
+  filialId?: string;
   category?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
