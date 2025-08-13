@@ -108,6 +108,16 @@ export default function AccountsPayable() {
         query = query.eq('categoria', filters.category);
       }
 
+      // Aplicar filtro de entidade/CNPJ
+      if (filters.entityId) {
+        query = query.eq('entidade_id', filters.entityId);
+      }
+
+      // Aplicar filtro de conta bancária
+      if (filters.bankAccountId) {
+        query = query.eq('conta_bancaria_id', filters.bankAccountId);
+      }
+
       // Aplicar filtros de status
       if (filters.status?.length) {
         // Caso especial: "Vencido" não existe no banco, é derivado por data_vencimento < hoje e status != 'pago'
@@ -367,7 +377,7 @@ export default function AccountsPayable() {
     navigate(`/bills/${item.id}`);
   };
 
-  const handleMarkAsPaid = async (items: BillToPayInstallment[]) => {
+  const handleMarkAsPaid = async (items: BillToPayInstallment[], paymentData?: any[]) => {
     setLoading(true);
     try {
       const itemIds = items.map(item => item.id);
@@ -380,17 +390,39 @@ export default function AccountsPayable() {
         data_hora_pagamento: null,
       }));
       
-      const { error } = await supabase
-        .from('ap_installments')
-        .update({ 
-          status: 'pago',
-          data_pagamento: new Date().toISOString().split('T')[0],
-          data_hora_pagamento: new Date().toISOString()
-        })
-        .in('id', itemIds);
-      
-      if (error) {
-        throw error;
+      // Se temos dados de pagamento específicos, usar eles, senão usar dados padrão
+      if (paymentData && paymentData.length > 0) {
+        for (const payment of paymentData) {
+          const { error } = await supabase
+            .from('ap_installments')
+            .update({ 
+              status: 'pago',
+              data_pagamento: payment.dataPagamento,
+              data_hora_pagamento: new Date().toISOString(),
+              banco: payment.bancoPagador,
+              conta_bancaria_id: payment.bankAccountId,
+              observacoes: payment.observacoes,
+              valor_pago: payment.valorPago
+            })
+            .eq('id', payment.installmentId);
+          
+          if (error) {
+            throw error;
+          }
+        }
+      } else {
+        const { error } = await supabase
+          .from('ap_installments')
+          .update({ 
+            status: 'pago',
+            data_pagamento: new Date().toISOString().split('T')[0],
+            data_hora_pagamento: new Date().toISOString()
+          })
+          .in('id', itemIds);
+        
+        if (error) {
+          throw error;
+        }
       }
       
       setInstallments(prev => prev.map(installment => 

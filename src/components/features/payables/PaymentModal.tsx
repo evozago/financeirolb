@@ -39,6 +39,7 @@ export interface PaymentData {
   installmentId: string;
   valorPago: number;
   bancoPagador?: string;
+  bankAccountId?: string;
   dataPagamento: string;
   observacoes?: string;
 }
@@ -134,6 +135,7 @@ export function PaymentModal({
       installmentId: inst.id,
       valorPago: installmentValues[inst.id] || inst.valor,
       bancoPagador: selectedBank,
+      bankAccountId: bankAccounts.find(b => b.nome_banco === selectedBank)?.id,
       dataPagamento: format(paymentDate, 'yyyy-MM-dd'),
       observacoes: observacoes
     }));

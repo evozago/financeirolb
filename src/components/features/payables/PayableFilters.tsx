@@ -3,8 +3,8 @@
  * Permite filtrar por status, fornecedor, datas, valores, etc.
  */
 
-import React from 'react';
-import { Search, Filter, X, Calendar, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, X, Calendar, DollarSign, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +23,21 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { PayablesFilter, Supplier } from '@/types/payables';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Entity {
+  id: string;
+  nome: string;
+  cnpj_cpf?: string;
+  tipo: string;
+}
+
+interface BankAccount {
+  id: string;
+  nome_banco: string;
+  conta?: string;
+  agencia?: string;
+}
 
 interface PayableFiltersProps {
   filters: PayablesFilter;
@@ -37,11 +52,63 @@ export function PayableFilters({
   suppliers,
   className,
 }: PayableFiltersProps) {
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  
   const statusOptions = [
     { value: 'Pendente', label: 'Pendente' },
     { value: 'Pago', label: 'Pago' },
     { value: 'Vencido', label: 'Vencido' },
   ];
+
+  useEffect(() => {
+    loadEntities();
+    loadBankAccounts();
+  }, []);
+
+  const loadEntities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('entidades')
+        .select('id, nome, cnpj_cpf, tipo')
+        .eq('ativo', true)
+        .eq('tipo', 'PJ')
+        .order('nome');
+
+      if (error) {
+        console.error('Erro ao carregar entidades:', error);
+        return;
+      }
+
+      setEntities(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar entidades:', error);
+    }
+  };
+
+  const loadBankAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contas_bancarias')
+        .select('id, nome_banco, conta, agencia')
+        .eq('ativo', true)
+        .order('nome_banco');
+
+      if (error) {
+        console.error('Erro ao carregar contas bancárias:', error);
+        return;
+      }
+
+      setBankAccounts(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar contas bancárias:', error);
+    }
+  };
+
+  const formatCNPJ = (cnpj?: string) => {
+    if (!cnpj) return '';
+    return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  };
 
   const hasActiveFilters = Object.values(filters).some(value => 
     value !== undefined && value !== '' && 
@@ -62,6 +129,8 @@ export function PayableFilters({
     if (filters.status?.length) count++;
     if (filters.category) count++;
     if (filters.supplierId) count++;
+    if (filters.entityId) count++;
+    if (filters.bankAccountId) count++;
     if (filters.dueDateFrom || filters.dueDateTo) count++;
     if (filters.amountFrom || filters.amountTo) count++;
     return count;
@@ -149,6 +218,66 @@ export function PayableFilters({
                     {suppliers.map((supplier) => (
                       <SelectItem key={supplier.id} value={supplier.id}>
                         {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Entidade/CNPJ */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Empresa/CNPJ
+                </Label>
+                <Select
+                  value={filters.entityId || 'all'}
+                  onValueChange={(value) => updateFilter('entityId', value === 'all' ? undefined : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as empresas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as empresas</SelectItem>
+                    {entities.map((entity) => (
+                      <SelectItem key={entity.id} value={entity.id}>
+                        <div className="flex flex-col items-start">
+                          <span>{entity.nome}</span>
+                          {entity.cnpj_cpf && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatCNPJ(entity.cnpj_cpf)}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Conta Bancária */}
+              <div className="space-y-2">
+                <Label>Conta Bancária</Label>
+                <Select
+                  value={filters.bankAccountId || 'all'}
+                  onValueChange={(value) => updateFilter('bankAccountId', value === 'all' ? undefined : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as contas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as contas</SelectItem>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        <div className="flex flex-col items-start">
+                          <span>{account.nome_banco}</span>
+                          {(account.conta || account.agencia) && (
+                            <span className="text-xs text-muted-foreground">
+                              {account.agencia && `Ag: ${account.agencia}`}{' '}
+                              {account.conta && `Cc: ${account.conta}`}
+                            </span>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -272,6 +401,26 @@ export function PayableFilters({
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => updateFilter('supplierId', undefined)}
+              />
+            </Badge>
+          )}
+
+          {filters.entityId && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Empresa: {entities.find(e => e.id === filters.entityId)?.nome}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => updateFilter('entityId', undefined)}
+              />
+            </Badge>
+          )}
+
+          {filters.bankAccountId && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Banco: {bankAccounts.find(b => b.id === filters.bankAccountId)?.nome_banco}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => updateFilter('bankAccountId', undefined)}
               />
             </Badge>
           )}

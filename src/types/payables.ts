@@ -58,6 +58,8 @@ export interface PayablesSummary {
 export interface PayablesFilter {
   status?: string[];
   supplierId?: string;
+  entityId?: string;
+  bankAccountId?: string;
   category?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
