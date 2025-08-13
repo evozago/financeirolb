@@ -29,7 +29,8 @@ const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
     billId: item.id,
     numero_documento: item.numero_documento || '-',
     categoria: item.categoria || 'Geral',
-    data_emissao: item.data_emissao, // Adicionar data de emissão
+    data_emissao: item.data_emissao,
+    filial: item.filial_nome || 'Não definida', // Add filial field with fallback
     bill: {
       id: item.id,
       description: item.descricao || `Parcela ${item.numero_parcela}`,
