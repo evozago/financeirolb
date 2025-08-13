@@ -29,6 +29,7 @@ const formSchema = z.object({
   saldo_atual: z.number().default(0),
   ativo: z.boolean().default(true),
   observacoes: z.string().optional(),
+  filial_id: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -55,6 +56,32 @@ export function BankAccountForm({
   loading = false, 
   submitLabel = 'Salvar' 
 }: BankAccountFormProps) {
+  const [filiais, setFiliais] = React.useState<Array<{id: string, nome: string}>>([]);
+
+  React.useEffect(() => {
+    const loadFiliais = async () => {
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase
+          .from('filiais')
+          .select('id, nome')
+          .eq('ativo', true)
+          .order('nome');
+
+        if (error) {
+          console.error('Error loading filiais:', error);
+          return;
+        }
+
+        setFiliais(data || []);
+      } catch (error) {
+        console.error('Error loading filiais:', error);
+      }
+    };
+
+    loadFiliais();
+  }, []);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -65,6 +92,7 @@ export function BankAccountForm({
       saldo_atual: initialData?.saldo_atual || 0,
       ativo: initialData?.ativo ?? true,
       observacoes: initialData?.observacoes || '',
+      filial_id: initialData?.filial_id || '',
     },
   });
 
@@ -160,6 +188,31 @@ export function BankAccountForm({
                 <FormDescription>
                   Informe o saldo atual da conta em R$
                 </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="filial_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Filial</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma filial" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {filiais.map((filial) => (
+                      <SelectItem key={filial.id} value={filial.id}>
+                        {filial.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

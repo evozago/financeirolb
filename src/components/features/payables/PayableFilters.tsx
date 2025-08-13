@@ -252,36 +252,6 @@ export function PayableFilters({
                 </Select>
               </div>
 
-              {/* Entidade/CNPJ */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Empresa/CNPJ
-                </Label>
-                <Select
-                  value={filters.entityId || 'all'}
-                  onValueChange={(value) => updateFilter('entityId', value === 'all' ? undefined : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas as empresas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as empresas</SelectItem>
-                    {entities.map((entity) => (
-                      <SelectItem key={entity.id} value={entity.id}>
-                        <div className="flex flex-col items-start">
-                          <span>{entity.nome}</span>
-                          {entity.cnpj_cpf && (
-                            <span className="text-xs text-muted-foreground">
-                              {formatCNPJ(entity.cnpj_cpf)}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               {/* Filial */}
               <div className="space-y-2">

@@ -24,12 +24,18 @@ interface Category {
   nome: string;
 }
 
+interface Filial {
+  id: string;
+  nome: string;
+}
+
 export default function NewBill() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [filiais, setFiliais] = useState<Filial[]>([]);
 
   const [formData, setFormData] = useState({
     fornecedor: '',
@@ -41,12 +47,14 @@ export default function NewBill() {
     observacoes: '',
     categoria: '',
     forma_pagamento: '',
-    banco: ''
+    banco: '',
+    filial_id: ''
   });
 
   useEffect(() => {
     loadSuppliers();
     loadCategories();
+    loadFiliais();
   }, []);
 
   const loadSuppliers = async () => {
@@ -87,6 +95,25 @@ export default function NewBill() {
     }
   };
 
+  const loadFiliais = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('filiais')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Error loading filiais:', error);
+        return;
+      }
+
+      setFiliais(data || []);
+    } catch (error) {
+      console.error('Error loading filiais:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -119,7 +146,8 @@ export default function NewBill() {
           forma_pagamento: formData.forma_pagamento,
           banco: formData.banco,
           status: 'aberto',
-          entidade_id: tempUuid
+          entidade_id: tempUuid,
+          filial_id: formData.filial_id || null
         });
 
       if (error) {
@@ -211,6 +239,22 @@ export default function NewBill() {
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.nome}>
                           {category.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="filial">Filial</Label>
+                  <Select value={formData.filial_id} onValueChange={(value) => handleInputChange('filial_id', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma filial" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filiais.map((filial) => (
+                        <SelectItem key={filial.id} value={filial.id}>
+                          {filial.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>

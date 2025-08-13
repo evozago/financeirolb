@@ -29,7 +29,8 @@ const EditBill = () => {
     valor_total: "",
     total_parcelas: "1",
     categoria: "",
-    observacoes: ""
+    observacoes: "",
+    filial_id: ""
   });
 
   const [installmentDates, setInstallmentDates] = useState<string[]>([]);
@@ -73,7 +74,8 @@ const EditBill = () => {
         valor_total: (data.valor_total_titulo || data.valor)?.toString() || "",
         total_parcelas: (data.total_parcelas || bills.length)?.toString() || "1",
         categoria: data.categoria || "",
-        observacoes: data.observacoes || ""
+        observacoes: data.observacoes || "",
+        filial_id: data.filial_id || ""
       });
 
       // Configurar datas das parcelas
@@ -328,6 +330,16 @@ const EditBill = () => {
                   id="categoria"
                   value={formData.categoria}
                   onChange={(e) => handleInputChange('categoria', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="filial_id">Filial</Label>
+                <Input
+                  id="filial_id"
+                  value={formData.filial_id}
+                  onChange={(e) => handleInputChange('filial_id', e.target.value)}
+                  placeholder="ID da filial"
                 />
               </div>
 

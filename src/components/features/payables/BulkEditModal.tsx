@@ -33,6 +33,7 @@ export interface BulkEditData {
   forma_pagamento?: string;
   observacoes?: string;
   banco?: string;
+  filial_id?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -55,6 +56,11 @@ interface Category {
   nome: string;
 }
 
+interface Filial {
+  id: string;
+  nome: string;
+}
+
 export function BulkEditModal({ 
   open, 
   onOpenChange, 
@@ -65,10 +71,12 @@ export function BulkEditModal({
   const [formData, setFormData] = useState<BulkEditData>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [filiais, setFiliais] = useState<Filial[]>([]);
 
   useEffect(() => {
     if (open) {
       loadCategories();
+      loadFiliais();
     }
   }, [open]);
 
@@ -88,6 +96,25 @@ export function BulkEditModal({
       setCategories(data || []);
     } catch (error) {
       console.error('Erro ao carregar categorias:', error);
+    }
+  };
+
+  const loadFiliais = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('filiais')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Erro ao carregar filiais:', error);
+        return;
+      }
+
+      setFiliais(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar filiais:', error);
     }
   };
 
@@ -161,6 +188,27 @@ export function BulkEditModal({
                   {STATUS_OPTIONS.map(status => (
                     <SelectItem key={status.value} value={status.value}>
                       {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="filial">Filial</Label>
+              <Select 
+                value={formData.filial_id || ''} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, filial_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar filial" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filiais.map(filial => (
+                    <SelectItem key={filial.id} value={filial.id}>
+                      {filial.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
