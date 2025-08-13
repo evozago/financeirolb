@@ -59,13 +59,14 @@ export function PayablesTable({
     { key: 'description', header: 'Descrição', visible: true, order: 1 },
     { key: 'nfeNumber', header: 'Nº Nota Fiscal', visible: true, order: 2 },
     { key: 'category', header: 'Categoria', visible: true, order: 3 },
-    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 4 },
-    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 5 },
-    { key: 'installment', header: 'Parcela', visible: true, order: 6 },
-    { key: 'issueDate', header: 'Data Emissão', visible: true, order: 7 },
-    { key: 'dueDate', header: 'Vencimento', visible: true, order: 8 },
-    { key: 'status', header: 'Status', visible: true, order: 9 },
-    { key: 'actions', header: '', visible: true, order: 10 },
+    { key: 'filial', header: 'Filial', visible: true, order: 4 },
+    { key: 'amount', header: 'Valor da Parcela', visible: true, order: 5 },
+    { key: 'totalAmount', header: 'Valor Total', visible: true, order: 6 },
+    { key: 'installment', header: 'Parcela', visible: true, order: 7 },
+    { key: 'issueDate', header: 'Data Emissão', visible: true, order: 8 },
+    { key: 'dueDate', header: 'Vencimento', visible: true, order: 9 },
+    { key: 'status', header: 'Status', visible: true, order: 10 },
+    { key: 'actions', header: '', visible: true, order: 11 },
   ];
 
   const { columns: columnConfig, visibleColumns, saveColumns } = useColumnCustomization({
@@ -185,6 +186,18 @@ export function PayablesTable({
         <div>
           <div className="font-medium text-sm">
             {item.categoria || 'Geral'}
+          </div>
+        </div>
+      ),
+    },
+    filial: {
+      key: 'filial',
+      header: 'Filial',
+      sortable: true,
+      cell: (item) => (
+        <div>
+          <div className="font-medium text-sm">
+            {item.filial || 'Não definida'}
           </div>
         </div>
       ),

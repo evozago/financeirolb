@@ -43,6 +43,7 @@ export interface BillToPayInstallment {
   numero_documento?: string;
   categoria?: string;
   data_emissao?: string; // Adicionar campo para data de emissão
+  filial?: string; // Adicionar campo para filial
 }
 
 export interface PayablesSummary {
