@@ -183,6 +183,12 @@ export default function DashboardPayables() {
             }
             const cnpj = emit.querySelector('CNPJ')?.textContent || '';
             const supplierName = emit.querySelector('xNome')?.textContent || 'Fornecedor não identificado';
+            
+            // Extract NFe number from XML
+            const nfeNumber = xmlDoc.querySelector('nNF')?.textContent || '';
+            const nfeId = xmlDoc.querySelector('infNFe')?.getAttribute('Id') || '';
+            const chaveAcesso = nfeId.replace('NFe', '');
+            const numeroNfe = nfeNumber || 'NFE_' + file.name.replace('.xml', '');
 
             // Create supplier if not exists
             let entidadeId = null;
@@ -214,8 +220,10 @@ export default function DashboardPayables() {
               const {
                 error: insertError
               } = await supabase.from('ap_installments').insert({
-                descricao: `NFe ${file.name.replace('.xml', '')} - Parcela única`,
+                descricao: `NFe ${numeroNfe} - Parcela única`,
                 fornecedor: supplierName,
+                numero_nfe: numeroNfe,
+                numero_documento: numeroNfe,
                 valor: totalAmount,
                 valor_total_titulo: totalAmount,
                 data_vencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -236,8 +244,10 @@ export default function DashboardPayables() {
                 const valor = parseFloat(dup.querySelector('vDup')?.textContent || '0');
                 const vencimento = dup.querySelector('dVenc')?.textContent || new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 installmentsToInsert.push({
-                  descricao: `NFe ${file.name.replace('.xml', '')} - Parcela ${index + 1}`,
+                  descricao: `NFe ${numeroNfe} - Parcela ${index + 1}`,
                   fornecedor: supplierName,
+                  numero_nfe: numeroNfe,
+                  numero_documento: numeroNfe,
                   valor: valor,
                   valor_total_titulo: totalAmount,
                   data_vencimento: vencimento,
