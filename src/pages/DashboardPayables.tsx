@@ -239,11 +239,16 @@ export default function DashboardPayables() {
                 valor: totalAmount,
                 valor_total_titulo: totalAmount,
                 data_vencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                data_emissao: new Date().toISOString().split('T')[0],
                 status: 'aberto',
                 numero_parcela: 1,
                 total_parcelas: 1,
+                categoria: 'Mercadorias',
                 entidade_id: entidadeId,
-                filial_id: filialId
+                filial_id: filialId,
+                observacoes: `Importado de ${file.name}. Chave de Acesso: ${chaveAcesso}`,
+                data_pagamento: null,
+                data_hora_pagamento: null
               });
               if (insertError) {
                 errors.push(`Erro ao inserir parcela de ${file.name}: ${insertError.message}`);
@@ -257,18 +262,23 @@ export default function DashboardPayables() {
                 const valor = parseFloat(dup.querySelector('vDup')?.textContent || '0');
                 const vencimento = dup.querySelector('dVenc')?.textContent || new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 installmentsToInsert.push({
-                  descricao: `NFe ${numeroNfe} - Parcela ${index + 1}`,
+                  descricao: `NFe ${numeroNfe} - Parcela ${index + 1}/${duplicatas.length}`,
                   fornecedor: supplierName,
                   numero_nfe: numeroNfe,
                   numero_documento: numeroNfe,
                   valor: valor,
                   valor_total_titulo: totalAmount,
                   data_vencimento: vencimento,
+                  data_emissao: new Date().toISOString().split('T')[0],
                   status: 'aberto',
                   numero_parcela: index + 1,
                   total_parcelas: duplicatas.length,
+                  categoria: 'Mercadorias',
                   entidade_id: entidadeId,
-                  filial_id: filialId
+                  filial_id: filialId,
+                  observacoes: `Importado de ${file.name}. Chave de Acesso: ${chaveAcesso}`,
+                  data_pagamento: null,
+                  data_hora_pagamento: null
                 });
               });
               const {
