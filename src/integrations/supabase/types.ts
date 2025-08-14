@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -1140,39 +1140,39 @@ export type Database = {
       get_ap_installments_complete: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
-          descricao: string
-          fornecedor: string
-          categoria: string
-          valor: number
-          data_vencimento: string
-          data_pagamento: string
-          status: string
-          status_calculado: string
-          numero_documento: string
-          numero_nfe_display: string
           banco: string
-          forma_pagamento: string
-          observacoes: string
+          categoria: string
           comprovante_path: string
-          numero_parcela: number
-          total_parcelas: number
-          valor_total_titulo: number
-          eh_recorrente: boolean
-          tipo_recorrencia: string
-          dados_pagamento: string
-          data_hora_pagamento: string
-          funcionario_id: string
-          funcionario_nome: string
           conta_bancaria_id: string
           conta_banco_nome: string
+          created_at: string
+          dados_pagamento: string
+          data_hora_pagamento: string
+          data_pagamento: string
+          data_vencimento: string
+          descricao: string
+          eh_recorrente: boolean
           entidade_id: string
           entidade_nome: string
           entidade_tipo: string
+          forma_pagamento: string
+          fornecedor: string
+          funcionario_id: string
+          funcionario_nome: string
+          id: string
           nfe_id: string
-          created_at: string
+          numero_documento: string
+          numero_nfe_display: string
+          numero_parcela: number
+          observacoes: string
+          status: string
+          status_calculado: string
+          tipo_recorrencia: string
+          total_parcelas: number
           updated_at: string
+          valor: number
           valor_fixo: boolean
+          valor_total_titulo: number
         }[]
       }
       get_current_user_role: {
@@ -1182,42 +1182,42 @@ export type Database = {
       get_dashboard_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
+          pagos_mes_atual: number
           total_aberto: number
           vencendo_hoje: number
           vencidos: number
-          pagos_mes_atual: number
         }[]
       }
       get_expenses_by_category: {
-        Args: { p_start_date?: string; p_end_date?: string }
+        Args: { p_end_date?: string; p_start_date?: string }
         Returns: {
           categoria: string
-          total_valor: number
           count_items: number
+          total_valor: number
         }[]
       }
       get_financial_panel_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
-          contas_vencendo_hoje: number
           contas_pagas_hoje: number
           contas_vencendo_ate_fim_mes: number
+          contas_vencendo_hoje: number
           contas_vencidas: number
         }[]
       }
       get_financial_panel_stats_extended: {
         Args: Record<PropertyKey, never>
         Returns: {
-          contas_vencendo_hoje: number
-          contas_vencendo_hoje_count: number
           contas_pagas_hoje: number
           contas_pagas_hoje_count: number
-          contas_vencendo_ate_fim_mes: number
-          contas_vencendo_ate_fim_mes_count: number
-          contas_vencidas: number
-          contas_vencidas_count: number
           contas_pendentes_nao_recorrentes: number
           contas_pendentes_nao_recorrentes_count: number
+          contas_vencendo_ate_fim_mes: number
+          contas_vencendo_ate_fim_mes_count: number
+          contas_vencendo_hoje: number
+          contas_vencendo_hoje_count: number
+          contas_vencidas: number
+          contas_vencidas_count: number
         }[]
       }
       is_admin: {
@@ -1242,21 +1242,21 @@ export type Database = {
       }
       search_ap_installments: {
         Args: {
+          p_categoria?: string
+          p_data_fim?: string
+          p_data_inicio?: string
+          p_fornecedor?: string
           p_limit?: number
           p_offset?: number
-          p_status?: string
-          p_fornecedor?: string
-          p_data_inicio?: string
-          p_data_fim?: string
-          p_categoria?: string
           p_search_term?: string
+          p_status?: string
         }
         Returns: {
           data: Json
-          total_count: number
           total_aberto: number
-          total_vencido: number
+          total_count: number
           total_pago: number
+          total_vencido: number
         }[]
       }
     }
