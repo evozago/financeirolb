@@ -66,11 +66,12 @@ export default function SupplierDetail() {
       
       setSupplier(supplierData);
       
-      // Carregar contas do fornecedor diretamente
+      // Carregar contas do fornecedor diretamente (excluindo soft deleted)
       const { data: billsData, error: billsError } = await supabase
         .from('ap_installments')
         .select('*')
         .eq('fornecedor', supplierData.nome)
+        .is('deleted_at', null)
         .order('data_vencimento', { ascending: true });
       
       if (billsError) {
