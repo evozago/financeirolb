@@ -190,6 +190,18 @@ export default function DashboardPayables() {
             const chaveAcesso = nfeId.replace('NFe', '');
             const numeroNfe = nfeNumber || 'NFE_' + file.name.replace('.xml', '');
 
+            // Extract destination CNPJ for filial mapping
+            const dest = xmlDoc.querySelector('dest');
+            const cnpjDestinatario = dest?.querySelector('CNPJ')?.textContent || '';
+            
+            // Map filial automatically based on destination CNPJ
+            let filialId = null;
+            if (cnpjDestinatario) {
+              const { data: filialData } = await supabase
+                .rpc('map_cnpj_to_filial', { cnpj_emitente: cnpjDestinatario });
+              filialId = filialData;
+            }
+
             // Create supplier if not exists
             let entidadeId = null;
             const {
@@ -230,7 +242,8 @@ export default function DashboardPayables() {
                 status: 'aberto',
                 numero_parcela: 1,
                 total_parcelas: 1,
-                entidade_id: entidadeId
+                entidade_id: entidadeId,
+                filial_id: filialId
               });
               if (insertError) {
                 errors.push(`Erro ao inserir parcela de ${file.name}: ${insertError.message}`);
@@ -254,7 +267,8 @@ export default function DashboardPayables() {
                   status: 'aberto',
                   numero_parcela: index + 1,
                   total_parcelas: duplicatas.length,
-                  entidade_id: entidadeId
+                  entidade_id: entidadeId,
+                  filial_id: filialId
                 });
               });
               const {
