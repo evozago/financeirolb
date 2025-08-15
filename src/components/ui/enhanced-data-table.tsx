@@ -172,7 +172,9 @@ export function EnhancedDataTable<T>({
   };
 
   const handlePageSizeChange = (newPageSize: string) => {
+    console.log(`Changing page size to: ${newPageSize}`);
     const size = newPageSize === "all" ? ALL_ITEMS_VALUE : Number(newPageSize);
+    console.log(`Setting pageSize to: ${size}`);
     setPageSize(size);
     setCurrentPage(1);
   };

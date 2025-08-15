@@ -219,6 +219,7 @@ export default function AccountsPayable() {
       }
       
       const transformedData = transformInstallmentData(data || []);
+      console.log(`Loaded ${data?.length || 0} installments from Supabase`);
       setInstallments(transformedData);
     } catch (error) {
       console.error('Error:', error);
