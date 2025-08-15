@@ -52,7 +52,8 @@ export interface EnhancedDataTableProps<T> {
   onSortChange?: (key: string, direction: 'asc' | 'desc') => void;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500];
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500, 1000, 5000];
+const ALL_ITEMS_VALUE = 999999;
 
 export function EnhancedDataTable<T>({
   data,
@@ -120,6 +121,10 @@ export function EnhancedDataTable<T>({
   const paginatedData = useMemo(() => {
     if (!pagination) return sortedData;
     
+    if (pageSize >= ALL_ITEMS_VALUE) {
+      return sortedData; // Mostrar todos os dados
+    }
+    
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     return sortedData.slice(startIndex, endIndex);
@@ -128,9 +133,10 @@ export function EnhancedDataTable<T>({
   // Informações de paginação
   const paginationInfo = useMemo(() => {
     const total = sortedData.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const startItem = (currentPage - 1) * pageSize + 1;
-    const endItem = Math.min(currentPage * pageSize, total);
+    const isShowingAll = pageSize >= ALL_ITEMS_VALUE;
+    const totalPages = isShowingAll ? 1 : Math.ceil(total / pageSize);
+    const startItem = isShowingAll ? 1 : (currentPage - 1) * pageSize + 1;
+    const endItem = isShowingAll ? total : Math.min(currentPage * pageSize, total);
     
     return {
       page: currentPage,
@@ -139,6 +145,7 @@ export function EnhancedDataTable<T>({
       totalPages,
       startItem,
       endItem,
+      isShowingAll,
     };
   }, [sortedData.length, currentPage, pageSize]);
 
@@ -165,8 +172,9 @@ export function EnhancedDataTable<T>({
   };
 
   const handlePageSizeChange = (newPageSize: string) => {
-    setPageSize(Number(newPageSize));
-    setCurrentPage(1); // Reset to first page
+    const size = newPageSize === "all" ? ALL_ITEMS_VALUE : Number(newPageSize);
+    setPageSize(size);
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page: number) => {
@@ -396,8 +404,8 @@ export function EnhancedDataTable<T>({
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Linhas por página:</span>
-                  <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
-                    <SelectTrigger className="w-20">
+                  <Select value={pageSize === ALL_ITEMS_VALUE ? "all" : pageSize.toString()} onValueChange={handlePageSizeChange}>
+                    <SelectTrigger className="w-24">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -406,54 +414,60 @@ export function EnhancedDataTable<T>({
                           {size}
                         </SelectItem>
                       ))}
+                      <SelectItem value="all">Todos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {paginationInfo.startItem}-{paginationInfo.endItem} de {paginationInfo.total}
+                  {paginationInfo.isShowingAll 
+                    ? `Mostrando todos os ${paginationInfo.total} itens`
+                    : `${paginationInfo.startItem}-${paginationInfo.endItem} de ${paginationInfo.total}`
+                  }
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center gap-1">
-                  <span className="text-sm">Página</span>
-                  <span className="text-sm font-medium">{currentPage}</span>
-                  <span className="text-sm">de</span>
-                  <span className="text-sm font-medium">{paginationInfo.totalPages}</span>
+              {!paginationInfo.isShowingAll && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm">Página</span>
+                    <span className="text-sm font-medium">{currentPage}</span>
+                    <span className="text-sm">de</span>
+                    <span className="text-sm font-medium">{paginationInfo.totalPages}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === paginationInfo.totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(paginationInfo.totalPages)}
+                    disabled={currentPage === paginationInfo.totalPages}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === paginationInfo.totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(paginationInfo.totalPages)}
-                  disabled={currentPage === paginationInfo.totalPages}
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
+              )}
             </div>
           </div>
         )}
