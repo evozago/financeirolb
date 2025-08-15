@@ -930,6 +930,7 @@ export default function AccountsPayable() {
       if (updates.forma_pagamento) updateData.forma_pagamento = updates.forma_pagamento;
       if (updates.observacoes) updateData.observacoes = updates.observacoes;
       if (updates.banco) updateData.banco = updates.banco;
+      if (updates.filial_id) updateData.filial_id = updates.filial_id;
       
       // Adicionar timestamp de atualização
       updateData.updated_at = new Date().toISOString();
