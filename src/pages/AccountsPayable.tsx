@@ -203,6 +203,9 @@ export default function AccountsPayable() {
         query = query.gte('data_vencimento', todayStr).lte('data_vencimento', endStr).neq('status', 'pago');
       }
 
+      // Remover limite padrão do Supabase para buscar todos os registros
+      query = query.limit(10000); // Definir um limite alto para garantir que todos os registros sejam retornados
+
       const { data, error } = await query;
       
       if (error) {
