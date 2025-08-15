@@ -205,7 +205,7 @@ export default function AccountsPayable() {
 
       // Remover qualquer limite para garantir que todos os registros sejam carregados
       // Supabase por padrão limita a 1000 registros se não especificarmos
-      query = query.range(0, 99999); // Usar range ao invés de limit para garantir todos os registros
+      query = query.range(0, 5000); // Usar range ao invés de limit para garantir todos os registros
 
       const { data, error } = await query;
       
