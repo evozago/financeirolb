@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 interface SupplierData {
   id: string;
   nome: string;
-  cnpj_cpf: string;
+  cnpj_cpf: string | null;
   ativo: boolean;
   contato_representante: string;
   telefone_representante: string;
@@ -69,7 +69,7 @@ export default function Suppliers() {
     const searchLower = search.toLowerCase();
     return suppliers.filter(supplier =>
       supplier.nome.toLowerCase().includes(searchLower) ||
-      supplier.cnpj_cpf.includes(search)
+      (supplier.cnpj_cpf && supplier.cnpj_cpf.includes(search))
     );
   }, [search, suppliers]);
 
@@ -78,8 +78,9 @@ export default function Suppliers() {
     navigate(`/suppliers/${supplier.id}`);
   };
 
-  const formatCNPJ = (cnpj: string) => {
+  const formatCNPJ = (cnpj: string | null) => {
     // Formatar CNPJ: 00.000.000/0000-00
+    if (!cnpj) return '-';
     const clean = cnpj.replace(/\D/g, '');
     return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
   };
