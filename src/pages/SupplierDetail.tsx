@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface SupplierData {
   id: string;
   nome: string;
-  cnpj_cpf: string;
+  cnpj_cpf: string | null;
   ativo: boolean;
   created_at?: string;
   updated_at?: string;
@@ -155,7 +155,8 @@ export default function SupplierDetail() {
     );
   }
 
-  const formatCNPJ = (cnpj: string) => {
+  const formatCNPJ = (cnpj: string | null) => {
+    if (!cnpj) return '-';
     const clean = cnpj.replace(/\D/g, '');
     return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
   };
