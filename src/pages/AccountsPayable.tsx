@@ -395,10 +395,31 @@ export default function AccountsPayable() {
   const handleMarkAsPaid = async (items: BillToPayInstallment[], paymentData?: any[]) => {
     setLoading(true);
     try {
-      const itemIds = items.map(item => item.id);
+      // Validate and filter only valid UUIDs
+      const itemIds = items
+        .map(item => item.id)
+        .filter(id => {
+          // UUID validation regex
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const isValid = uuidRegex.test(id);
+          if (!isValid) {
+            console.error(`Invalid UUID detected in mark as paid: ${id}`);
+          }
+          return isValid;
+        });
+      
+      if (itemIds.length === 0) {
+        throw new Error('Nenhum ID válido encontrado para marcação como pago');
+      }
+      
+      if (itemIds.length !== items.length) {
+        console.warn(`Filtered out ${items.length - itemIds.length} invalid IDs in mark as paid`);
+      }
+      
+      const validItems = items.filter(item => itemIds.includes(item.id));
       
       // Armazenar dados originais para undo
-      const originalData = items.map(item => ({
+      const originalData = validItems.map(item => ({
         id: item.id,
         status: item.status,
         data_pagamento: null,
@@ -441,7 +462,7 @@ export default function AccountsPayable() {
       }
       
       setInstallments(prev => prev.map(installment => 
-        items.find(item => item.id === installment.id)
+        validItems.find(item => item.id === installment.id)
           ? { ...installment, status: 'Pago' as const }
           : installment
       ));
@@ -461,7 +482,7 @@ export default function AccountsPayable() {
       
       toast({
         title: "Sucesso",
-        description: `${items.length} conta(s) marcada(s) como paga(s)`,
+        description: `${validItems.length} conta(s) marcada(s) como paga(s)`,
       });
     } catch (error) {
       console.error('Error marking as paid:', error);
@@ -909,10 +930,30 @@ export default function AccountsPayable() {
 
     setBulkEditLoading(true);
     try {
-      const itemIds = selectedItems.map(item => item.id);
+      // Validate and filter only valid UUIDs
+      const itemIds = selectedItems
+        .map(item => item.id)
+        .filter(id => {
+          // UUID validation regex
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const isValid = uuidRegex.test(id);
+          if (!isValid) {
+            console.error(`Invalid UUID detected in bulk edit: ${id}`);
+          }
+          return isValid;
+        });
+      
+      if (itemIds.length === 0) {
+        throw new Error('Nenhum ID válido encontrado para atualização');
+      }
+      
+      if (itemIds.length !== selectedItems.length) {
+        console.warn(`Filtered out ${selectedItems.length - itemIds.length} invalid IDs`);
+      }
       
       // Armazenar dados originais para undo
-      const originalItems = selectedItems.map(item => ({
+      const validSelectedItems = selectedItems.filter(item => itemIds.includes(item.id));
+      const originalItems = validSelectedItems.map(item => ({
         id: item.id,
         categoria: item.categoria,
         status: item.status,
@@ -983,7 +1024,7 @@ export default function AccountsPayable() {
       
       toast({
         title: "Sucesso",
-        description: `${selectedItems.length} parcela(s) atualizada(s) com sucesso`,
+        description: `${validSelectedItems.length} parcela(s) atualizada(s) com sucesso`,
       });
     } catch (error) {
       console.error('Error bulk editing:', error);
