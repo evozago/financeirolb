@@ -446,6 +446,17 @@ export default function AccountsPayable() {
       // Se temos dados de pagamento específicos, usar eles, senão usar dados padrão
       if (paymentData && paymentData.length > 0) {
         for (const payment of paymentData) {
+          // Ensure bankAccountId is a valid UUID or null
+          let bankAccountId = null;
+          if (payment.bankAccountId) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(payment.bankAccountId)) {
+              bankAccountId = payment.bankAccountId;
+            } else {
+              console.warn(`Invalid bankAccountId UUID: ${payment.bankAccountId}, setting to null`);
+            }
+          }
+          
           const { error } = await supabase
             .from('ap_installments')
             .update({ 
@@ -453,7 +464,7 @@ export default function AccountsPayable() {
               data_pagamento: payment.dataPagamento,
               data_hora_pagamento: new Date().toISOString(),
               banco: payment.bancoPagador,
-              conta_bancaria_id: payment.bankAccountId,
+              conta_bancaria_id: bankAccountId,
               observacoes: payment.observacoes,
               valor_pago: payment.valorPago
             })
@@ -469,7 +480,9 @@ export default function AccountsPayable() {
           .update({ 
             status: 'pago',
             data_pagamento: new Date().toISOString().split('T')[0],
-            data_hora_pagamento: new Date().toISOString()
+            data_hora_pagamento: new Date().toISOString(),
+            // Explicitly set conta_bancaria_id to null to avoid UUID errors
+            conta_bancaria_id: null
           })
           .in('id', itemIds);
         
@@ -988,7 +1001,16 @@ export default function AccountsPayable() {
       if (updates.forma_pagamento) updateData.forma_pagamento = updates.forma_pagamento;
       if (updates.observacoes) updateData.observacoes = updates.observacoes;
       if (updates.banco) updateData.banco = updates.banco;
-      if (updates.filial_id) updateData.filial_id = updates.filial_id;
+      
+      // Handle filial_id with UUID validation
+      if (updates.filial_id) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(updates.filial_id)) {
+          updateData.filial_id = updates.filial_id;
+        } else {
+          console.warn(`Invalid filial_id UUID: ${updates.filial_id}, skipping`);
+        }
+      }
       
       // Adicionar timestamp de atualização
       updateData.updated_at = new Date().toISOString();
@@ -997,6 +1019,8 @@ export default function AccountsPayable() {
       if (updates.status === 'pago') {
         updateData.data_pagamento = new Date().toISOString().split('T')[0];
         updateData.data_hora_pagamento = new Date().toISOString();
+        // Explicitly set conta_bancaria_id to null to avoid UUID errors
+        updateData.conta_bancaria_id = null;
       }
 
       const { error } = await supabase
