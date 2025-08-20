@@ -20,37 +20,47 @@ import { useUndoActions } from '@/hooks/useUndoActions';
 
 // Transform Supabase data to app format
 const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
-  return data.map(item => ({
-    id: item.id,
-    installmentNumber: item.numero_parcela || 1,
-    amount: parseFloat(item.valor) || 0,
-    dueDate: item.data_vencimento,
-    status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
-    billId: item.id,
-    numero_documento: item.numero_documento || '-',
-    categoria: item.categoria || 'Geral',
-    data_emissao: item.data_emissao,
-    filial: item.filial?.nome || 'Não definida', // Add filial field with fallback
-    filial_id: item.filial_id,
-    filial_nome: item.filial?.nome,
-    bill: {
+  return data
+    .filter(item => {
+      // Filter out items with invalid IDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const hasValidId = item.id && uuidRegex.test(item.id);
+      if (!hasValidId) {
+        console.warn(`Filtering out record with invalid ID: ${item.id}`, item);
+      }
+      return hasValidId;
+    })
+    .map(item => ({
       id: item.id,
-      description: item.descricao || `Parcela ${item.numero_parcela}`,
-      totalAmount: parseFloat(item.valor_total_titulo) || parseFloat(item.valor) || 0,
-      totalInstallments: item.total_parcelas || 1,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      supplierId: item.entidade_id,
-      userId: 'user1',
-      supplier: {
-        id: item.entidade_id || 'unknown',
-        name: item.fornecedor || 'Fornecedor não identificado',
-        legalName: item.fornecedor || 'Fornecedor não identificado',
-        cnpj: '',
+      installmentNumber: item.numero_parcela || 1,
+      amount: parseFloat(item.valor) || 0,
+      dueDate: item.data_vencimento,
+      status: item.status === 'aberto' ? 'Pendente' : item.status === 'pago' ? 'Pago' : 'Pendente',
+      billId: item.id,
+      numero_documento: item.numero_documento || '-',
+      categoria: item.categoria || 'Geral',
+      data_emissao: item.data_emissao,
+      filial: item.filial?.nome || 'Não definida', // Add filial field with fallback
+      filial_id: item.filial_id,
+      filial_nome: item.filial?.nome,
+      bill: {
+        id: item.id,
+        description: item.descricao || `Parcela ${item.numero_parcela}`,
+        totalAmount: parseFloat(item.valor_total_titulo) || parseFloat(item.valor) || 0,
+        totalInstallments: item.total_parcelas || 1,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        supplierId: item.entidade_id,
+        userId: 'user1',
+        supplier: {
+          id: item.entidade_id || 'unknown',
+          name: item.fornecedor || 'Fornecedor não identificado',
+          legalName: item.fornecedor || 'Fornecedor não identificado',
+          cnpj: '',
+        },
+        installments: [],
       },
-      installments: [],
-    },
-  }));
+    }));
 };
 
 export default function AccountsPayable() {
@@ -395,9 +405,14 @@ export default function AccountsPayable() {
   const handleMarkAsPaid = async (items: BillToPayInstallment[], paymentData?: any[]) => {
     setLoading(true);
     try {
+      console.log('handleMarkAsPaid called with items:', items.map(i => ({ id: i.id, supplier: i.bill?.supplier.name })));
+      
       // Validate and filter only valid UUIDs
       const itemIds = items
-        .map(item => item.id)
+        .map(item => {
+          console.log(`Processing item: ${item.id} (type: ${typeof item.id})`);
+          return item.id;
+        })
         .filter(id => {
           // UUID validation regex
           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -407,6 +422,8 @@ export default function AccountsPayable() {
           }
           return isValid;
         });
+      
+      console.log('Valid item IDs:', itemIds);
       
       if (itemIds.length === 0) {
         throw new Error('Nenhum ID válido encontrado para marcação como pago');
