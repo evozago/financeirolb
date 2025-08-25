@@ -950,6 +950,101 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_bill_occurrences: {
+        Row: {
+          closed_at: string | null
+          closing_date: string | null
+          created_at: string
+          due_date: string
+          expected_amount: number
+          id: string
+          is_closed_for_month: boolean
+          recurring_bill_id: string
+          updated_at: string
+          year_month: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closing_date?: string | null
+          created_at?: string
+          due_date: string
+          expected_amount?: number
+          id?: string
+          is_closed_for_month?: boolean
+          recurring_bill_id: string
+          updated_at?: string
+          year_month: string
+        }
+        Update: {
+          closed_at?: string | null
+          closing_date?: string | null
+          created_at?: string
+          due_date?: string
+          expected_amount?: number
+          id?: string
+          is_closed_for_month?: boolean
+          recurring_bill_id?: string
+          updated_at?: string
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_bill_occurrences_recurring_bill_id_fkey"
+            columns: ["recurring_bill_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_bills: {
+        Row: {
+          active: boolean
+          category_id: string | null
+          closing_day: number | null
+          created_at: string
+          due_day: number
+          end_date: string | null
+          expected_amount: number
+          id: string
+          name: string
+          notes: string | null
+          open_ended: boolean
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category_id?: string | null
+          closing_day?: number | null
+          created_at?: string
+          due_day: number
+          end_date?: string | null
+          expected_amount?: number
+          id?: string
+          name: string
+          notes?: string | null
+          open_ended?: boolean
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category_id?: string | null
+          closing_day?: number | null
+          created_at?: string
+          due_day?: number
+          end_date?: string | null
+          expected_amount?: number
+          id?: string
+          name?: string
+          notes?: string | null
+          open_ended?: boolean
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       representantes_contatos: {
         Row: {
           ativo: boolean
