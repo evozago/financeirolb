@@ -1043,7 +1043,22 @@ export type Database = {
           supplier_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "recurring_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       representantes_contatos: {
         Row: {
