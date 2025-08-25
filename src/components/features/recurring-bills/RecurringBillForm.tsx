@@ -195,14 +195,13 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               <div className="space-y-2">
                 <Label>Fornecedor</Label>
                 <Select
-                  value={formData.supplier_id}
-                  onValueChange={(value) => handleInputChange('supplier_id', value)}
+                  value={formData.supplier_id || undefined}
+                  onValueChange={(value) => handleInputChange('supplier_id', value || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um fornecedor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum fornecedor</SelectItem>
                     {suppliers.map(supplier => (
                       <SelectItem key={supplier.id} value={supplier.id}>
                         {supplier.nome}
@@ -215,14 +214,13 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               <div className="space-y-2">
                 <Label>Categoria</Label>
                 <Select
-                  value={formData.category_id}
-                  onValueChange={(value) => handleInputChange('category_id', value)}
+                  value={formData.category_id || undefined}
+                  onValueChange={(value) => handleInputChange('category_id', value || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma categoria</SelectItem>
                     {categories.map(category => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.nome}
