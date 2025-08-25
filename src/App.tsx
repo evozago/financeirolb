@@ -27,6 +27,7 @@ import NewOrder from "./pages/NewOrder";
 import OrderDetail from "./pages/OrderDetail";
 import EditOrder from "./pages/EditOrder";
 import ManageFiliais from "./pages/ManageFiliais";
+import RecurringBills from "./pages/RecurringBills";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ function AppContent() {
           <Route path="/orders/new" element={<NewOrder />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/edit" element={<EditOrder />} />
+          <Route path="/recurring-bills" element={<RecurringBills />} />
           <Route path="/filiais" element={<ManageFiliais />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<Reports />} />

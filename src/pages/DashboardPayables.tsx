@@ -13,6 +13,7 @@ import { SummaryCardsGrid } from '@/components/features/dashboard/PayablesSummar
 import { FinancialPanel } from '@/components/features/dashboard/FinancialPanel';
 import { ExpensesByCategoryChart } from '@/components/features/dashboard/ExpensesByCategoryChart';
 import { ImportModal } from '@/components/features/payables/ImportModal';
+import RecurringEventsWidget from '@/components/features/recurring-bills/RecurringEventsWidget';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -366,6 +367,9 @@ export default function DashboardPayables() {
         <div className="space-y-8">
           {/* Financial Panel - Main Focus */}
           <FinancialPanel onCardClick={handleCardClick} />
+
+          {/* Recurring Events - Next 7 Days */}
+          <RecurringEventsWidget />
 
           {/* Expenses by Category Chart */}
           <ExpensesByCategoryChart />

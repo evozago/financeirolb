@@ -97,3 +97,59 @@ export interface PayablesTableColumn {
   sortable: boolean;
   width?: number;
 }
+
+export interface RecurringBill {
+  id: string;
+  name: string;
+  supplier_id?: string;
+  category_id?: string;
+  closing_day?: number;
+  due_day: number;
+  expected_amount: number;
+  open_ended: boolean;
+  end_date?: string;
+  notes?: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  supplier?: {
+    id: string;
+    nome: string;
+  };
+  category?: {
+    id: string;
+    nome: string;
+  };
+}
+
+export interface RecurringBillOccurrence {
+  id: string;
+  recurring_bill_id: string;
+  year_month: string;
+  closing_date?: string;
+  due_date: string;
+  expected_amount: number;
+  is_closed_for_month: boolean;
+  closed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecurringEvent {
+  occurrence_id: string;
+  recurring_bill_id: string;
+  name: string;
+  supplier_id?: string;
+  category_id?: string;
+  default_expected_amount: number;
+  expected_amount: number;
+  year_month: string;
+  closing_date?: string;
+  due_date: string;
+  open_ended: boolean;
+  end_date?: string;
+  active: boolean;
+  is_closed_for_month: boolean;
+  next_event_date?: string;
+  next_event_type?: 'closing' | 'due';
+}
