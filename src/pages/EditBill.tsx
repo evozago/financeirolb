@@ -91,18 +91,18 @@ export default function EditBill() {
           setForm(null);
         } else {
           const payload: Installment = {
-            id: data.id,
-            descricao: data.descricao ?? "",
-            fornecedor: data.fornecedor ?? null,
-            categoria: data.categoria ?? null,
-            valor: Number(data.valor ?? 0),
+            id: (data as any).id,
+            descricao: (data as any).descricao ?? "",
+            fornecedor: (data as any).fornecedor ?? null,
+            categoria: (data as any).categoria ?? null,
+            valor: Number((data as any).valor ?? 0),
             data_vencimento:
-              (data.data_vencimento || new Date().toISOString().slice(0, 10)) as string,
-            data_emissao: data.data_emissao,
-            observacoes: data.observacoes ?? "",
-            numero_parcela: data.numero_parcela ?? 1,
-            total_parcelas: data.total_parcelas ?? 1,
-            filial_id: data.filial_id ?? null,
+              ((data as any).data_vencimento || new Date().toISOString().slice(0, 10)) as string,
+            data_emissao: (data as any).data_emissao,
+            observacoes: (data as any).observacoes ?? "",
+            numero_parcela: (data as any).numero_parcela ?? 1,
+            total_parcelas: (data as any).total_parcelas ?? 1,
+            filial_id: (data as any).filial_id ?? null,
           };
           setForm(payload);
         }
@@ -126,7 +126,7 @@ export default function EditBill() {
           .order("nome", { ascending: true });
 
         if (error) throw error;
-        setBranches((data || []) as Branch[]);
+        setBranches((data as unknown as Branch[]) || []);
       } catch (err: any) {
         console.error("Erro carregando filiais:", err);
       } finally {
@@ -291,8 +291,8 @@ export default function EditBill() {
             <div className="space-y-2">
               <Label htmlFor="filial_id">Filial</Label>
               <Select
-                value={form.filial_id ?? ""}
-                onValueChange={(v) => setField("filial_id", v === "" ? null : v)}
+                value={form.filial_id ?? "none"}
+                onValueChange={(v) => setField("filial_id", v === "none" ? null : v)}
                 disabled={loadingBranches}
               >
                 <SelectTrigger id="filial_id" className="w-full">
@@ -301,7 +301,7 @@ export default function EditBill() {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem filial</SelectItem>
+                  <SelectItem value="none">Sem filial</SelectItem>
                   {branches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.nome}

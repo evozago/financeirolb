@@ -82,7 +82,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setSuppliers((data || []) as Supplier[]);
+      setSuppliers((data as unknown as Supplier[]) || []);
     } catch (error) {
       console.error("Error loading suppliers:", error);
     }
@@ -97,7 +97,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setCategories((data || []) as Category[]);
+      setCategories((data as unknown as Category[]) || []);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -108,7 +108,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
       const { data, error } = await supabase.from("filiais" as any).select("id, nome").eq("ativo", true);
       if (error) throw error;
       const map: Record<string, string> = {};
-      (data as Branch[]).forEach((f) => (map[f.id] = f.nome));
+      ((data as unknown as Branch[]) || []).forEach((f) => (map[f.id] = f.nome));
       setBranches(map);
     } catch (e) {
       console.error("Error loading branches:", e);
