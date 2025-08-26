@@ -80,13 +80,26 @@ const RecurringBills: React.FC = () => {
       key: 'supplier',
       header: 'Fornecedor',
       sortable: false,
-      cell: (bill) => <div className="text-sm text-muted-foreground">{bill.supplier?.nome || '-'}</div>,
+      cell: (bill) => (
+        <div className="text-sm text-muted-foreground">{bill.supplier?.nome || '-'}</div>
+      ),
+    },
+    // NOVO: coluna Filial
+    {
+      key: 'filial',
+      header: 'Filial',
+      sortable: false,
+      cell: (bill) => (
+        <div className="text-sm text-muted-foreground">{(bill as any).filial?.nome || '-'}</div>
+      ),
     },
     {
       key: 'category',
       header: 'Categoria',
       sortable: false,
-      cell: (bill) => <div className="text-sm text-muted-foreground">{bill.category?.nome || '-'}</div>,
+      cell: (bill) => (
+        <div className="text-sm text-muted-foreground">{bill.category?.nome || '-'}</div>
+      ),
     },
     {
       key: 'dates',
@@ -115,7 +128,11 @@ const RecurringBills: React.FC = () => {
       key: 'status',
       header: 'Status',
       sortable: false,
-      cell: (bill) => <Badge variant={bill.active ? 'default' : 'secondary'}>{bill.active ? 'Ativo' : 'Inativo'}</Badge>,
+      cell: (bill) => (
+        <Badge variant={bill.active ? 'default' : 'secondary'}>
+          {bill.active ? 'Ativo' : 'Inativo'}
+        </Badge>
+      ),
     },
     {
       key: 'actions',
@@ -126,12 +143,20 @@ const RecurringBills: React.FC = () => {
           <Button variant="ghost" size="sm" onClick={() => handleEdit(bill)} title="Editar">
             <Edit className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleToggleActive(bill)} title="Arquivar / Reativar">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleToggleActive(bill)}
+            title="Arquivar / Reativar"
+          >
             <Archive className="h-4 w-4" />
           </Button>
-
-          {/* NOVO: Lançar mês vigente */}
-          <Button variant="default" size="sm" onClick={() => handleLaunch(bill)} title="Lançar mês vigente">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleLaunch(bill)}
+            title="Lançar mês vigente"
+          >
             <Zap className="h-4 w-4 mr-1" />
             Lançar mês vigente
           </Button>
@@ -145,19 +170,22 @@ const RecurringBills: React.FC = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('recurring_bills' as any)
-        .select(
-          `
+        .select(`
           *,
           supplier:fornecedores(id, nome),
-          category:categorias_produtos(id, nome)
-        `
-        )
+          category:categorias_produtos(id, nome),
+          filial:filiais(id, nome)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setBills((data as any) || []);
     } catch (err) {
-      toast({ title: 'Erro', description: 'Erro ao carregar contas recorrentes', variant: 'destructive' });
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar contas recorrentes',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
