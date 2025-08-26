@@ -1,474 +1,363 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Calendar, Plus, Minus } from "lucide-react";
+import * as React from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-type ApInstallment = Database['public']['Tables']['ap_installments']['Row'];
+type Branch = { id: string; nome: string };
 
-const EditBill = () => {
-  const { id } = useParams();
+type Installment = {
+  id: string;
+  descricao: string;
+  fornecedor: string | null;
+  categoria: string | null;
+  valor: number;
+  data_vencimento: string; // yyyy-mm-dd
+  data_emissao: string | null;
+  observacoes: string | null;
+  numero_parcela: number | null;
+  total_parcelas: number | null;
+  filial_id: string | null;
+};
+
+const brl = (v: number | string) => {
+  const n = typeof v === "string" ? Number(v || 0) : v || 0;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    isFinite(n) ? n : 0
+  );
+};
+
+export default function EditBill() {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [sp] = useSearchParams();
+  const installmentId = sp.get("id");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [bill, setBill] = useState<ApInstallment | null>(null);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
 
-  const [formData, setFormData] = useState({
-    descricao: "",
-    fornecedor: "",
-    valor_total: "",
-    total_parcelas: "1",
-    categoria: "",
-    observacoes: "",
-    filial_id: ""
-  });
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
-  const [installmentDates, setInstallmentDates] = useState<string[]>([]);
-  const [currentBillsGroup, setCurrentBillsGroup] = useState<any[]>([]);
+  const [form, setForm] = useState<Installment | null>(null);
 
+  const setField = <K extends keyof Installment>(key: K, value: Installment[K]) =>
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+
+  // Carrega a parcela (ap_installments)
   useEffect(() => {
-    if (id) {
-      loadBillData();
-      loadSuppliers();
-    }
-  }, [id]);
+    (async () => {
+      if (!installmentId) {
+        setLoading(false);
+        return;
+      }
 
-  const loadBillData = async () => {
-    try {
+      setLoading(true);
       const { data, error } = await supabase
-        .from('ap_installments')
-        .select('*')
-        .eq('id', id)
-        .single();
+        .from("ap_installments")
+        .select(
+          [
+            "id",
+            "descricao",
+            "fornecedor",
+            "categoria",
+            "valor",
+            "data_vencimento",
+            "data_emissao",
+            "observacoes",
+            "numero_parcela",
+            "total_parcelas",
+            "filial_id",
+          ].join(",")
+        )
+        .eq("id", installmentId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro carregando parcela:", error);
+      } else if (data) {
+        // normaliza valores/strings
+        const payload: Installment = {
+          id: data.id,
+          descricao: data.descricao ?? "",
+          fornecedor: data.fornecedor ?? null,
+          categoria: data.categoria ?? null,
+          valor: Number(data.valor ?? 0),
+          data_vencimento: (data.data_vencimento || new Date().toISOString().slice(0, 10)) as string,
+          data_emissao: data.data_emissao,
+          observacoes: data.observacoes ?? "",
+          numero_parcela: data.numero_parcela ?? 1,
+          total_parcelas: data.total_parcelas ?? 1,
+          filial_id: data.filial_id ?? null,
+        };
+        setForm(payload);
+      }
 
-      setBill(data);
-      
-      // Carregar todas as parcelas do mesmo grupo
-      const { data: groupBills, error: groupError } = await supabase
-        .from('ap_installments')
-        .select('*')
-        .eq('valor_total_titulo', data.valor_total_titulo || data.valor)
-        .eq('fornecedor', data.fornecedor)
-        .order('numero_parcela');
-
-      if (groupError) throw groupError;
-
-      const bills = groupBills || [data];
-      setCurrentBillsGroup(bills);
-      
-      setFormData({
-        descricao: data.descricao || "",
-        fornecedor: data.fornecedor || "",
-        valor_total: (data.valor_total_titulo || data.valor)?.toString() || "",
-        total_parcelas: (data.total_parcelas || bills.length)?.toString() || "1",
-        categoria: data.categoria || "",
-        observacoes: data.observacoes || "",
-        filial_id: data.filial_id || ""
-      });
-
-      // Configurar datas das parcelas
-      const dates = bills.map(bill => bill.data_vencimento);
-      setInstallmentDates(dates);
-      
-    } catch (error) {
-      console.error('Error loading bill:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados da conta",
-        variant: "destructive",
-      });
-    } finally {
       setLoading(false);
-    }
-  };
+    })();
+  }, [installmentId]);
 
-  const loadSuppliers = async () => {
-    try {
+  // Carrega filiais
+  useEffect(() => {
+    (async () => {
+      setLoadingBranches(true);
       const { data, error } = await supabase
-        .from('fornecedores')
-        .select('id, nome')
-        .order('nome');
+        .from("filiais")
+        .select("id, nome")
+        .order("nome", { ascending: true });
 
-      if (error) throw error;
-      setSuppliers(data || []);
-    } catch (error) {
-      console.error('Error loading suppliers:', error);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    if (field === 'total_parcelas') {
-      const newTotal = parseInt(value) || 1;
-      const currentDates = [...installmentDates];
-      
-      // Ajustar array de datas
-      if (newTotal > currentDates.length) {
-        // Adicionar novas datas (30 dias entre parcelas)
-        const lastDate = currentDates[currentDates.length - 1] || new Date().toISOString().split('T')[0];
-        for (let i = currentDates.length; i < newTotal; i++) {
-          const date = new Date(lastDate);
-          date.setMonth(date.getMonth() + i);
-          currentDates.push(date.toISOString().split('T')[0]);
-        }
-      } else if (newTotal < currentDates.length) {
-        // Remover datas extras
-        currentDates.splice(newTotal);
+      if (error) {
+        console.error("Erro carregando filiais:", error);
+      } else if (data) {
+        setBranches(data as Branch[]);
       }
-      
-      setInstallmentDates(currentDates);
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+      setLoadingBranches(false);
+    })();
+  }, []);
 
-  const handleDateChange = (index: number, date: string) => {
-    const newDates = [...installmentDates];
-    newDates[index] = date;
-    setInstallmentDates(newDates);
-  };
+  const valorPorParcela = useMemo(() => {
+    if (!form) return 0;
+    const total = Number(form.valor || 0);
+    const qtd = Number(form.total_parcelas || 1);
+    return qtd > 0 ? total / qtd : total;
+  }, [form?.valor, form?.total_parcelas]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bill) return;
-
+  const handleSave = async () => {
+    if (!form) return;
     setSaving(true);
-    try {
-      const totalValue = parseFloat(formData.valor_total);
-      const totalInstallments = parseInt(formData.total_parcelas);
-      const valuePerInstallment = totalValue / totalInstallments;
 
-      // Primeiro, deletar todas as parcelas do grupo atual (exceto a atual)
-      if (currentBillsGroup.length > 1) {
-        const otherBillIds = currentBillsGroup
-          .filter(b => b.id !== bill.id)
-          .map(b => b.id);
+    // Monta payload compatível com ap_installments
+    const payload = {
+      descricao: form.descricao,
+      fornecedor: form.fornecedor,
+      categoria: form.categoria,
+      valor: form.valor,
+      data_vencimento: form.data_vencimento,
+      observacoes: form.observacoes,
+      numero_parcela: form.numero_parcela,
+      total_parcelas: form.total_parcelas,
+      filial_id: form.filial_id, // chave estrangeira para public.filiais(id)
+      updated_at: new Date().toISOString(),
+    };
 
-        if (otherBillIds.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('ap_installments')
-            .update({ deleted_at: new Date().toISOString() })
-            .in('id', otherBillIds);
+    const { error } = await supabase
+      .from("ap_installments")
+      .update(payload)
+      .eq("id", form.id);
 
-          if (deleteError) throw deleteError;
-        }
-      }
+    setSaving(false);
 
-      // Atualizar a parcela atual
-      const { error: updateError } = await supabase
-        .from('ap_installments')
-        .update({
-          descricao: formData.descricao,
-          fornecedor: formData.fornecedor,
-          valor: valuePerInstallment,
-          valor_total_titulo: totalValue,
-          data_vencimento: installmentDates[0],
-          numero_parcela: 1,
-          total_parcelas: totalInstallments,
-          categoria: formData.categoria,
-          observacoes: formData.observacoes
-        })
-        .eq('id', bill.id);
-
-      if (updateError) throw updateError;
-
-      // Criar novas parcelas se necessário
-      if (totalInstallments > 1) {
-        const newInstallments = [];
-        for (let i = 1; i < totalInstallments; i++) {
-          newInstallments.push({
-            descricao: formData.descricao,
-            fornecedor: formData.fornecedor,
-            valor: valuePerInstallment,
-            valor_total_titulo: totalValue,
-            data_vencimento: installmentDates[i],
-            numero_parcela: i + 1,
-            total_parcelas: totalInstallments,
-            categoria: formData.categoria,
-            observacoes: formData.observacoes,
-            status: 'aberto'
-          });
-        }
-
-        const { error: insertError } = await supabase
-          .from('ap_installments')
-          .insert(newInstallments);
-
-        if (insertError) throw insertError;
-      }
-
-      toast({
-        title: "Sucesso",
-        description: "Conta atualizada com sucesso",
-      });
-
-      navigate(`/bills/${bill.id}`);
-    } catch (error) {
-      console.error('Error updating bill:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar conta",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
+    if (error) {
+      alert("Erro ao salvar alterações: " + error.message);
+      console.error(error);
+      return;
     }
+
+    alert("Alterações salvas com sucesso!");
+    navigate(-1);
   };
 
   const handleDelete = async () => {
-    if (!bill) return;
-    
-    if (!confirm("Tem certeza que deseja excluir esta conta?")) return;
+    if (!form) return;
+    if (!confirm("Você realmente deseja excluir esta conta?")) return;
 
-    try {
-      const { error } = await supabase
-        .from('ap_installments')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', bill.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Conta excluída com sucesso",
-      });
-
-      navigate('/accounts-payable');
-    } catch (error) {
-      console.error('Error deleting bill:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao excluir conta",
-        variant: "destructive",
-      });
+    const { error } = await supabase.from("ap_installments").delete().eq("id", form.id);
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
     }
+
+    alert("Conta excluída com sucesso!");
+    navigate(-1);
   };
 
-  if (loading) {
+  if (loading || !form) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-1/4"></div>
-          <div className="h-64 bg-muted rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!bill) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Conta não encontrada</h1>
-          <Button onClick={() => navigate('/accounts-payable')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Contas a Pagar
-          </Button>
-        </div>
+      <div className="p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Editar Conta</CardTitle>
+          </CardHeader>
+          <CardContent>Carregando…</CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate(`/bills/${bill.id}`)}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar para Detalhes
-        </Button>
-        <h1 className="text-3xl font-bold">Editar Conta</h1>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações da Conta</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <Label htmlFor="descricao">Descrição *</Label>
-                <Input
-                  id="descricao"
-                  value={formData.descricao}
-                  onChange={(e) => handleInputChange('descricao', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="fornecedor">Fornecedor</Label>
-                <Input
-                  id="fornecedor"
-                  value={formData.fornecedor}
-                  onChange={(e) => handleInputChange('fornecedor', e.target.value)}
-                  placeholder="Nome do fornecedor"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="categoria">Categoria</Label>
-                <Input
-                  id="categoria"
-                  value={formData.categoria}
-                  onChange={(e) => handleInputChange('categoria', e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="filial_id">Filial</Label>
-                <Input
-                  id="filial_id"
-                  value={formData.filial_id}
-                  onChange={(e) => handleInputChange('filial_id', e.target.value)}
-                  placeholder="ID da filial"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="valor_total">Valor Total *</Label>
-                <Input
-                  id="valor_total"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.valor_total}
-                  onChange={(e) => handleInputChange('valor_total', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="total_parcelas">Quantidade de Parcelas *</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const current = parseInt(formData.total_parcelas) || 1;
-                      if (current > 1) {
-                        handleInputChange('total_parcelas', (current - 1).toString());
-                      }
-                    }}
-                    disabled={parseInt(formData.total_parcelas) <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    id="total_parcelas"
-                    type="number"
-                    min="1"
-                    max="99"
-                    value={formData.total_parcelas}
-                    onChange={(e) => handleInputChange('total_parcelas', e.target.value)}
-                    className="text-center"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const current = parseInt(formData.total_parcelas) || 1;
-                      if (current < 99) {
-                        handleInputChange('total_parcelas', (current + 1).toString());
-                      }
-                    }}
-                    disabled={parseInt(formData.total_parcelas) >= 99}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Valor por parcela: {formData.valor_total && formData.total_parcelas ? 
-                    new Intl.NumberFormat('pt-BR', { 
-                      style: 'currency', 
-                      currency: 'BRL' 
-                    }).format(parseFloat(formData.valor_total) / parseInt(formData.total_parcelas)) : 
-                    'R$ 0,00'
-                  }
-                </p>
-              </div>
-            </div>
-
-            {/* Datas das Parcelas */}
-            {parseInt(formData.total_parcelas) > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <Label className="flex items-center gap-2 mb-4">
-                    <Calendar className="h-4 w-4" />
-                    Datas de Vencimento das Parcelas
-                  </Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Array.from({ length: parseInt(formData.total_parcelas) || 1 }, (_, index) => (
-                      <div key={index}>
-                        <Label htmlFor={`date-${index}`} className="text-sm">
-                          {index + 1}ª Parcela
-                        </Label>
-                        <Input
-                          id={`date-${index}`}
-                          type="date"
-                          value={installmentDates[index] || ''}
-                          onChange={(e) => handleDateChange(index, e.target.value)}
-                          required
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div>
-              <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes}
-                onChange={(e) => handleInputChange('observacoes', e.target.value)}
-                rows={3}
+    <div className="p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Editar Conta</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          {/* Linha: Descrição */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="col-span-1 md:col-span-2 space-y-2">
+              <Label htmlFor="descricao">Descrição *</Label>
+              <Input
+                id="descricao"
+                value={form.descricao}
+                onChange={(e) => setField("descricao", e.target.value)}
+                placeholder="Ex.: ALUGUEL T9"
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <div className="flex justify-between mt-6">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleDelete}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Excluir Conta
-          </Button>
+          {/* Linha: Fornecedor / Categoria */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="fornecedor">Fornecedor</Label>
+              <Input
+                id="fornecedor"
+                value={form.fornecedor ?? ""}
+                onChange={(e) => setField("fornecedor", e.target.value || null)}
+                placeholder="Nome do fornecedor"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="categoria">Categoria</Label>
+              <Input
+                id="categoria"
+                value={form.categoria ?? ""}
+                onChange={(e) => setField("categoria", e.target.value || null)}
+                placeholder="Categoria (texto)"
+              />
+            </div>
+          </div>
 
-          <Button type="submit" disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Salvando...' : 'Salvar Alterações'}
-          </Button>
-        </div>
-      </form>
+          {/* Linha: Filial / Valor total */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="filial_id">Filial</Label>
+              <Select
+                value={form.filial_id ?? ""}
+                onValueChange={(v) => setField("filial_id", v === "" ? null : v)}
+                disabled={loadingBranches}
+              >
+                <SelectTrigger id="filial_id" className="w-full">
+                  <SelectValue
+                    placeholder={loadingBranches ? "Carregando..." : "Selecione a filial"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sem filial</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="valor_total">Valor Total *</Label>
+              <Input
+                id="valor_total"
+                type="number"
+                inputMode="decimal"
+                value={form.valor}
+                onChange={(e) => setField("valor", Number(e.target.value || 0))}
+              />
+              <div className="text-xs text-muted-foreground">
+                Valor por parcela: {brl(valorPorParcela)}
+              </div>
+            </div>
+          </div>
+
+          {/* Linha: Quantidade de parcelas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label>Quantidade de Parcelas *</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setField(
+                      "total_parcelas",
+                      Math.max(1, Number(form.total_parcelas || 1) - 1) as any
+                    )
+                  }
+                >
+                  –
+                </Button>
+                <Input
+                  className="text-center"
+                  value={Number(form.total_parcelas || 1)}
+                  onChange={(e) =>
+                    setField("total_parcelas", Math.max(1, Number(e.target.value || 1)) as any)
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setField("total_parcelas", (Number(form.total_parcelas || 1) + 1) as any)
+                  }
+                >
+                  +
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Linha: Datas */}
+          <div className="space-y-2">
+            <Label htmlFor="data_vencimento">Datas de Vencimento das Parcelas</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="primeira_parcela">1ª Parcela</Label>
+                <Input
+                  id="primeira_parcela"
+                  type="date"
+                  value={form.data_vencimento?.slice(0, 10)}
+                  onChange={(e) => setField("data_vencimento", e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Observações */}
+          <div className="space-y-2">
+            <Label htmlFor="observacoes">Observações</Label>
+            <Textarea
+              id="observacoes"
+              rows={4}
+              value={form.observacoes ?? ""}
+              onChange={(e) => setField("observacoes", e.target.value)}
+              placeholder="Lançado automaticamente a partir de Conta Recorrente"
+            />
+          </div>
+
+          {/* Ações */}
+          <div className="flex items-center justify-between pt-4">
+            <Button type="button" variant="destructive" onClick={handleDelete}>
+              Excluir Conta
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={saving}>
+                {saving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default EditBill;
+}
