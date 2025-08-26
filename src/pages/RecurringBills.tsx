@@ -1,140 +1,73 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, Calendar, Edit, Archive, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/integrations/supabase/client'
-import { RecurringBill } from '@/types/payables'
-import { RecurringBillForm } from '@/components/features/recurring-bills/RecurringBillForm'
-import { EnhancedDataTable } from '@/components/ui/enhanced-data-table'
+import React, { useState, useEffect } from 'react';
+import { Plus, Calendar, Edit, Archive, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-interface Column {
-  key: string
-  header: string
-  sortable: boolean
-  cell: (item: RecurringBill) => React.ReactNode
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { EnhancedDataTable } from '@/components/ui/enhanced-data-table';
+import { useToast } from '@/hooks/use-toast';
+
+import { supabase } from '@/integrations/supabase/client';
+import { RecurringBill } from '@/types/payables';
+import { RecurringBillForm } from '@/components/features/recurring-bills/RecurringBillForm';
+
+// ————————————————————————————————————————————————
+// RPC launcher: cria título do mês vigente em ap_installments
+// ————————————————————————————————————————————————
+async function launchCurrentMonth(billId: string) {
+  return supabase.rpc('create_payable_from_recurring', {
+    p_recurring_bill_id: billId,
+    p_year_month: new Date().toISOString().slice(0, 7) + '-01',
+  });
 }
 
-const RecurringBills = () => {
-  const [bills, setBills] = useState<RecurringBill[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingBill, setEditingBill] = useState<RecurringBill | null>(null)
-  const [launchingId, setLaunchingId] = useState<string | null>(null)
-  const { toast } = useToast()
-  const navigate = useNavigate()
+interface Column {
+  key: string;
+  header: string;
+  sortable: boolean;
+  cell: (item: RecurringBill) => React.ReactNode;
+}
 
-  useEffect(() => {
-    loadBills()
-  }, [])
-
-  const loadBills = async () => {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('recurring_bills' as any)
-        .select(`
-          *,
-          supplier:fornecedores(id, nome),
-          category:categorias_produtos(id, nome)
-        `)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setBills((data as any) || [])
-    } catch (error) {
-      console.error('Error loading recurring bills:', error)
-      toast({
-        title: 'Erro',
-        description: 'Erro ao carregar contas recorrentes',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCreate = () => {
-    setEditingBill(null)
-    setShowForm(true)
-  }
+const RecurringBills: React.FC = () => {
+  const [bills, setBills] = useState<RecurringBill[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleEdit = (bill: RecurringBill) => {
-    setEditingBill(bill)
-    setShowForm(true)
-  }
+    setEditingBill(bill);
+    setShowForm(true);
+  };
 
   const handleToggleActive = async (bill: RecurringBill) => {
-    try {
-      const { error } = await supabase
-        .from('recurring_bills' as any)
-        .update({ active: !bill.active })
-        .eq('id', bill.id)
+    const { error } = await supabase
+      .from('recurring_bills' as any)
+      .update({ active: !bill.active })
+      .eq('id', bill.id);
 
-      if (error) throw error
-
-      toast({
-        title: 'Sucesso',
-        description: `Conta ${bill.active ? 'arquivada' : 'reativada'} com sucesso`,
-      })
-
-      loadBills()
-    } catch (error) {
-      console.error('Error toggling bill status:', error)
-      toast({
-        title: 'Erro',
-        description: 'Erro ao alterar status da conta',
-        variant: 'destructive',
-      })
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      return;
     }
-  }
 
-  // 🔹 Lança a conta recorrente do mês vigente em "Contas a Pagar" (ap_installments)
-  const handleLaunchCurrentMonth = async (bill: RecurringBill) => {
-    try {
-      setLaunchingId(bill.id)
-
-      // p_year_month deve ser o 1º dia do mês (YYYY-MM-01)
-      const yearMonth = new Date().toISOString().slice(0, 7) + '-01'
-
-      const { data, error } = await supabase.rpc('create_payable_from_recurring', {
-        p_recurring_bill_id: bill.id,
-        p_year_month: yearMonth,
-        // p_amount: null // se quiser sobrescrever valor, passe um número aqui
-      })
-
-      if (error) throw error
-
-      toast({
-        title: 'Lançado!',
-        description: 'Título criado em Contas a Pagar para o mês vigente.',
-      })
-
-      // opcional: levar usuário para a página de Contas a Pagar
-      // navigate('/contas-a-pagar')
-    } catch (err: any) {
-      console.error('Error launching payable from recurring:', err)
-      toast({
-        title: 'Erro ao lançar',
-        description: err?.message || 'Não foi possível lançar a conta deste mês.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLaunchingId(null)
-    }
-  }
-
-  const handleFormSuccess = () => {
-    setShowForm(false)
-    setEditingBill(null)
-    loadBills()
     toast({
       title: 'Sucesso',
-      description: editingBill ? 'Conta atualizada com sucesso' : 'Conta criada com sucesso',
-    })
-  }
+      description: `Conta ${bill.active ? 'arquivada' : 'reativada'} com sucesso`,
+    });
+    loadBills();
+  };
+
+  const handleLaunch = async (bill: RecurringBill) => {
+    const { error } = await launchCurrentMonth(bill.id);
+    if (error) {
+      toast({ title: 'Erro ao lançar', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Sucesso', description: 'Conta lançada em Contas a Pagar!' });
+  };
 
   const columns: Column[] = [
     {
@@ -147,17 +80,13 @@ const RecurringBills = () => {
       key: 'supplier',
       header: 'Fornecedor',
       sortable: false,
-      cell: (bill) => (
-        <div className="text-sm text-muted-foreground">{bill.supplier?.nome || '-'}</div>
-      ),
+      cell: (bill) => <div className="text-sm text-muted-foreground">{bill.supplier?.nome || '-'}</div>,
     },
     {
       key: 'category',
       header: 'Categoria',
       sortable: false,
-      cell: (bill) => (
-        <div className="text-sm text-muted-foreground">{bill.category?.nome || '-'}</div>
-      ),
+      cell: (bill) => <div className="text-sm text-muted-foreground">{bill.category?.nome || '-'}</div>,
     },
     {
       key: 'dates',
@@ -176,10 +105,9 @@ const RecurringBills = () => {
       sortable: true,
       cell: (bill) => (
         <div className="font-medium">
-          {new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          }).format(bill.expected_amount || 0)}
+          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+            bill.expected_amount
+          )}
         </div>
       ),
     },
@@ -187,11 +115,7 @@ const RecurringBills = () => {
       key: 'status',
       header: 'Status',
       sortable: false,
-      cell: (bill) => (
-        <Badge variant={bill.active ? 'default' : 'secondary'}>
-          {bill.active ? 'Ativo' : 'Inativo'}
-        </Badge>
-      ),
+      cell: (bill) => <Badge variant={bill.active ? 'default' : 'secondary'}>{bill.active ? 'Ativo' : 'Inativo'}</Badge>,
     },
     {
       key: 'actions',
@@ -202,37 +126,59 @@ const RecurringBills = () => {
           <Button variant="ghost" size="sm" onClick={() => handleEdit(bill)} title="Editar">
             <Edit className="h-4 w-4" />
           </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleToggleActive(bill)}
-            title={bill.active ? 'Arquivar' : 'Reativar'}
-          >
+          <Button variant="ghost" size="sm" onClick={() => handleToggleActive(bill)} title="Arquivar / Reativar">
             <Archive className="h-4 w-4" />
           </Button>
 
-          {/* 🔹 Botão novo: Lançar no Contas a Pagar (mês vigente) */}
-          <Button
-            size="sm"
-            onClick={() => handleLaunchCurrentMonth(bill)}
-            disabled={launchingId === bill.id}
-            className="gap-2"
-            title="Lançar título do mês vigente em Contas a Pagar"
-          >
-            {launchingId === bill.id ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Lançando...
-              </>
-            ) : (
-              <>⚡ Lançar mês vigente</>
-            )}
+          {/* NOVO: Lançar mês vigente */}
+          <Button variant="default" size="sm" onClick={() => handleLaunch(bill)} title="Lançar mês vigente">
+            <Zap className="h-4 w-4 mr-1" />
+            Lançar mês vigente
           </Button>
         </div>
       ),
     },
-  ]
+  ];
+
+  const loadBills = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('recurring_bills' as any)
+        .select(
+          `
+          *,
+          supplier:fornecedores(id, nome),
+          category:categorias_produtos(id, nome)
+        `
+        )
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBills((data as any) || []);
+    } catch (err) {
+      toast({ title: 'Erro', description: 'Erro ao carregar contas recorrentes', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCreate = () => {
+    setEditingBill(null);
+    setShowForm(true);
+  };
+
+  const handleFormSuccess = () => {
+    setShowForm(false);
+    setEditingBill(null);
+    loadBills();
+    toast({ title: 'Sucesso', description: editingBill ? 'Conta atualizada' : 'Conta criada' });
+  };
 
   if (showForm) {
     return (
@@ -240,11 +186,11 @@ const RecurringBills = () => {
         bill={editingBill}
         onSuccess={handleFormSuccess}
         onCancel={() => {
-          setShowForm(false)
-          setEditingBill(null)
+          setShowForm(false);
+          setEditingBill(null);
         }}
       />
-    )
+    );
   }
 
   return (
@@ -277,7 +223,7 @@ const RecurringBills = () => {
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
 
-export default RecurringBills
+export default RecurringBills;
