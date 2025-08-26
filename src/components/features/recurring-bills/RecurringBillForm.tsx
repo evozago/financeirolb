@@ -1,322 +1,213 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { RecurringBill } from '@/types/payables';
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RecurringBill } from "@/types/payables";
 
-interface RecurringBillFormProps {
+interface Props {
   bill?: RecurringBill | null;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-interface Supplier {
-  id: string;
-  nome: string;
-}
+type Branch = { id: string; nome: string };
 
-interface Category {
-  id: string;
-  nome: string;
-}
+export const RecurringBillForm: React.FC<Props> = ({ bill, onSuccess, onCancel }) => {
+  const [name, setName] = useState(bill?.name || "");
+  const [supplierId, setSupplierId] = useState(bill?.supplier_id || "");
+  const [categoryId, setCategoryId] = useState(bill?.category_id || "");
+  const [closingDay, setClosingDay] = useState(bill?.closing_day || "");
+  const [dueDay, setDueDay] = useState(bill?.due_day || "");
+  const [expectedAmount, setExpectedAmount] = useState(bill?.expected_amount || 0);
+  const [notes, setNotes] = useState(bill?.notes || "");
+  const [openEnded, setOpenEnded] = useState(bill?.open_ended ?? true);
+  const [endDate, setEndDate] = useState(bill?.end_date || "");
+  const [branchId, setBranchId] = useState(bill?.filial_id || ""); // campo novo
 
-export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
-  bill,
-  onSuccess,
-  onCancel
-}) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    supplier_id: '',
-    category_id: '',
-    closing_day: '',
-    due_day: '',
-    expected_amount: '',
-    open_ended: true,
-    end_date: '',
-    notes: ''
-  });
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     loadSuppliers();
     loadCategories();
-    
-    if (bill) {
-      setFormData({
-        name: bill.name,
-        supplier_id: bill.supplier_id || '',
-        category_id: bill.category_id || '',
-        closing_day: bill.closing_day?.toString() || '',
-        due_day: bill.due_day.toString(),
-        expected_amount: bill.expected_amount.toString(),
-        open_ended: bill.open_ended,
-        end_date: bill.end_date || '',
-        notes: bill.notes || ''
-      });
-    }
-  }, [bill]);
+    loadBranches();
+  }, []);
 
   const loadSuppliers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('fornecedores')
-        .select('id, nome')
-        .eq('ativo', true)
-        .order('nome');
-
-      if (error) throw error;
-      setSuppliers(data || []);
-    } catch (error) {
-      console.error('Error loading suppliers:', error);
-    }
+    const { data } = await supabase.from("fornecedores").select("id, nome").order("nome");
+    if (data) setSuppliers(data);
   };
 
   const loadCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categorias_produtos')
-        .select('id, nome')
-        .eq('ativo', true)
-        .order('nome');
-
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
+    const { data } = await supabase.from("categorias_produtos").select("id, nome").order("nome");
+    if (data) setCategories(data);
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const loadBranches = async () => {
+    const { data } = await supabase.from("filiais").select("id, nome").order("nome");
+    if (data) setBranches(data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name || !formData.due_day || !formData.expected_amount) {
-      toast({
-        title: 'Erro',
-        description: 'Preencha todos os campos obrigatórios',
-        variant: 'destructive'
-      });
+    setLoading(true);
+
+    const payload = {
+      name,
+      supplier_id: supplierId || null,
+      category_id: categoryId || null,
+      closing_day: closingDay ? Number(closingDay) : null,
+      due_day: dueDay ? Number(dueDay) : null,
+      expected_amount: Number(expectedAmount),
+      notes,
+      open_ended: openEnded,
+      end_date: endDate || null,
+      filial_id: branchId || null, // grava filial
+    };
+
+    let error;
+    if (bill?.id) {
+      ({ error } = await supabase.from("recurring_bills").update(payload).eq("id", bill.id));
+    } else {
+      ({ error } = await supabase.from("recurring_bills").insert(payload));
+    }
+
+    setLoading(false);
+
+    if (error) {
+      alert("Erro ao salvar: " + error.message);
       return;
     }
 
-    try {
-      setLoading(true);
-
-      const submitData = {
-        name: formData.name,
-        supplier_id: formData.supplier_id || null,
-        category_id: formData.category_id || null,
-        closing_day: formData.closing_day ? parseInt(formData.closing_day) : null,
-        due_day: parseInt(formData.due_day),
-        expected_amount: parseFloat(formData.expected_amount),
-        open_ended: formData.open_ended,
-        end_date: formData.end_date || null,
-        notes: formData.notes || null
-      };
-
-      let result;
-      if (bill) {
-        result = await supabase
-          .from('recurring_bills' as any)
-          .update(submitData)
-          .eq('id', bill.id);
-      } else {
-        result = await supabase
-          .from('recurring_bills' as any)
-          .insert([submitData]);
-      }
-
-      if (result.error) throw result.error;
-
-      onSuccess();
-    } catch (error) {
-      console.error('Error saving recurring bill:', error);
-      toast({
-        title: 'Erro',
-        description: 'Erro ao salvar conta recorrente',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
+    onSuccess();
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={onCancel}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar
-        </Button>
-        <h1 className="text-3xl font-bold">
-          {bill ? 'Editar Conta Recorrente' : 'Nova Conta Recorrente'}
-        </h1>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Nome da Conta */}
+      <div className="space-y-2">
+        <Label htmlFor="name">Nome da Conta *</Label>
+        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Informações da Conta</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome da Conta *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Ex: Equatorial Energia"
-                  required
-                />
-              </div>
+      {/* Fornecedor / Categoria */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="supplier">Fornecedor</Label>
+          <Select value={supplierId} onValueChange={(v) => setSupplierId(v)}>
+            <SelectTrigger id="supplier">
+              <SelectValue placeholder="Selecione um fornecedor" />
+            </SelectTrigger>
+            <SelectContent>
+              {suppliers.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-              <div className="space-y-2">
-                <Label>Fornecedor</Label>
-                <Select
-                  value={formData.supplier_id || undefined}
-                  onValueChange={(value) => handleInputChange('supplier_id', value || '')}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um fornecedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(supplier => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        <div className="space-y-2">
+          <Label htmlFor="category">Categoria</Label>
+          <Select value={categoryId} onValueChange={(v) => setCategoryId(v)}>
+            <SelectTrigger id="category">
+              <SelectValue placeholder="Selecione uma categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select
-                  value={formData.category_id || undefined}
-                  onValueChange={(value) => handleInputChange('category_id', value || '')}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(category => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Campo novo: Filial */}
+      <div className="space-y-2">
+        <Label htmlFor="filial">Filial</Label>
+        <Select value={branchId} onValueChange={(v) => setBranchId(v)}>
+          <SelectTrigger id="filial">
+            <SelectValue placeholder="Selecione uma filial" />
+          </SelectTrigger>
+          <SelectContent>
+            {branches.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="expected_amount">Valor Esperado *</Label>
-                <Input
-                  id="expected_amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.expected_amount}
-                  onChange={(e) => handleInputChange('expected_amount', e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
+      {/* Valor, Fechamento e Vencimento */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="expected_amount">Valor Esperado *</Label>
+          <Input
+            id="expected_amount"
+            type="number"
+            value={expectedAmount}
+            onChange={(e) => setExpectedAmount(parseFloat(e.target.value))}
+            required
+          />
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="closing_day">Dia do Fechamento</Label>
-                <Input
-                  id="closing_day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.closing_day}
-                  onChange={(e) => handleInputChange('closing_day', e.target.value)}
-                  placeholder="Ex: 25"
-                />
-              </div>
+        <div className="space-y-2">
+          <Label htmlFor="closing_day">Dia do Fechamento</Label>
+          <Input
+            id="closing_day"
+            type="number"
+            value={closingDay}
+            onChange={(e) => setClosingDay(e.target.value)}
+          />
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="due_day">Dia do Vencimento *</Label>
-                <Input
-                  id="due_day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.due_day}
-                  onChange={(e) => handleInputChange('due_day', e.target.value)}
-                  placeholder="Ex: 4"
-                  required
-                />
-              </div>
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="due_day">Dia do Vencimento *</Label>
+          <Input
+            id="due_day"
+            type="number"
+            value={dueDay}
+            onChange={(e) => setDueDay(e.target.value)}
+            required
+          />
+        </div>
+      </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="open_ended"
-                  checked={formData.open_ended}
-                  onCheckedChange={(checked) => handleInputChange('open_ended', checked)}
-                />
-                <Label htmlFor="open_ended">Conta sem data final (contínua)</Label>
-              </div>
+      {/* Observações */}
+      <div className="space-y-2">
+        <Label htmlFor="notes">Observações</Label>
+        <Textarea
+          id="notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Observações adicionais..."
+        />
+      </div>
 
-              {!formData.open_ended && (
-                <div className="space-y-2">
-                  <Label htmlFor="end_date">Data Final</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) => handleInputChange('end_date', e.target.value)}
-                  />
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Observações</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  placeholder="Observações adicionais..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button type="submit" disabled={loading}>
-                <Save className="mr-2 h-4 w-4" />
-                {loading ? 'Salvando...' : 'Salvar'}
-              </Button>
-              <Button type="button" variant="outline" onClick={onCancel}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+      {/* Ações */}
+      <div className="flex gap-3">
+        <Button type="submit" disabled={loading}>
+          {loading ? "Salvando..." : "Salvar"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
   );
 };
