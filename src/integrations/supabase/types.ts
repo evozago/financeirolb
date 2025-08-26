@@ -562,6 +562,30 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: number
+          role: string
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: never
+          role: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: never
+          role?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       metas_mensais: {
         Row: {
           ano: number
@@ -995,6 +1019,13 @@ export type Database = {
             referencedRelation: "recurring_bills"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recurring_bill_occurrences_recurring_bill_id_fkey"
+            columns: ["recurring_bill_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_events_next7"
+            referencedColumns: ["recurring_bill_id"]
+          },
         ]
       }
       recurring_bills: {
@@ -1240,12 +1271,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      recurring_events_next7: {
+        Row: {
+          active: boolean | null
+          category_id: string | null
+          closing_date: string | null
+          default_expected_amount: number | null
+          due_date: string | null
+          end_date: string | null
+          expected_amount: number | null
+          is_closed_for_month: boolean | null
+          name: string | null
+          next_event_date: string | null
+          next_event_type: string | null
+          occurrence_id: string | null
+          open_ended: boolean | null
+          recurring_bill_id: string | null
+          supplier_id: string | null
+          year_month: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       extract_invoice_number: {
         Args: { description: string }
         Returns: string
+      }
+      generate_recurring_bill_occurrences: {
+        Args: { p_months_ahead?: number; p_recurring_bill_id: string }
+        Returns: undefined
       }
       get_ap_installments_complete: {
         Args: Record<PropertyKey, never>
@@ -1348,6 +1418,10 @@ export type Database = {
       }
       promote_user_to_admin: {
         Args: { user_email: string }
+        Returns: undefined
+      }
+      refresh_recurring_bills: {
+        Args: { p_months_ahead?: number }
         Returns: undefined
       }
       search_ap_installments: {
