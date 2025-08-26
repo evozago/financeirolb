@@ -42,8 +42,8 @@ const brl = (v: number | string) => {
 export default function EditBill() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
-  const { id: routeId } = useParams(); // <-- pega do path /bills/:id/edit
-  const installmentId = routeId ?? sp.get("id"); // fallback para ?id=
+  const { id: routeId } = useParams();
+  const installmentId = routeId ?? sp.get("id");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,7 +56,6 @@ export default function EditBill() {
   const setField = <K extends keyof Installment>(key: K, value: Installment[K]) =>
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
 
-  // Carrega a parcela (ap_installments)
   useEffect(() => {
     (async () => {
       if (!installmentId) {
@@ -91,7 +90,6 @@ export default function EditBill() {
         if (!data) {
           setForm(null);
         } else {
-          // normaliza valores/strings
           const payload: Installment = {
             id: data.id,
             descricao: data.descricao ?? "",
@@ -117,7 +115,6 @@ export default function EditBill() {
     })();
   }, [installmentId]);
 
-  // Carrega filiais
   useEffect(() => {
     (async () => {
       try {
@@ -150,7 +147,6 @@ export default function EditBill() {
     setSaving(true);
 
     try {
-      // Monta payload compatível com ap_installments
       const payload = {
         descricao: form.descricao,
         fornecedor: form.fornecedor,
@@ -160,7 +156,7 @@ export default function EditBill() {
         observacoes: form.observacoes,
         numero_parcela: form.numero_parcela,
         total_parcelas: form.total_parcelas,
-        filial_id: form.filial_id, // chave estrangeira para public.filiais(id)
+        filial_id: form.filial_id,
         updated_at: new Date().toISOString(),
       };
 
@@ -199,7 +195,6 @@ export default function EditBill() {
     navigate(-1);
   };
 
-  // Estados de carregamento / ausências
   if (loading) {
     return (
       <div className="p-6">
@@ -256,7 +251,7 @@ export default function EditBill() {
           <CardTitle>Editar Conta</CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
-          {/* Linha: Descrição */}
+          {/* Descrição */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-1 md:col-span-2 space-y-2">
               <Label htmlFor="descricao">Descrição *</Label>
@@ -269,7 +264,7 @@ export default function EditBill() {
             </div>
           </div>
 
-          {/* Linha: Fornecedor / Categoria */}
+          {/* Fornecedor / Categoria */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="fornecedor">Fornecedor</Label>
@@ -291,7 +286,7 @@ export default function EditBill() {
             </div>
           </div>
 
-          {/* Linha: Filial / Valor total */}
+          {/* Filial / Valor */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="filial_id">Filial</Label>
@@ -331,7 +326,7 @@ export default function EditBill() {
             </div>
           </div>
 
-          {/* Linha: Quantidade de parcelas */}
+          {/* Parcelas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label>Quantidade de Parcelas *</Label>
@@ -368,7 +363,7 @@ export default function EditBill() {
             </div>
           </div>
 
-          {/* Linha: Datas */}
+          {/* Datas */}
           <div className="space-y-2">
             <Label htmlFor="data_vencimento">Datas de Vencimento das Parcelas</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
