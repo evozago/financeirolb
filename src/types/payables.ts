@@ -43,9 +43,9 @@ export interface BillToPayInstallment {
   numero_documento?: string;
   categoria?: string;
   data_emissao?: string; // Adicionar campo para data de emissão
-  filial?: string; // Adicionar campo para filial
-  filial_id?: string; // ID da filial
-  filial_nome?: string; // Nome da filial
+  filial?: string;       // Adicionar campo para filial (nome)
+  filial_id?: string;    // ID da filial
+  filial_nome?: string;  // Nome da filial
 }
 
 export interface Filial {
@@ -101,25 +101,37 @@ export interface PayablesTableColumn {
 export interface RecurringBill {
   id: string;
   name: string;
-  supplier_id?: string;
-  category_id?: string;
-  closing_day?: number;
+  supplier_id?: string | null;
+  category_id?: string | null;
+
+  // ⭐ Adicionado para suportar Filial na conta recorrente:
+  filial_id?: string | null; // FK para public.filiais(id)
+
+  closing_day?: number | null;
   due_day: number;
   expected_amount: number;
   open_ended: boolean;
-  end_date?: string;
-  notes?: string;
+  end_date?: string | null;
+  notes?: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
+
   supplier?: {
     id: string;
     nome: string;
-  };
+  } | null;
+
   category?: {
     id: string;
     nome: string;
-  };
+  } | null;
+
+  // ⭐ Adicionado: objeto retornado pelo join "filial:filiais(id, nome)"
+  filial?: {
+    id: string;
+    nome: string;
+  } | null;
 }
 
 export interface RecurringBillOccurrence {
