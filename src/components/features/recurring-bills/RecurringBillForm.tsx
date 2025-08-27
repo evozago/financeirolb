@@ -6,7 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { RecurringBill } from "@/types/payables";
@@ -21,6 +27,9 @@ type Supplier = { id: string; nome: string; filial_id: string | null };
 type Category = { id: string; nome: string };
 type Branch = { id: string; nome: string };
 
+// Sentinela para opção “Sem filial” (Radix não aceita value="")
+const NONE = "none";
+
 export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
   bill,
   onSuccess,
@@ -33,14 +42,15 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
     closing_day: "",
     due_day: "",
     expected_amount: "",
-    open_ended: true,
+    open_ended: true as boolean,
     end_date: "",
     notes: "",
+    filial_id: "" as string | "" // guardamos id da filial (ou vazio)
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [branches, setBranches] = useState<Record<string, string>>({});
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -48,11 +58,8 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
     () => suppliers.find((s) => s.id === formData.supplier_id) || null,
     [suppliers, formData.supplier_id]
   );
-  const supplierBranchName = useMemo(() => {
-    const id = selectedSupplier?.filial_id || "";
-    return id ? branches[id] || "-" : "-";
-  }, [selectedSupplier, branches]);
 
+  // Preenche form ao editar
   useEffect(() => {
     loadSuppliers();
     loadCategories();
@@ -69,9 +76,23 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         open_ended: bill.open_ended,
         end_date: bill.end_date || "",
         notes: bill.notes || "",
+        // Se houver campo no tipo RecurringBill, usa; senão, tenta herdar do fornecedor
+        filial_id: (bill as any).filial_id || ""
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bill]);
+
+  // Se escolheu fornecedor e ainda não selecionou filial manualmente,
+  // herda a filial do fornecedor (se existir)
+  useEffect(() => {
+    if (selectedSupplier && !formData.filial_id) {
+      if (selectedSupplier.filial_id) {
+        setFormData((prev) => ({ ...prev, filial_id: selectedSupplier.filial_id! }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSupplier]);
 
   const loadSuppliers = async () => {
     try {
@@ -82,7 +103,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setSuppliers((data as unknown as Supplier[]) || []);
+      setSuppliers((data as Supplier[]) || []);
     } catch (error) {
       console.error("Error loading suppliers:", error);
     }
@@ -97,7 +118,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setCategories((data as unknown as Category[]) || []);
+      setCategories((data as Category[]) || []);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -105,11 +126,14 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
 
   const loadBranches = async () => {
     try {
-      const { data, error } = await supabase.from("filiais" as any).select("id, nome").eq("ativo", true);
+      const { data, error } = await supabase
+        .from("filiais" as any)
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+
       if (error) throw error;
-      const map: Record<string, string> = {};
-      ((data as unknown as Branch[]) || []).forEach((f) => (map[f.id] = f.nome));
-      setBranches(map);
+      setBranches((data as Branch[]) || []);
     } catch (e) {
       console.error("Error loading branches:", e);
     }
@@ -120,6 +144,77 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  // Monta objeto para INSERT/UPDATE
+  const buildSubmitData = () => {
+    // Converte filial_id “NONE” para null/”” conforme necessário
+    const filialIdToSave =
+      !formData.filial_id || formData.filial_id === NONE ? null : formData.filial_id;
+
+    const submitData: Record<string, any> = {
+      name: formData.name,
+      supplier_id: formData.supplier_id || null,
+      category_id: formData.category_id || null,
+      closing_day: formData.closing_day ? parseInt(formData.closing_day) : null,
+      due_day: parseInt(formData.due_day),
+      expected_amount: parseFloat(formData.expected_amount),
+      open_ended: formData.open_ended,
+      end_date: formData.end_date || null,
+      notes: formData.notes || null,
+    };
+
+    // Tentamos incluir filial_id. Se a coluna não existir no banco,
+    // o bloco try/catch do submit trata e refaz sem ela.
+    if (filialIdToSave) {
+      submitData.filial_id = filialIdToSave;
+    } else {
+      // Se não há seleção manual, mas o fornecedor tem filial, herdamos
+      if (selectedSupplier?.filial_id) {
+        submitData.filial_id = selectedSupplier.filial_id;
+      }
+    }
+
+    return submitData;
+  };
+
+  const submitWithRetryIfNoFilialColumn = async (
+    table: "recurring_bills",
+    action: "insert" | "update",
+    payload: Record<string, any>,
+    id?: string
+  ) => {
+    // 1ª tentativa: com filial_id (se existir no payload)
+    let res;
+    if (action === "insert") {
+      res = await supabase.from(table as any).insert([payload]);
+    } else {
+      res = await supabase.from(table as any).update(payload).eq("id", id);
+    }
+
+    // Se deu erro de coluna inexistente, remove filial_id e tenta de novo:
+    const msg = res.error?.message || "";
+    const isUnknownColumn =
+      res.error?.code === "42703" || /column .*filial_id.* does not exist/i.test(msg);
+
+    if (isUnknownColumn) {
+      const { filial_id, ...payloadWithoutFilial } = payload;
+      if (action === "insert") {
+        res = await supabase.from(table as any).insert([payloadWithoutFilial]);
+      } else {
+        res = await supabase.from(table as any).update(payloadWithoutFilial).eq("id", id);
+      }
+
+      if (!res.error) {
+        toast({
+          title: "Aviso",
+          description:
+            "A coluna 'filial_id' não existe em recurring_bills. Salvei sem esse campo. (Se quiser persistir a filial aqui, preciso criar a coluna no banco.)",
+        });
+      }
+    }
+
+    return res;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,39 +232,36 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
     try {
       setLoading(true);
 
-      const submitData = {
-        name: formData.name,
-        supplier_id: formData.supplier_id || null,
-        category_id: formData.category_id || null,
-        closing_day: formData.closing_day ? parseInt(formData.closing_day) : null,
-        due_day: parseInt(formData.due_day),
-        expected_amount: parseFloat(formData.expected_amount),
-        open_ended: formData.open_ended,
-        end_date: formData.end_date || null,
-        notes: formData.notes || null,
-      };
+      const submitData = buildSubmitData();
 
       let result;
       if (bill) {
-        result = await supabase.from("recurring_bills" as any).update(submitData).eq("id", bill.id);
+        result = await submitWithRetryIfNoFilialColumn(
+          "recurring_bills",
+          "update",
+          submitData,
+          bill.id
+        );
       } else {
-        result = await supabase.from("recurring_bills" as any).insert([submitData]);
+        result = await submitWithRetryIfNoFilialColumn("recurring_bills", "insert", submitData);
       }
 
       if (result.error) throw result.error;
 
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving recurring bill:", error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar conta recorrente",
+        description: error?.message || "Erro ao salvar conta recorrente",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const filialSelectValue = formData.filial_id ? formData.filial_id : NONE;
 
   return (
     <div className="p-6">
@@ -190,6 +282,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Nome */}
               <div className="space-y-2">
                 <Label htmlFor="name">Nome da Conta *</Label>
                 <Input
@@ -201,6 +294,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                 />
               </div>
 
+              {/* Fornecedor */}
               <div className="space-y-2">
                 <Label>Fornecedor</Label>
                 <Select
@@ -220,12 +314,30 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                 </Select>
               </div>
 
-              {/* Filial (somente leitura, derivada do fornecedor) */}
+              {/* Filial (selecionável) */}
               <div className="space-y-2">
-                <Label htmlFor="filial_ro">Filial (do fornecedor)</Label>
-                <Input id="filial_ro" value={supplierBranchName} readOnly />
+                <Label htmlFor="filial_id">Filial</Label>
+                <Select
+                  value={filialSelectValue}
+                  onValueChange={(v) =>
+                    handleInputChange("filial_id", v === NONE ? "" : (v as string))
+                  }
+                >
+                  <SelectTrigger id="filial_id">
+                    <SelectValue placeholder="Selecione a filial" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Sem filial</SelectItem>
+                    {branches.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
+              {/* Categoria */}
               <div className="space-y-2">
                 <Label>Categoria</Label>
                 <Select
@@ -245,6 +357,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                 </Select>
               </div>
 
+              {/* Valor esperado */}
               <div className="space-y-2">
                 <Label htmlFor="expected_amount">Valor Esperado *</Label>
                 <Input
@@ -258,6 +371,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                 />
               </div>
 
+              {/* Fechamento */}
               <div className="space-y-2">
                 <Label htmlFor="closing_day">Dia do Fechamento</Label>
                 <Input
@@ -271,6 +385,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                 />
               </div>
 
+              {/* Vencimento */}
               <div className="space-y-2">
                 <Label htmlFor="due_day">Dia do Vencimento *</Label>
                 <Input
@@ -286,12 +401,15 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               </div>
             </div>
 
+            {/* Contínua / Data final / Observações */}
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="open_ended"
                   checked={formData.open_ended}
-                  onCheckedChange={(checked) => handleInputChange("open_ended", Boolean(checked))}
+                  onCheckedChange={(checked) =>
+                    handleInputChange("open_ended", Boolean(checked))
+                  }
                 />
                 <Label htmlFor="open_ended">Conta sem data final (contínua)</Label>
               </div>
