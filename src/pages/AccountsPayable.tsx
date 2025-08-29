@@ -333,6 +333,10 @@ export default function AccountsPayable() {
 
   // Filtrar dados baseado nos filtros ativos
   const filteredInstallments = useMemo(() => {
+    if (!installments || !Array.isArray(installments)) {
+      return [];
+    }
+    
     let filtered = [...installments];
 
     if (filters.search) {

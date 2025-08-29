@@ -103,7 +103,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setSuppliers((data as Supplier[]) || []);
+      setSuppliers((data as unknown as Supplier[]) || []);
     } catch (error) {
       console.error("Error loading suppliers:", error);
     }
@@ -118,7 +118,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setCategories((data as Category[]) || []);
+      setCategories((data as unknown as Category[]) || []);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -133,7 +133,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         .order("nome");
 
       if (error) throw error;
-      setBranches((data as Branch[]) || []);
+      setBranches((data as unknown as Branch[]) || []);
     } catch (e) {
       console.error("Error loading branches:", e);
     }
