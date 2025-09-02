@@ -168,7 +168,10 @@ export default function HRNewEmployee() {
 
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                  <Select 
+                    value={formData.status} 
+                    onValueChange={(value) => handleInputChange('status', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o status" />
                     </SelectTrigger>
