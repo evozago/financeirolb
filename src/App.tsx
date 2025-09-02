@@ -30,11 +30,13 @@ import OrderDetail from "./pages/OrderDetail";
 import EditOrder from "./pages/EditOrder";
 import ManageFiliais from "./pages/ManageFiliais";
 import RecurringBills from "./pages/RecurringBills";
-import HR from "./pages/HR";
-import HREmployees from "./pages/HREmployees";
-import HRPayrollRuns from "./pages/HRPayrollRuns";
-import HRProcessRun from "./pages/HRProcessRun";
 import NotFound from "./pages/NotFound";
+
+// HR Module imports
+const HR = React.lazy(() => import("./pages/HR"));
+const HREmployees = React.lazy(() => import("./pages/HREmployees"));
+const HRPayrollRuns = React.lazy(() => import("./pages/HRPayrollRuns"));
+const HRProcessRun = React.lazy(() => import("./pages/HRProcessRun"));
 
 const queryClient = new QueryClient();
 
@@ -58,38 +60,44 @@ function AppContent() {
       <StatePersistenceProvider>
         <div className="min-h-screen bg-background">
           <AppHeader />
-          <Routes>
-          <Route path="/" element={<DashboardPayables />} />
-          <Route path="/accounts-payable" element={<AccountsPayable />} />
-          <Route path="/accounts-payable/new" element={<NewBill />} />
-          <Route path="/bills/:id" element={<BillDetail />} />
-          <Route path="/bills/:id/edit" element={<EditBill />} />
-          <Route path="/suppliers" element={<Suppliers />} />
-          <Route path="/suppliers/new" element={<NewSupplier />} />
-          <Route path="/suppliers/:id" element={<SupplierDetail />} />
-          <Route path="/suppliers/:id/edit" element={<EditSupplier />} />
-          <Route path="/bank-accounts" element={<BankAccounts />} />
-          <Route path="/bank-accounts/new" element={<NewBankAccount />} />
-          <Route path="/bank-accounts/:id" element={<BankAccountDetail />} />
-          <Route path="/bank-accounts/:id/edit" element={<EditBankAccount />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/orders/new" element={<NewOrder />} />
-          <Route path="/orders/:id" element={<OrderDetail />} />
-          <Route path="/orders/:id/edit" element={<EditOrder />} />
-          <Route path="/recurring-bills" element={<RecurringBills />} />
-              <Route path="/filiais" element={<ManageFiliais />} />
-              <Route path="/hr" element={<HR />} />
-              <Route path="/hr/employees" element={<HREmployees />} />
-              <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
-              <Route path="/hr/process-run" element={<HRProcessRun />} />
-              <Route path="/settings" element={<Cadastros />} />
-              <Route path="/reports" element={<Reports />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <UndoRedoManager />
-      </div>
-    </StatePersistenceProvider>
+          <React.Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+            </div>
+          }>
+            <Routes>
+            <Route path="/" element={<DashboardPayables />} />
+            <Route path="/accounts-payable" element={<AccountsPayable />} />
+            <Route path="/accounts-payable/new" element={<NewBill />} />
+            <Route path="/bills/:id" element={<BillDetail />} />
+            <Route path="/bills/:id/edit" element={<EditBill />} />
+            <Route path="/suppliers" element={<Suppliers />} />
+            <Route path="/suppliers/new" element={<NewSupplier />} />
+            <Route path="/suppliers/:id" element={<SupplierDetail />} />
+            <Route path="/suppliers/:id/edit" element={<EditSupplier />} />
+            <Route path="/bank-accounts" element={<BankAccounts />} />
+            <Route path="/bank-accounts/new" element={<NewBankAccount />} />
+            <Route path="/bank-accounts/:id" element={<BankAccountDetail />} />
+            <Route path="/bank-accounts/:id/edit" element={<EditBankAccount />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/orders/new" element={<NewOrder />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/orders/:id/edit" element={<EditOrder />} />
+            <Route path="/recurring-bills" element={<RecurringBills />} />
+                <Route path="/filiais" element={<ManageFiliais />} />
+                <Route path="/hr" element={<HR />} />
+                <Route path="/hr/employees" element={<HREmployees />} />
+                <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
+                <Route path="/hr/process-run" element={<HRProcessRun />} />
+                <Route path="/settings" element={<Cadastros />} />
+                <Route path="/reports" element={<Reports />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          </React.Suspense>
+          <UndoRedoManager />
+        </div>
+      </StatePersistenceProvider>
     </BrowserRouter>
   );
 }
