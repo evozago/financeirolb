@@ -35,6 +35,9 @@ import NotFound from "./pages/NotFound";
 // HR Module imports
 const HR = React.lazy(() => import("./pages/HR"));
 const HREmployees = React.lazy(() => import("./pages/HREmployees"));
+const HRNewEmployee = React.lazy(() => import("./pages/HRNewEmployee"));
+const HREmployeeDetail = React.lazy(() => import("./pages/HREmployeeDetail"));
+const HREditEmployee = React.lazy(() => import("./pages/HREditEmployee"));
 const HRPayrollRuns = React.lazy(() => import("./pages/HRPayrollRuns"));
 const HRProcessRun = React.lazy(() => import("./pages/HRProcessRun"));
 
@@ -87,6 +90,9 @@ function AppContent() {
                 <Route path="/filiais" element={<ManageFiliais />} />
                 <Route path="/hr" element={<HR />} />
                 <Route path="/hr/employees" element={<HREmployees />} />
+                <Route path="/hr/employees/new" element={<HRNewEmployee />} />
+                <Route path="/hr/employees/:id" element={<HREmployeeDetail />} />
+                <Route path="/hr/employees/:id/edit" element={<HREditEmployee />} />
                 <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
                 <Route path="/hr/process-run" element={<HRProcessRun />} />
                 <Route path="/settings" element={<Cadastros />} />
