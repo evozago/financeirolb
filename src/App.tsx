@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { StatePersistenceProvider } from "@/contexts/StatePersistenceContext";
+import { UndoRedoManager } from "@/components/ui/undo-redo-manager";
 import DashboardPayables from "./pages/DashboardPayables";
 import AccountsPayable from "./pages/AccountsPayable";
 import NewBill from "./pages/NewBill";
@@ -16,7 +18,7 @@ import Suppliers from "./pages/Suppliers";
 import SupplierDetail from "./pages/SupplierDetail";
 import NewSupplier from "./pages/NewSupplier";
 import EditSupplier from "./pages/EditSupplier";
-import Settings from "./pages/Settings";
+import Cadastros from "./pages/Cadastros";
 import Reports from "./pages/Reports";
 import BankAccounts from "./pages/BankAccounts";
 import NewBankAccount from "./pages/NewBankAccount";
@@ -49,9 +51,10 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-background">
-        <AppHeader />
-        <Routes>
+      <StatePersistenceProvider>
+        <div className="min-h-screen bg-background">
+          <AppHeader />
+          <Routes>
           <Route path="/" element={<DashboardPayables />} />
           <Route path="/accounts-payable" element={<AccountsPayable />} />
           <Route path="/accounts-payable/new" element={<NewBill />} />
@@ -71,12 +74,14 @@ function AppContent() {
           <Route path="/orders/:id/edit" element={<EditOrder />} />
           <Route path="/recurring-bills" element={<RecurringBills />} />
           <Route path="/filiais" element={<ManageFiliais />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<Cadastros />} />
           <Route path="/reports" element={<Reports />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <UndoRedoManager />
       </div>
+    </StatePersistenceProvider>
     </BrowserRouter>
   );
 }

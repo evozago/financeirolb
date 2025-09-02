@@ -8,10 +8,19 @@ export interface UndoAction {
   data: any;
   originalData: any;
   timestamp: number;
+  canRedo?: boolean;
+}
+
+export interface RedoAction {
+  id: string;
+  type: 'markAsPaid' | 'delete' | 'bulkEdit';
+  data: any;
+  timestamp: number;
 }
 
 export function useUndoActions() {
   const [pendingActions, setPendingActions] = useState<UndoAction[]>([]);
+  const [redoStack, setRedoStack] = useState<RedoAction[]>([]);
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   const addUndoAction = (action: Omit<UndoAction, 'timestamp'>, onUndo?: () => void) => {
@@ -49,6 +58,9 @@ export function useUndoActions() {
       if (onUndo) {
         onUndo();
       }
+      
+      // Add to redo stack if the action can be redone
+      addToRedoStack(action);
       
       toast({
         title: "Ação desfeita",
@@ -154,9 +166,103 @@ export function useUndoActions() {
     }
   };
 
+  const handleRedo = async (redoId: string, onRedo?: () => void) => {
+    const redoAction = redoStack.find(a => a.id === redoId);
+    if (!redoAction) return;
+
+    try {
+      await executeRedo(redoAction);
+      
+      // Execute callback if provided
+      if (onRedo) {
+        onRedo();
+      }
+      
+      toast({
+        title: "Ação refeita",
+        description: "A ação foi refeita com sucesso",
+      });
+      
+      // Remove from redo stack
+      setRedoStack(prev => prev.filter(a => a.id !== redoId));
+    } catch (error) {
+      console.error('Erro ao refazer ação:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível refazer a ação",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const executeRedo = async (action: RedoAction) => {
+    switch (action.type) {
+      case 'markAsPaid':
+        // Re-execute the mark as paid action
+        const { error: markAsPaidError } = await supabase
+          .from('ap_installments')
+          .update({
+            status: 'pago',
+            data_pagamento: new Date().toISOString().split('T')[0],
+            data_hora_pagamento: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .in('id', action.data.itemIds);
+        
+        if (markAsPaidError) throw markAsPaidError;
+        break;
+
+      case 'delete':
+        // Re-execute the soft delete
+        const { error: deleteError } = await supabase
+          .from('ap_installments')
+          .update({ deleted_at: new Date().toISOString() })
+          .in('id', action.data.itemIds);
+        
+        if (deleteError) throw deleteError;
+        break;
+
+      case 'bulkEdit':
+        // Re-execute the bulk edit with the data
+        for (const item of action.data.updates) {
+          const { error } = await supabase
+            .from('ap_installments')
+            .update({
+              ...item.changes,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+          
+          if (error) throw error;
+        }
+        break;
+    }
+  };
+
+  const addToRedoStack = (action: UndoAction) => {
+    if (!action.canRedo) return;
+    
+    const redoAction: RedoAction = {
+      id: `redo_${Date.now()}_${Math.random()}`,
+      type: action.type,
+      data: action.data,
+      timestamp: Date.now(),
+    };
+    
+    setRedoStack(prev => [...prev, redoAction]);
+    
+    // Auto-remove redo action after 30 seconds
+    setTimeout(() => {
+      setRedoStack(prev => prev.filter(a => a.id !== redoAction.id));
+    }, 30000);
+  };
+
   return {
     addUndoAction,
     handleUndo,
+    handleRedo,
     pendingActions,
+    redoStack,
+    addToRedoStack,
   };
 }

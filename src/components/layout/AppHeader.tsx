@@ -18,7 +18,7 @@ export function AppHeader() {
     { path: '/orders', label: 'Pedidos', icon: ShoppingCart },
     { path: '/bank-accounts', label: 'Contas Bancárias', icon: CreditCard },
     { path: '/filiais', label: 'Filiais', icon: MapPin },
-    { path: '/settings', label: 'Configurações', icon: Settings },
+    { path: '/settings', label: 'Cadastros', icon: Settings },
     { path: '/reports', label: 'Relatórios', icon: BarChart3 },
   ];
 
