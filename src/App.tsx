@@ -30,6 +30,10 @@ import OrderDetail from "./pages/OrderDetail";
 import EditOrder from "./pages/EditOrder";
 import ManageFiliais from "./pages/ManageFiliais";
 import RecurringBills from "./pages/RecurringBills";
+import HR from "./pages/HR";
+import HREmployees from "./pages/HREmployees";
+import HRPayrollRuns from "./pages/HRPayrollRuns";
+import HRProcessRun from "./pages/HRProcessRun";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
