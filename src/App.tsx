@@ -33,6 +33,7 @@ import RecurringBills from "./pages/RecurringBills";
 import NotFound from "./pages/NotFound";
 
 // HR Module imports
+// HR Module imports
 const HR = React.lazy(() => import("./pages/HR"));
 const HREmployees = React.lazy(() => import("./pages/HREmployees"));
 const HRNewEmployee = React.lazy(() => import("./pages/HRNewEmployee"));
@@ -40,6 +41,11 @@ const HREmployeeDetail = React.lazy(() => import("./pages/HREmployeeDetail"));
 const HREditEmployee = React.lazy(() => import("./pages/HREditEmployee"));
 const HRPayrollRuns = React.lazy(() => import("./pages/HRPayrollRuns"));
 const HRProcessRun = React.lazy(() => import("./pages/HRProcessRun"));
+
+// Dashboard variants
+const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
+const DashboardHR = React.lazy(() => import("./pages/DashboardHR"));
+const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
 
 const queryClient = new QueryClient();
 
@@ -70,6 +76,9 @@ function AppContent() {
           }>
             <Routes>
             <Route path="/" element={<DashboardPayables />} />
+            <Route path="/dashboard/financial" element={<DashboardFinancial />} />
+            <Route path="/dashboard/hr" element={<DashboardHR />} />
+            <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
             <Route path="/accounts-payable" element={<AccountsPayable />} />
             <Route path="/accounts-payable/new" element={<NewBill />} />
             <Route path="/bills/:id" element={<BillDetail />} />

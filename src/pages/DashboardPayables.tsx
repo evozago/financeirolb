@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Upload, FileSpreadsheet, Settings, TrendingUp } from 'lucide-react';
+import { Plus, Upload, FileSpreadsheet, Settings, TrendingUp, Users, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SummaryCardsGrid } from '@/components/features/dashboard/PayablesSummaryCard';
@@ -14,6 +14,8 @@ import { FinancialPanel } from '@/components/features/dashboard/FinancialPanel';
 import { ExpensesByCategoryChart } from '@/components/features/dashboard/ExpensesByCategoryChart';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import RecurringEventsWidget from '@/components/features/recurring-bills/RecurringEventsWidget';
+import { DashboardSelector } from '@/components/dashboard/DashboardSelector';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -337,6 +339,8 @@ export default function DashboardPayables() {
   return <div className="bg-background">
       {/* Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Breadcrumbs />
+        <DashboardSelector />
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -374,39 +378,76 @@ export default function DashboardPayables() {
           {/* Expenses by Category Chart */}
           <ExpensesByCategoryChart />
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Ações Rápidas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2" onClick={() => navigate('/suppliers')}>
-                  <Settings className="h-8 w-8" />
-                  <div className="text-center">
-                    <div className="font-medium">Gerenciar Fornecedores</div>
-                    <div className="text-sm text-muted-foreground">Cadastrar e editar fornecedores</div>
-                  </div>
-                </Button>
-                
-                <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2" onClick={() => navigate('/accounts-payable?filter=overdue')}>
-                  <TrendingUp className="h-8 w-8" />
-                  <div className="text-center">
-                    <div className="font-medium">Contas Vencidas</div>
-                    <div className="text-sm text-muted-foreground">Visualizar pagamentos em atraso</div>
-                  </div>
-                </Button>
+          {/* Quick Actions - New Component */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumo de Atividades</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2" onClick={() => navigate('/suppliers')}>
+                      <Settings className="h-8 w-8" />
+                      <div className="text-center">
+                        <div className="font-medium">Gerenciar Fornecedores</div>
+                        <div className="text-sm text-muted-foreground">Cadastrar e editar fornecedores</div>
+                      </div>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2" onClick={() => navigate('/accounts-payable?filter=overdue')}>
+                      <TrendingUp className="h-8 w-8" />
+                      <div className="text-center">
+                        <div className="font-medium">Contas Vencidas</div>
+                        <div className="text-sm text-muted-foreground">Visualizar pagamentos em atraso</div>
+                      </div>
+                    </Button>
 
-                <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2" onClick={() => navigate('/reports')}>
-                  <FileSpreadsheet className="h-8 w-8" />
-                  <div className="text-center">
-                    <div className="font-medium">Relatórios</div>
-                    <div className="text-sm text-muted-foreground">Exportar dados e relatórios</div>
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2" onClick={() => navigate('/reports')}>
+                      <FileSpreadsheet className="h-8 w-8" />
+                      <div className="text-center">
+                        <div className="font-medium">Relatórios</div>
+                        <div className="text-sm text-muted-foreground">Exportar dados e relatórios</div>
+                      </div>
+                    </Button>
                   </div>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ações Rápidas</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/accounts-payable/new')}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Conta a Pagar
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/hr/employees/new')}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Novo Funcionário
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/suppliers/new')}
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Novo Fornecedor
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
 
