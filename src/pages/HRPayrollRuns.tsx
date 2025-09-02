@@ -70,11 +70,11 @@ export default function HRPayrollRuns() {
         query = query.eq('ano', parseInt(filters.year));
       }
       
-      if (filters.status) {
+      if (filters.status && filters.status !== 'all') {
         query = query.eq('status', filters.status);
       }
       
-      if (filters.tipo_folha) {
+      if (filters.tipo_folha && filters.tipo_folha !== 'all') {
         query = query.eq('tipo_folha', filters.tipo_folha);
       }
 
@@ -281,7 +281,7 @@ export default function HRPayrollRuns() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="rascunho">Rascunho</SelectItem>
                   <SelectItem value="simulacao">Simulação</SelectItem>
                   <SelectItem value="processada">Processada</SelectItem>
@@ -297,7 +297,7 @@ export default function HRPayrollRuns() {
                   <SelectValue placeholder="Tipo de Folha" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os Tipos</SelectItem>
+                  <SelectItem value="all">Todos os Tipos</SelectItem>
                   <SelectItem value="mensal">Mensal</SelectItem>
                   <SelectItem value="decimo_terceiro">13º Salário</SelectItem>
                   <SelectItem value="ferias">Férias</SelectItem>

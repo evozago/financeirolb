@@ -83,7 +83,7 @@ export default function HREmployees() {
         query = query.or(`nome.ilike.%${filters.search}%,cpf.ilike.%${filters.search}%,email.ilike.%${filters.search}%`);
       }
       
-      if (filters.status) {
+      if (filters.status && filters.status !== 'all') {
         query = query.eq('status_funcionario', filters.status);
       }
       
@@ -265,7 +265,7 @@ export default function HREmployees() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="inativo">Inativo</SelectItem>
                   <SelectItem value="rescindido">Rescindido</SelectItem>
