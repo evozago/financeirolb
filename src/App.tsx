@@ -73,9 +73,13 @@ function AppContent() {
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/edit" element={<EditOrder />} />
           <Route path="/recurring-bills" element={<RecurringBills />} />
-          <Route path="/filiais" element={<ManageFiliais />} />
-          <Route path="/settings" element={<Cadastros />} />
-          <Route path="/reports" element={<Reports />} />
+              <Route path="/filiais" element={<ManageFiliais />} />
+              <Route path="/hr" element={<HR />} />
+              <Route path="/hr/employees" element={<HREmployees />} />
+              <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
+              <Route path="/hr/process-run" element={<HRProcessRun />} />
+              <Route path="/settings" element={<Cadastros />} />
+              <Route path="/reports" element={<Reports />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

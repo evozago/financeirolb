@@ -518,15 +518,19 @@ export type Database = {
       funcionarios: {
         Row: {
           ativo: boolean
+          cargo: string | null
           chave_pix: string | null
           cpf: string | null
           created_at: string
+          data_admissao: string | null
           dias_uteis_mes: number
           email: string | null
           endereco: string | null
           id: string
           nome: string
           salario: number
+          setor: string | null
+          status_funcionario: string | null
           telefone: string | null
           tipo_chave_pix: string | null
           updated_at: string
@@ -535,15 +539,19 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cargo?: string | null
           chave_pix?: string | null
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
           dias_uteis_mes?: number
           email?: string | null
           endereco?: string | null
           id?: string
           nome: string
           salario?: number
+          setor?: string | null
+          status_funcionario?: string | null
           telefone?: string | null
           tipo_chave_pix?: string | null
           updated_at?: string
@@ -552,15 +560,19 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cargo?: string | null
           chave_pix?: string | null
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
           dias_uteis_mes?: number
           email?: string | null
           endereco?: string | null
           id?: string
           nome?: string
           salario?: number
+          setor?: string | null
+          status_funcionario?: string | null
           telefone?: string | null
           tipo_chave_pix?: string | null
           updated_at?: string
@@ -568,6 +580,376 @@ export type Database = {
           valor_transporte_total?: number
         }
         Relationships: []
+      }
+      hr_cargos: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          salario_base_sugerido: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          salario_base_sugerido?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          salario_base_sugerido?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      hr_contracts: {
+        Row: {
+          ativo: boolean | null
+          carga_horaria_semanal: number | null
+          comissao_habilitada: boolean | null
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string
+          funcionario_id: string
+          id: string
+          percentual_comissao: number | null
+          salario_base: number
+          tipo_contrato: string
+          updated_at: string | null
+          vale_transporte_habilitado: boolean | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          carga_horaria_semanal?: number | null
+          comissao_habilitada?: boolean | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio: string
+          funcionario_id: string
+          id?: string
+          percentual_comissao?: number | null
+          salario_base?: number
+          tipo_contrato?: string
+          updated_at?: string | null
+          vale_transporte_habilitado?: boolean | null
+        }
+        Update: {
+          ativo?: boolean | null
+          carga_horaria_semanal?: number | null
+          comissao_habilitada?: boolean | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          funcionario_id?: string
+          id?: string
+          percentual_comissao?: number | null
+          salario_base?: number
+          tipo_contrato?: string
+          updated_at?: string | null
+          vale_transporte_habilitado?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_contracts_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_earnings_deductions: {
+        Row: {
+          base_calculo: number | null
+          codigo: string
+          created_at: string | null
+          descricao: string
+          id: string
+          observacoes: string | null
+          payslip_id: string
+          percentual: number | null
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          base_calculo?: number | null
+          codigo: string
+          created_at?: string | null
+          descricao: string
+          id?: string
+          observacoes?: string | null
+          payslip_id: string
+          percentual?: number | null
+          tipo: string
+          valor: number
+        }
+        Update: {
+          base_calculo?: number | null
+          codigo?: string
+          created_at?: string | null
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          payslip_id?: string
+          percentual?: number | null
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_earnings_deductions_payslip_id_fkey"
+            columns: ["payslip_id"]
+            isOneToOne: false
+            referencedRelation: "hr_payslips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_runs: {
+        Row: {
+          ano: number
+          created_at: string | null
+          created_by: string | null
+          data_competencia: string
+          data_fechamento: string | null
+          data_processamento: string | null
+          descricao: string | null
+          id: string
+          mes: number
+          observacoes: string | null
+          status: string
+          tipo_folha: string
+          total_descontos: number | null
+          total_liquido: number | null
+          total_proventos: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          ano: number
+          created_at?: string | null
+          created_by?: string | null
+          data_competencia: string
+          data_fechamento?: string | null
+          data_processamento?: string | null
+          descricao?: string | null
+          id?: string
+          mes: number
+          observacoes?: string | null
+          status?: string
+          tipo_folha?: string
+          total_descontos?: number | null
+          total_liquido?: number | null
+          total_proventos?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          ano?: number
+          created_at?: string | null
+          created_by?: string | null
+          data_competencia?: string
+          data_fechamento?: string | null
+          data_processamento?: string | null
+          descricao?: string | null
+          id?: string
+          mes?: number
+          observacoes?: string | null
+          status?: string
+          tipo_folha?: string
+          total_descontos?: number | null
+          total_liquido?: number | null
+          total_proventos?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      hr_payslips: {
+        Row: {
+          abono_pecuniario: boolean | null
+          adiantamento: number | null
+          adicional_noturno: number | null
+          base_calculo_13: number | null
+          cargo: string | null
+          comissao_vendas: number | null
+          contract_id: string
+          created_at: string | null
+          deleted_at: string | null
+          dias_faltas: number | null
+          dias_ferias: number | null
+          dias_trabalhados: number | null
+          fgts: number | null
+          funcionario_id: string
+          funcionario_nome: string
+          horas_extras: number | null
+          horas_extras_valor: number | null
+          id: string
+          inss: number | null
+          irrf: number | null
+          observacoes: string | null
+          outros_descontos: number | null
+          outros_proventos: number | null
+          parcela_13_numero: number | null
+          parcela_13_total: number | null
+          payroll_run_id: string
+          periodo_ferias_fim: string | null
+          periodo_ferias_inicio: string | null
+          salario_base: number
+          salario_liquido: number | null
+          salario_mensal: number | null
+          setor: string | null
+          terco_ferias: number | null
+          total_descontos: number | null
+          total_proventos: number | null
+          updated_at: string | null
+          vale_transporte: number | null
+        }
+        Insert: {
+          abono_pecuniario?: boolean | null
+          adiantamento?: number | null
+          adicional_noturno?: number | null
+          base_calculo_13?: number | null
+          cargo?: string | null
+          comissao_vendas?: number | null
+          contract_id: string
+          created_at?: string | null
+          deleted_at?: string | null
+          dias_faltas?: number | null
+          dias_ferias?: number | null
+          dias_trabalhados?: number | null
+          fgts?: number | null
+          funcionario_id: string
+          funcionario_nome: string
+          horas_extras?: number | null
+          horas_extras_valor?: number | null
+          id?: string
+          inss?: number | null
+          irrf?: number | null
+          observacoes?: string | null
+          outros_descontos?: number | null
+          outros_proventos?: number | null
+          parcela_13_numero?: number | null
+          parcela_13_total?: number | null
+          payroll_run_id: string
+          periodo_ferias_fim?: string | null
+          periodo_ferias_inicio?: string | null
+          salario_base: number
+          salario_liquido?: number | null
+          salario_mensal?: number | null
+          setor?: string | null
+          terco_ferias?: number | null
+          total_descontos?: number | null
+          total_proventos?: number | null
+          updated_at?: string | null
+          vale_transporte?: number | null
+        }
+        Update: {
+          abono_pecuniario?: boolean | null
+          adiantamento?: number | null
+          adicional_noturno?: number | null
+          base_calculo_13?: number | null
+          cargo?: string | null
+          comissao_vendas?: number | null
+          contract_id?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          dias_faltas?: number | null
+          dias_ferias?: number | null
+          dias_trabalhados?: number | null
+          fgts?: number | null
+          funcionario_id?: string
+          funcionario_nome?: string
+          horas_extras?: number | null
+          horas_extras_valor?: number | null
+          id?: string
+          inss?: number | null
+          irrf?: number | null
+          observacoes?: string | null
+          outros_descontos?: number | null
+          outros_proventos?: number | null
+          parcela_13_numero?: number | null
+          parcela_13_total?: number | null
+          payroll_run_id?: string
+          periodo_ferias_fim?: string | null
+          periodo_ferias_inicio?: string | null
+          salario_base?: number
+          salario_liquido?: number | null
+          salario_mensal?: number | null
+          setor?: string | null
+          terco_ferias?: number | null
+          total_descontos?: number | null
+          total_proventos?: number | null
+          updated_at?: string | null
+          vale_transporte?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payslips_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "hr_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payslips_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payslips_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "hr_payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_setores: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          responsavel_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          responsavel_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          responsavel_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_setores_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       marcas: {
         Row: {
@@ -1382,6 +1764,17 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_brazilian_payroll: {
+        Args: {
+          p_comissao_vendas?: number
+          p_dias_trabalhados?: number
+          p_funcionario_id: string
+          p_horas_extras?: number
+          p_payroll_run_id: string
+          p_salario_base?: number
+        }
+        Returns: string
+      }
       create_payable_from_recurring: {
         Args:
           | {
@@ -1498,6 +1891,10 @@ export type Database = {
       normalize_supplier_name: {
         Args: { supplier_name: string }
         Returns: string
+      }
+      process_payroll_run: {
+        Args: { p_payroll_run_id: string }
+        Returns: undefined
       }
       promote_user_to_admin: {
         Args: { user_email: string }

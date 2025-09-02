@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, FileText, Building2, BarChart3, Settings, LogOut, CreditCard, ShoppingCart, MapPin, Repeat } from 'lucide-react';
+import { Home, FileText, Building2, BarChart3, Settings, LogOut, CreditCard, ShoppingCart, MapPin, Repeat, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ export function AppHeader() {
     { path: '/orders', label: 'Pedidos', icon: ShoppingCart },
     { path: '/bank-accounts', label: 'Contas Bancárias', icon: CreditCard },
     { path: '/filiais', label: 'Filiais', icon: MapPin },
+    { path: '/hr', label: 'RH', icon: Users },
     { path: '/settings', label: 'Cadastros', icon: Settings },
     { path: '/reports', label: 'Relatórios', icon: BarChart3 },
   ];
@@ -34,7 +35,8 @@ export function AppHeader() {
                   (item.path === '/accounts-payable' && location.pathname.startsWith('/bills')) ||
                   (item.path === '/bank-accounts' && location.pathname.startsWith('/bank-accounts')) ||
                   (item.path === '/orders' && location.pathname.startsWith('/orders')) ||
-                  (item.path === '/recurring-bills' && location.pathname.startsWith('/recurring-bills'));
+                  (item.path === '/recurring-bills' && location.pathname.startsWith('/recurring-bills')) ||
+                  (item.path === '/hr' && location.pathname.startsWith('/hr'));
                 
                 return (
                   <Button
