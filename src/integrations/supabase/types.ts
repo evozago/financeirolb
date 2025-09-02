@@ -67,6 +67,7 @@ export type Database = {
           filial_id: string | null
           forma_pagamento: string | null
           fornecedor: string
+          fornecedor_id: string | null
           funcionario_id: string | null
           id: string
           installment_norm: string | null
@@ -76,6 +77,7 @@ export type Database = {
           numero_nfe: string | null
           numero_parcela: number | null
           observacoes: string | null
+          recurring_occurrence_id: string | null
           status: string
           supplier_key: string | null
           tipo_recorrencia: string | null
@@ -105,6 +107,7 @@ export type Database = {
           filial_id?: string | null
           forma_pagamento?: string | null
           fornecedor: string
+          fornecedor_id?: string | null
           funcionario_id?: string | null
           id?: string
           installment_norm?: string | null
@@ -114,6 +117,7 @@ export type Database = {
           numero_nfe?: string | null
           numero_parcela?: number | null
           observacoes?: string | null
+          recurring_occurrence_id?: string | null
           status?: string
           supplier_key?: string | null
           tipo_recorrencia?: string | null
@@ -143,6 +147,7 @@ export type Database = {
           filial_id?: string | null
           forma_pagamento?: string | null
           fornecedor?: string
+          fornecedor_id?: string | null
           funcionario_id?: string | null
           id?: string
           installment_norm?: string | null
@@ -152,6 +157,7 @@ export type Database = {
           numero_nfe?: string | null
           numero_parcela?: number | null
           observacoes?: string | null
+          recurring_occurrence_id?: string | null
           status?: string
           supplier_key?: string | null
           tipo_recorrencia?: string | null
@@ -178,11 +184,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ap_installments_fornecedor_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ap_installments_funcionario_id_fkey"
             columns: ["funcionario_id"]
             isOneToOne: false
             referencedRelation: "funcionarios"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_installments_recurring_occurrence_id_fkey"
+            columns: ["recurring_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_bill_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_installments_recurring_occurrence_id_fkey"
+            columns: ["recurring_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_events_next7"
+            referencedColumns: ["occurrence_id"]
           },
         ]
       }
@@ -234,6 +261,42 @@ export type Database = {
           meta_loja_mensal?: number | null
           observacoes?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      contas_a_pagar_demo: {
+        Row: {
+          categoria_id: string | null
+          data_emissao: string | null
+          data_vencimento: string | null
+          descricao: string | null
+          fornecedor_id: string | null
+          id: string
+          recurring_occurrence_id: string | null
+          status: string | null
+          valor: number | null
+        }
+        Insert: {
+          categoria_id?: string | null
+          data_emissao?: string | null
+          data_vencimento?: string | null
+          descricao?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          recurring_occurrence_id?: string | null
+          status?: string | null
+          valor?: number | null
+        }
+        Update: {
+          categoria_id?: string | null
+          data_emissao?: string | null
+          data_vencimento?: string | null
+          descricao?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          recurring_occurrence_id?: string | null
+          status?: string | null
+          valor?: number | null
         }
         Relationships: []
       }
@@ -1037,6 +1100,7 @@ export type Database = {
           due_day: number
           end_date: string | null
           expected_amount: number
+          filial_id: string | null
           id: string
           name: string
           notes: string | null
@@ -1052,6 +1116,7 @@ export type Database = {
           due_day: number
           end_date?: string | null
           expected_amount?: number
+          filial_id?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -1067,6 +1132,7 @@ export type Database = {
           due_day?: number
           end_date?: string | null
           expected_amount?: number
+          filial_id?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -1080,6 +1146,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
             referencedColumns: ["id"]
           },
           {
@@ -1309,6 +1382,16 @@ export type Database = {
       }
     }
     Functions: {
+      create_payable_from_recurring: {
+        Args:
+          | {
+              p_amount?: number
+              p_recurring_bill_id: string
+              p_year_month?: string
+            }
+          | { p_recurring_bill_id: string; p_year_month?: string }
+        Returns: string
+      }
       extract_invoice_number: {
         Args: { description: string }
         Returns: string
