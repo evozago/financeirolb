@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, FileText, Building2, BarChart3, Settings, CreditCard, 
-  ShoppingCart, MapPin, Repeat, Users, ChevronDown
+  ShoppingCart, MapPin, Repeat, Users, ChevronDown, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +57,14 @@ export function NavigationMenu() {
       items: [
         { path: '/suppliers', label: 'Fornecedores', icon: Building2, description: 'Cadastro de fornecedores' },
         { path: '/orders', label: 'Pedidos', icon: ShoppingCart, description: 'Pedidos de compra' },
+      ]
+    },
+    {
+      label: 'Vendas',
+      icon: TrendingUp,
+      items: [
+        { path: '/dashboard/sales', label: 'Dashboard Vendas', icon: TrendingUp, description: 'Performance e metas de vendas' },
+        { path: '/sales/performance', label: 'Performance Vendedoras', icon: Users, description: 'Acompanhamento individual' },
       ]
     },
     {

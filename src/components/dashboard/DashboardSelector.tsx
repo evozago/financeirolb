@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, FileText, Users, ShoppingCart } from 'lucide-react';
+import { Home, FileText, Users, ShoppingCart, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,14 @@ const dashboardOptions: DashboardOption[] = [
     color: 'bg-green-500/10 text-green-600 border-green-500/20'
   },
   {
+    id: 'sales',
+    label: 'Vendas',
+    description: 'Metas, performance e acompanhamento de vendas',
+    icon: TrendingUp,
+    path: '/dashboard/sales',
+    color: 'bg-orange-500/10 text-orange-600 border-orange-500/20'
+  },
+  {
     id: 'purchases',
     label: 'Compras',
     description: 'Fornecedores, pedidos e gestão de compras',
@@ -66,7 +74,7 @@ export function DashboardSelector() {
             Escolha o contexto de trabalho
           </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           {dashboardOptions.map((option) => {
             const isActive = currentDashboard === option.id;
             const Icon = option.icon;

@@ -43,6 +43,8 @@ const HRPayrollRuns = React.lazy(() => import("./pages/HRPayrollRuns"));
 const HRProcessRun = React.lazy(() => import("./pages/HRProcessRun"));
 
 // Dashboard variants
+const DashboardSales = React.lazy(() => import("./pages/DashboardSales"));
+const SalespersonPerformance = React.lazy(() => import("./pages/SalespersonPerformance"));
 const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
 const DashboardHR = React.lazy(() => import("./pages/DashboardHR"));
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
@@ -78,6 +80,8 @@ function AppContent() {
             <Route path="/" element={<DashboardPayables />} />
             <Route path="/dashboard/financial" element={<DashboardFinancial />} />
             <Route path="/dashboard/hr" element={<DashboardHR />} />
+            <Route path="/dashboard/sales" element={<DashboardSales />} />
+            <Route path="/sales/performance" element={<SalespersonPerformance />} />
             <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
             <Route path="/accounts-payable" element={<AccountsPayable />} />
             <Route path="/accounts-payable/new" element={<NewBill />} />
