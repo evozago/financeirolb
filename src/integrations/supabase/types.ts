@@ -350,6 +350,82 @@ export type Database = {
           },
         ]
       }
+      contatos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          pessoa_id: string
+          principal: boolean | null
+          tipo_contato: string
+          updated_at: string
+          valor: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          pessoa_id: string
+          principal?: boolean | null
+          tipo_contato: string
+          updated_at?: string
+          valor: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          pessoa_id?: string
+          principal?: boolean | null
+          tipo_contato?: string
+          updated_at?: string
+          valor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_contatos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contatos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contatos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contatos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contatos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "pessoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contatos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       detalhes_produtos: {
         Row: {
           ativo: boolean
@@ -376,6 +452,100 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      enderecos: {
+        Row: {
+          ativo: boolean
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          created_at: string
+          id: string
+          logradouro: string | null
+          numero: string | null
+          pais: string | null
+          pessoa_id: string
+          tipo_endereco: string
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          logradouro?: string | null
+          numero?: string | null
+          pais?: string | null
+          pessoa_id: string
+          tipo_endereco?: string
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          logradouro?: string | null
+          numero?: string | null
+          pais?: string | null
+          pessoa_id?: string
+          tipo_endereco?: string
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_enderecos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enderecos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enderecos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enderecos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enderecos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "pessoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enderecos_pessoa"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entidades: {
         Row: {
@@ -1275,12 +1445,21 @@ export type Database = {
           dados_fornecedor: Json | null
           dados_funcionario: Json | null
           dados_vendedora: Json | null
+          data_fundacao: string | null
+          data_nascimento: string | null
           email: string | null
           endereco: string | null
+          estado_civil: string | null
           filial_id: string | null
+          genero: string | null
           id: string
           inscricao_estadual: string | null
+          nacionalidade: string | null
           nome: string
+          nome_fantasia: string | null
+          observacoes: string | null
+          profissao: string | null
+          razao_social: string | null
           rg: string | null
           setor_id: string | null
           telefone: string | null
@@ -1297,12 +1476,21 @@ export type Database = {
           dados_fornecedor?: Json | null
           dados_funcionario?: Json | null
           dados_vendedora?: Json | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
           email?: string | null
           endereco?: string | null
+          estado_civil?: string | null
           filial_id?: string | null
+          genero?: string | null
           id?: string
           inscricao_estadual?: string | null
+          nacionalidade?: string | null
           nome: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          profissao?: string | null
+          razao_social?: string | null
           rg?: string | null
           setor_id?: string | null
           telefone?: string | null
@@ -1319,12 +1507,21 @@ export type Database = {
           dados_fornecedor?: Json | null
           dados_funcionario?: Json | null
           dados_vendedora?: Json | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
           email?: string | null
           endereco?: string | null
+          estado_civil?: string | null
           filial_id?: string | null
+          genero?: string | null
           id?: string
           inscricao_estadual?: string | null
+          nacionalidade?: string | null
           nome?: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          profissao?: string | null
+          razao_social?: string | null
           rg?: string | null
           setor_id?: string | null
           telefone?: string | null
@@ -1864,6 +2061,37 @@ export type Database = {
       }
     }
     Views: {
+      fornecedores_unified: {
+        Row: {
+          ativo: boolean | null
+          categoria_id: string | null
+          cnpj_cpf: string | null
+          contato_representante: string | null
+          created_at: string | null
+          data_cadastro: string | null
+          email: string | null
+          email_representante: string | null
+          endereco: string | null
+          filial_id: string | null
+          id: string | null
+          nome: string | null
+          representante_email: string | null
+          representante_nome: string | null
+          representante_telefone: string | null
+          telefone: string | null
+          telefone_representante: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoas_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores_view: {
         Row: {
           ativo: boolean | null
@@ -1931,6 +2159,47 @@ export type Database = {
             columns: ["filial_id"]
             isOneToOne: false
             referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funcionarios_unified: {
+        Row: {
+          ativo: boolean | null
+          cargo: string | null
+          cargo_id: string | null
+          chave_pix: string | null
+          cpf: string | null
+          created_at: string | null
+          data_admissao: string | null
+          dias_uteis_mes: number | null
+          email: string | null
+          endereco: string | null
+          id: string | null
+          nome: string | null
+          salario: number | null
+          setor: string | null
+          setor_id: string | null
+          status_funcionario: string | null
+          telefone: string | null
+          tipo_chave_pix: string | null
+          updated_at: string | null
+          valor_transporte_dia: number | null
+          valor_transporte_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoas_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "hr_cargos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoas_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "hr_setores"
             referencedColumns: ["id"]
           },
         ]
@@ -2215,6 +2484,14 @@ export type Database = {
         Args: { cnpj_emitente: string }
         Returns: string
       }
+      migrate_fornecedores_to_pessoas: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      migrate_funcionarios_to_pessoas: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       normalize_installment_info: {
         Args: { numero_parcela: number; total_parcelas: number; valor: number }
         Returns: string
@@ -2253,6 +2530,10 @@ export type Database = {
           total_pago: number
           total_vencido: number
         }[]
+      }
+      update_ap_installments_relationships: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
     }
     Enums: {
