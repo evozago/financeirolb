@@ -18,6 +18,7 @@ import Suppliers from "./pages/Suppliers";
 import SupplierDetail from "./pages/SupplierDetail";
 import NewSupplier from "./pages/NewSupplier";
 import EditSupplier from "./pages/EditSupplier";
+import Pessoas from "./pages/Pessoas";
 import Cadastros from "./pages/Cadastros";
 import Reports from "./pages/Reports";
 import BankAccounts from "./pages/BankAccounts";
@@ -108,7 +109,8 @@ function AppContent() {
                 <Route path="/hr/employees/:id/edit" element={<HREditEmployee />} />
                 <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
                 <Route path="/hr/process-run" element={<HRProcessRun />} />
-                <Route path="/settings" element={<Cadastros />} />
+                <Route path="/pessoas" element={<Pessoas />} />
+          <Route path="/settings" element={<Cadastros />} />
                 <Route path="/reports" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

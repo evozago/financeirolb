@@ -55,6 +55,7 @@ export function NavigationMenu() {
       label: 'Compras',
       icon: ShoppingCart,
       items: [
+        { path: '/pessoas', label: 'Pessoas', icon: Users, description: 'Funcionários, vendedoras e fornecedores' },
         { path: '/suppliers', label: 'Fornecedores', icon: Building2, description: 'Cadastro de fornecedores' },
         { path: '/orders', label: 'Pedidos', icon: ShoppingCart, description: 'Pedidos de compra' },
       ]

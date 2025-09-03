@@ -4,18 +4,22 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Settings as SettingsIcon, Tag, Award, Pencil, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Plus, Pencil, Trash2, Tag, Award } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import PositionsManagement from "@/components/settings/PositionsManagement";
+import DepartmentsManagement from "@/components/settings/DepartmentsManagement";
 
 interface Category {
   id: string;
@@ -341,6 +345,16 @@ export default function Settings() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div>
+      <Tabs defaultValue="categories" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="categories">Categorias</TabsTrigger>
+          <TabsTrigger value="brands">Marcas</TabsTrigger>
+          <TabsTrigger value="positions">Cargos</TabsTrigger>
+          <TabsTrigger value="departments">Setores</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="categories">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Categories Section */}
           <Card>
@@ -348,7 +362,7 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Tag className="h-5 w-5" />
-                  Categorias
+                  Categorias de Produtos
                 </CardTitle>
                 <Dialog open={categoryDialog} onOpenChange={setCategoryDialog}>
                   <DialogTrigger asChild>
@@ -433,14 +447,16 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </div>
+        </TabsContent>
 
-          {/* Brands Section */}
+        <TabsContent value="brands">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Award className="h-5 w-5" />
-                  Marcas
+                  Marcas de Produtos
                 </CardTitle>
                 <Dialog open={brandDialog} onOpenChange={setBrandDialog}>
                   <DialogTrigger asChild>
@@ -542,7 +558,18 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
+
+        <TabsContent value="positions">
+          <PositionsManagement />
+        </TabsContent>
+
+        <TabsContent value="departments">
+          <DepartmentsManagement />
+        </TabsContent>
+
+      </Tabs>
+    </div>
       </div>
     </div>
   );

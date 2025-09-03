@@ -589,6 +589,7 @@ export type Database = {
           id: string
           nome: string
           salario_base_sugerido: number | null
+          setor_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -598,6 +599,7 @@ export type Database = {
           id?: string
           nome: string
           salario_base_sugerido?: number | null
+          setor_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -607,9 +609,18 @@ export type Database = {
           id?: string
           nome?: string
           salario_base_sugerido?: number | null
+          setor_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "hr_cargos_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "hr_setores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hr_contracts: {
         Row: {
@@ -1253,6 +1264,97 @@ export type Database = {
           },
         ]
       }
+      pessoas: {
+        Row: {
+          ativo: boolean
+          cargo_id: string | null
+          categorias: Json
+          cnpj: string | null
+          cpf: string | null
+          created_at: string
+          dados_fornecedor: Json | null
+          dados_funcionario: Json | null
+          dados_vendedora: Json | null
+          email: string | null
+          endereco: string | null
+          filial_id: string | null
+          id: string
+          inscricao_estadual: string | null
+          nome: string
+          rg: string | null
+          setor_id: string | null
+          telefone: string | null
+          tipo_pessoa: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cargo_id?: string | null
+          categorias?: Json
+          cnpj?: string | null
+          cpf?: string | null
+          created_at?: string
+          dados_fornecedor?: Json | null
+          dados_funcionario?: Json | null
+          dados_vendedora?: Json | null
+          email?: string | null
+          endereco?: string | null
+          filial_id?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          nome: string
+          rg?: string | null
+          setor_id?: string | null
+          telefone?: string | null
+          tipo_pessoa: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cargo_id?: string | null
+          categorias?: Json
+          cnpj?: string | null
+          cpf?: string | null
+          created_at?: string
+          dados_fornecedor?: Json | null
+          dados_funcionario?: Json | null
+          dados_vendedora?: Json | null
+          email?: string | null
+          endereco?: string | null
+          filial_id?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          nome?: string
+          rg?: string | null
+          setor_id?: string | null
+          telefone?: string | null
+          tipo_pessoa?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoas_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "hr_cargos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoas_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoas_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "hr_setores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produto_variacoes: {
         Row: {
           codigo_barras_variacao: string | null
@@ -1762,6 +1864,101 @@ export type Database = {
       }
     }
     Views: {
+      fornecedores_view: {
+        Row: {
+          ativo: boolean | null
+          categoria_id: string | null
+          cnpj_cpf: string | null
+          contato_representante: string | null
+          created_at: string | null
+          data_cadastro: string | null
+          email: string | null
+          email_representante: string | null
+          endereco: string | null
+          filial_id: string | null
+          id: string | null
+          nome: string | null
+          representante_email: string | null
+          representante_nome: string | null
+          representante_telefone: string | null
+          telefone: string | null
+          telefone_representante: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria_id?: never
+          cnpj_cpf?: never
+          contato_representante?: never
+          created_at?: string | null
+          data_cadastro?: never
+          email?: string | null
+          email_representante?: never
+          endereco?: string | null
+          filial_id?: string | null
+          id?: string | null
+          nome?: string | null
+          representante_email?: never
+          representante_nome?: never
+          representante_telefone?: never
+          telefone?: string | null
+          telefone_representante?: never
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria_id?: never
+          cnpj_cpf?: never
+          contato_representante?: never
+          created_at?: string | null
+          data_cadastro?: never
+          email?: string | null
+          email_representante?: never
+          endereco?: string | null
+          filial_id?: string | null
+          id?: string | null
+          nome?: string | null
+          representante_email?: never
+          representante_nome?: never
+          representante_telefone?: never
+          telefone?: string | null
+          telefone_representante?: never
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoas_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funcionarios_view: {
+        Row: {
+          ativo: boolean | null
+          cargo: string | null
+          chave_pix: string | null
+          cpf: string | null
+          created_at: string | null
+          data_admissao: string | null
+          dias_uteis_mes: number | null
+          email: string | null
+          endereco: string | null
+          id: string | null
+          nome: string | null
+          salario: number | null
+          setor: string | null
+          status_funcionario: string | null
+          telefone: string | null
+          tipo_chave_pix: string | null
+          updated_at: string | null
+          valor_transporte_dia: number | null
+          valor_transporte_total: number | null
+        }
+        Relationships: []
+      }
       recurring_events_next7: {
         Row: {
           active: boolean | null
@@ -1819,6 +2016,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vendedoras_view: {
+        Row: {
+          ativo: boolean | null
+          comissao_padrao: number | null
+          comissao_supermeta: number | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          meta_mensal: number | null
+          nome: string | null
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          comissao_padrao?: never
+          comissao_supermeta?: never
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          meta_mensal?: never
+          nome?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          comissao_padrao?: never
+          comissao_supermeta?: never
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          meta_mensal?: never
+          nome?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
