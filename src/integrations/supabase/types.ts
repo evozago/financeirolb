@@ -1685,6 +1685,42 @@ export type Database = {
           },
         ]
       }
+      vendedora_ferias: {
+        Row: {
+          aprovado: boolean
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          id: string
+          observacoes: string | null
+          tipo_ferias: string
+          updated_at: string
+          vendedora_id: string
+        }
+        Insert: {
+          aprovado?: boolean
+          created_at?: string
+          data_fim: string
+          data_inicio: string
+          id?: string
+          observacoes?: string | null
+          tipo_ferias?: string
+          updated_at?: string
+          vendedora_id: string
+        }
+        Update: {
+          aprovado?: boolean
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          id?: string
+          observacoes?: string | null
+          tipo_ferias?: string
+          updated_at?: string
+          vendedora_id?: string
+        }
+        Relationships: []
+      }
       vendedoras: {
         Row: {
           ativo: boolean
@@ -1762,6 +1798,28 @@ export type Database = {
           },
         ]
       }
+      sales_monthly_summary: {
+        Row: {
+          ano: number | null
+          mes: number | null
+          meta_mensal: number | null
+          percentual_meta: number | null
+          ticket_medio: number | null
+          total_vendas: number | null
+          total_vendas_count: number | null
+          vendedora_id: string | null
+          vendedora_nome: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_vendedora_id_fkey"
+            columns: ["vendedora_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_brazilian_payroll: {
@@ -1774,6 +1832,30 @@ export type Database = {
           p_salario_base?: number
         }
         Returns: string
+      }
+      calculate_commission_real_time: {
+        Args: { p_month: number; p_vendedora_id: string; p_year: number }
+        Returns: number
+      }
+      calculate_mom_growth: {
+        Args: { p_month: number; p_year: number }
+        Returns: {
+          current_sales: number
+          growth_percentage: number
+          previous_sales: number
+          vendedora_id: string
+          vendedora_nome: string
+        }[]
+      }
+      calculate_yoy_growth: {
+        Args: { p_month: number; p_year: number }
+        Returns: {
+          current_sales: number
+          growth_percentage: number
+          previous_year_sales: number
+          vendedora_id: string
+          vendedora_nome: string
+        }[]
       }
       create_payable_from_recurring: {
         Args:
@@ -1874,6 +1956,19 @@ export type Database = {
           contas_vencendo_hoje_count: number
           contas_vencidas: number
           contas_vencidas_count: number
+        }[]
+      }
+      get_sales_kpi_data: {
+        Args: { p_month: number; p_year: number }
+        Returns: {
+          active_salespeople: number
+          goal_achievement_percentage: number
+          mom_growth_percentage: number
+          top_performer_name: string
+          top_performer_sales: number
+          total_goal: number
+          total_sales: number
+          yoy_growth_percentage: number
         }[]
       }
       is_admin: {
