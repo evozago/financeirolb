@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import PositionsManagement from "@/components/settings/PositionsManagement";
 import DepartmentsManagement from "@/components/settings/DepartmentsManagement";
+import { DataMigrationPanel } from "@/components/admin/DataMigrationPanel";
 
 interface Category {
   id: string;
@@ -347,11 +348,12 @@ export default function Settings() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div>
       <Tabs defaultValue="categories" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="categories">Categorias</TabsTrigger>
           <TabsTrigger value="brands">Marcas</TabsTrigger>
           <TabsTrigger value="positions">Cargos</TabsTrigger>
           <TabsTrigger value="departments">Setores</TabsTrigger>
+          <TabsTrigger value="migration">Migração de Dados</TabsTrigger>
         </TabsList>
 
         <TabsContent value="categories">
@@ -566,6 +568,10 @@ export default function Settings() {
 
         <TabsContent value="departments">
           <DepartmentsManagement />
+        </TabsContent>
+
+        <TabsContent value="migration">
+          <DataMigrationPanel />
         </TabsContent>
 
       </Tabs>

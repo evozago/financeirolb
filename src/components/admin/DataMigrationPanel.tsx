@@ -35,15 +35,51 @@ export function DataMigrationPanel() {
   const checkDuplicates = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.rpc('check_pessoa_duplicates');
+      
+      // Query direta para verificar duplicatas
+      const { data, error } = await supabase
+        .from('pessoas')
+        .select('nome')
+        .eq('ativo', true);
       
       if (error) throw error;
       
-      setDuplicates(data || []);
+      // Agrupar e contar duplicatas no cliente
+      const nameCount: { [key: string]: string[] } = {};
+      data.forEach(pessoa => {
+        if (!nameCount[pessoa.nome]) {
+          nameCount[pessoa.nome] = [];
+        }
+      });
+      
+      // Buscar IDs para nomes duplicados
+      const duplicateNames = Object.keys(nameCount).filter(nome => 
+        data.filter(p => p.nome === nome).length > 1
+      );
+      
+      const duplicatesWithIds: DuplicateRecord[] = [];
+      
+      for (const nome of duplicateNames) {
+        const { data: pessoasData, error: pessoasError } = await supabase
+          .from('pessoas')
+          .select('id')
+          .eq('nome', nome)
+          .eq('ativo', true);
+          
+        if (pessoasError) throw pessoasError;
+        
+        duplicatesWithIds.push({
+          nome,
+          quantidade: pessoasData.length,
+          ids: pessoasData.map(p => p.id).join(', ')
+        });
+      }
+      
+      setDuplicates(duplicatesWithIds);
       
       toast({
         title: "Verificação concluída",
-        description: `${data?.length || 0} grupos de duplicatas encontrados.`,
+        description: `${duplicatesWithIds.length} grupos de duplicatas encontrados.`,
       });
     } catch (error) {
       console.error('Error checking duplicates:', error);

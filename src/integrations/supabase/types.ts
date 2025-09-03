@@ -2362,6 +2362,14 @@ export type Database = {
           vendedora_nome: string
         }[]
       }
+      check_pessoa_duplicates: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          ids: string
+          nome: string
+          quantidade: number
+        }[]
+      }
       create_payable_from_recurring: {
         Args:
           | {
