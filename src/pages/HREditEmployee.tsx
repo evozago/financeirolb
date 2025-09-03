@@ -14,10 +14,13 @@ interface Employee {
   nome: string;
   cpf: string;
   email?: string;
-  cargo: string;
+  telefone?: string;
+  cargo_id?: string;
+  cargo?: string;
   data_admissao: string;
   salario?: number;
   ativo: boolean;
+  dados_funcionario?: any;
 }
 
 export default function HREditEmployee() {
@@ -30,23 +33,47 @@ export default function HREditEmployee() {
     name: '',
     cpf: '',
     email: '',
-    position: '',
+    telefone: '',
+    position_id: '',
     admission_date: '',
     salary: '',
     status: 'active'
   });
+  
+  const [positions, setPositions] = useState<{id: string, nome: string}[]>([]);
 
   useEffect(() => {
     loadEmployee();
+    loadPositions();
   }, [id]);
+
+  const loadPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hr_cargos')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (error) throw error;
+      setPositions(data || []);
+    } catch (error) {
+      console.error('Error loading positions:', error);
+    }
+  };
 
   const loadEmployee = async () => {
     if (!id) return;
     
     try {
       const { data, error } = await supabase
-        .from('funcionarios')
-        .select('*')
+        .from('pessoas')
+        .select(`
+          id, nome, cpf, email, telefone, ativo, cargo_id,
+          dados_funcionario,
+          hr_cargos!cargo_id(nome)
+        `)
+        .contains('categorias', ['funcionario'])
         .eq('id', id)
         .single();
 
@@ -54,11 +81,12 @@ export default function HREditEmployee() {
       
       setFormData({
         name: data.nome,
-        cpf: data.cpf,
+        cpf: data.cpf || '',
         email: data.email || '',
-        position: data.cargo,
-        admission_date: data.data_admissao,
-        salary: data.salario?.toString() || '',
+        telefone: data.telefone || '',
+        position_id: data.cargo_id || '',
+        admission_date: (data.dados_funcionario as any)?.data_admissao || '',
+        salary: (data.dados_funcionario as any)?.salario?.toString() || '',
         status: data.ativo ? 'active' : 'inactive'
       });
     } catch (error) {
@@ -83,15 +111,19 @@ export default function HREditEmployee() {
 
     try {
       const { error } = await supabase
-        .from('funcionarios')
+        .from('pessoas')
         .update({
           nome: formData.name,
           cpf: formData.cpf,
           email: formData.email || null,
-          cargo: formData.position,
-          data_admissao: formData.admission_date,
-          salario: formData.salary ? parseFloat(formData.salary) : null,
-          ativo: formData.status === 'active'
+          telefone: formData.telefone || null,
+          cargo_id: formData.position_id || null,
+          ativo: formData.status === 'active',
+          dados_funcionario: {
+            data_admissao: formData.admission_date,
+            salario: formData.salary ? parseFloat(formData.salary) : null,
+            status_funcionario: formData.status
+          }
         })
         .eq('id', id);
 
@@ -189,14 +221,32 @@ export default function HREditEmployee() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="position">Cargo *</Label>
+                  <Label htmlFor="telefone">Telefone</Label>
                   <Input
-                    id="position"
-                    value={formData.position}
-                    onChange={(e) => handleInputChange('position', e.target.value)}
-                    required
-                    placeholder="Ex: Analista, Gerente"
+                    id="telefone"
+                    value={formData.telefone}
+                    onChange={(e) => handleInputChange('telefone', e.target.value)}
+                    placeholder="(11) 99999-9999"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="position">Cargo *</Label>
+                  <Select
+                    value={formData.position_id}
+                    onValueChange={(value) => handleInputChange('position_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o cargo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {positions.map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          {position.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

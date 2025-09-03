@@ -29,6 +29,9 @@ interface Employee {
   status_funcionario: string;
   ativo: boolean;
   salario: number;
+  cargo_id?: string;
+  setor_id?: string;
+  dados_funcionario?: any;
 }
 
 interface Position {
@@ -75,8 +78,14 @@ export default function HREmployees() {
       setLoading(true);
       
       let query = supabase
-        .from('funcionarios')
-        .select('*', { count: 'exact' });
+        .from('pessoas')
+        .select(`
+          id, nome, cpf, email, telefone, ativo, created_at,
+          cargo_id, setor_id, dados_funcionario,
+          hr_cargos!cargo_id(nome),
+          hr_setores!setor_id(nome)
+        `, { count: 'exact' })
+        .contains('categorias', ['funcionario']);
 
       // Apply filters
       if (filters.search) {
@@ -84,15 +93,16 @@ export default function HREmployees() {
       }
       
       if (filters.status && filters.status !== 'all') {
-        query = query.eq('status_funcionario', filters.status);
+        const statusFilter = filters.status === 'ativo' ? true : false;
+        query = query.eq('ativo', statusFilter);
       }
       
       if (filters.cargo) {
-        query = query.eq('cargo', filters.cargo);
+        query = query.eq('hr_cargos.nome', filters.cargo);
       }
       
       if (filters.setor) {
-        query = query.eq('setor', filters.setor);
+        query = query.eq('hr_setores.nome', filters.setor);
       }
 
       // Apply pagination
@@ -104,7 +114,25 @@ export default function HREmployees() {
       
       if (error) throw error;
       
-      setEmployees(data || []);
+      // Transform data to match expected format
+      const transformedData = (data || []).map(person => ({
+        id: person.id,
+        nome: person.nome,
+        cpf: person.cpf || '',
+        email: person.email || '',
+        telefone: person.telefone || '',
+        cargo: person.hr_cargos?.nome || '',
+        setor: person.hr_setores?.nome || '',
+        data_admissao: (person.dados_funcionario as any)?.data_admissao || '',
+        status_funcionario: person.ativo ? 'ativo' : 'inativo',
+        ativo: person.ativo,
+        salario: (person.dados_funcionario as any)?.salario || 0,
+        cargo_id: person.cargo_id,
+        setor_id: person.setor_id,
+        dados_funcionario: person.dados_funcionario
+      }));
+      
+      setEmployees(transformedData);
       setTotalCount(count || 0);
       
     } catch (error) {
@@ -165,18 +193,18 @@ export default function HREmployees() {
 
   const handleToggleEmployeeStatus = async (employee: Employee) => {
     try {
-      const newStatus = employee.status_funcionario === 'ativo' ? 'inativo' : 'ativo';
+      const newActive = !employee.ativo;
       
       const { error } = await supabase
-        .from('funcionarios')
-        .update({ status_funcionario: newStatus })
+        .from('pessoas')
+        .update({ ativo: newActive })
         .eq('id', employee.id);
       
       if (error) throw error;
       
       toast({
         title: "Sucesso",
-        description: `Funcionário ${newStatus === 'ativo' ? 'ativado' : 'desativado'} com sucesso`,
+        description: `Funcionário ${newActive ? 'ativado' : 'desativado'} com sucesso`,
       });
       
       loadData();

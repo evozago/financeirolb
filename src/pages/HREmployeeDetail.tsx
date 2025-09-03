@@ -12,11 +12,14 @@ interface Employee {
   nome: string;
   cpf: string;
   email?: string;
+  telefone?: string;
   cargo: string;
+  setor?: string;
   data_admissao: string;
   salario?: number;
   ativo: boolean;
   created_at: string;
+  dados_funcionario?: any;
 }
 
 export default function HREmployeeDetail() {
@@ -35,13 +38,36 @@ export default function HREmployeeDetail() {
     
     try {
       const { data, error } = await supabase
-        .from('funcionarios')
-        .select('*')
+        .from('pessoas')
+        .select(`
+          id, nome, cpf, email, telefone, ativo, created_at,
+          dados_funcionario,
+          hr_cargos!cargo_id(nome),
+          hr_setores!setor_id(nome)
+        `)
+        .contains('categorias', ['funcionario'])
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      setEmployee(data);
+      
+      // Transform data to match expected format
+      const transformedEmployee = {
+        id: data.id,
+        nome: data.nome,
+        cpf: data.cpf || '',
+        email: data.email || '',
+        telefone: data.telefone || '',
+        cargo: data.hr_cargos?.nome || '',
+        setor: data.hr_setores?.nome || '',
+        data_admissao: (data.dados_funcionario as any)?.data_admissao || '',
+        salario: (data.dados_funcionario as any)?.salario || 0,
+        ativo: data.ativo,
+        created_at: data.created_at,
+        dados_funcionario: data.dados_funcionario
+      };
+      
+      setEmployee(transformedEmployee);
     } catch (error) {
       console.error('Error loading employee:', error);
       toast({
@@ -152,6 +178,10 @@ export default function HREmployeeDetail() {
                 <label className="text-sm font-medium text-muted-foreground">Email</label>
                 <p className="text-foreground">{employee.email || 'Não informado'}</p>
               </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Telefone</label>
+                <p className="text-foreground">{employee.telefone || 'Não informado'}</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -163,7 +193,11 @@ export default function HREmployeeDetail() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Cargo</label>
-                <p className="text-foreground">{employee.cargo}</p>
+                <p className="text-foreground">{employee.cargo || 'Não informado'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Setor</label>
+                <p className="text-foreground">{employee.setor || 'Não informado'}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Data de Admissão</label>

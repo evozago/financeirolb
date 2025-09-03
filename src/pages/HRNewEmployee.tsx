@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,11 +18,33 @@ export default function HRNewEmployee() {
     name: '',
     cpf: '',
     email: '',
-    position: '',
+    telefone: '',
+    position_id: '',
     admission_date: '',
     salary: '',
     status: 'active'
   });
+  
+  const [positions, setPositions] = useState<{id: string, nome: string}[]>([]);
+
+  useEffect(() => {
+    loadPositions();
+  }, []);
+
+  const loadPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hr_cargos')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (error) throw error;
+      setPositions(data || []);
+    } catch (error) {
+      console.error('Error loading positions:', error);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -34,16 +56,21 @@ export default function HRNewEmployee() {
 
     try {
       const { error } = await supabase
-        .from('funcionarios')
+        .from('pessoas')
         .insert([{
           nome: formData.name,
           cpf: formData.cpf,
           email: formData.email,
-          cargo: formData.position,
-          data_admissao: formData.admission_date,
-          salario: parseFloat(formData.salary) || 0,
+          telefone: formData.telefone,
+          tipo_pessoa: 'pessoa_fisica',
+          categorias: ['funcionario'],
+          cargo_id: formData.position_id || null,
           ativo: formData.status === 'active',
-          created_at: new Date().toISOString()
+          dados_funcionario: {
+            data_admissao: formData.admission_date,
+            salario: parseFloat(formData.salary) || 0,
+            status_funcionario: formData.status
+          }
         }]);
 
       if (error) throw error;
@@ -133,14 +160,32 @@ export default function HRNewEmployee() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="position">Cargo *</Label>
+                  <Label htmlFor="telefone">Telefone</Label>
                   <Input
-                    id="position"
-                    value={formData.position}
-                    onChange={(e) => handleInputChange('position', e.target.value)}
-                    required
-                    placeholder="Ex: Analista, Gerente"
+                    id="telefone"
+                    value={formData.telefone}
+                    onChange={(e) => handleInputChange('telefone', e.target.value)}
+                    placeholder="(11) 99999-9999"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="position">Cargo *</Label>
+                  <Select
+                    value={formData.position_id}
+                    onValueChange={(value) => handleInputChange('position_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o cargo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {positions.map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          {position.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
