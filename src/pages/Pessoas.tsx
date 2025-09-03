@@ -7,9 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus, Pencil, UserPlus } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -57,6 +67,7 @@ export default function Pessoas() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPessoa, setEditingPessoa] = useState<Pessoa | null>(null);
+  const [deletingPessoa, setDeletingPessoa] = useState<Pessoa | null>(null);
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [filterCategoria, setFilterCategoria] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -216,6 +227,36 @@ export default function Pessoas() {
       comissao_supermeta: "5.0",
       categoria_id: "",
     });
+  };
+
+  const handleDelete = async (pessoa: Pessoa) => {
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('pessoas')
+        .delete()
+        .eq('id', pessoa.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Pessoa excluída",
+        description: "A pessoa foi removida com sucesso.",
+      });
+      
+      setDeletingPessoa(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting pessoa:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir a pessoa.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEdit = (pessoa: Pessoa) => {
@@ -590,13 +631,22 @@ export default function Pessoas() {
                   <TableCell>{pessoa.telefone}</TableCell>
                   <TableCell>{pessoa.cpf || pessoa.cnpj}</TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(pessoa)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(pessoa)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeletingPessoa(pessoa)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -604,6 +654,27 @@ export default function Pessoas() {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deletingPessoa} onOpenChange={() => setDeletingPessoa(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a pessoa <strong>{deletingPessoa?.nome}</strong>? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingPessoa && handleDelete(deletingPessoa)}
+              disabled={loading}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

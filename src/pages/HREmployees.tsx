@@ -82,8 +82,8 @@ export default function HREmployees() {
         .select(`
           id, nome, cpf, email, telefone, ativo, created_at,
           cargo_id, setor_id, dados_funcionario,
-          hr_cargos!cargo_id(nome),
-          hr_setores!setor_id(nome)
+          hr_cargos(nome),
+          hr_setores(nome)
         `, { count: 'exact' })
         .contains('categorias', ['funcionario']);
 
