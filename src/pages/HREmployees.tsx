@@ -79,7 +79,7 @@ export default function HREmployees() {
       
       // Query employees from the new corporate entities system
       let query = supabase
-        .from('funcionarios_unified')
+        .from('entidades_corporativas')
         .select(`
           id,
           nome_razao_social,
