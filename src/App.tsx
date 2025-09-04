@@ -7,8 +7,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { StatePersistenceProvider } from "@/contexts/StatePersistenceContext";
 import { UndoRedoManager } from "@/components/ui/undo-redo-manager";
+import { useIsMobile } from "@/hooks/use-mobile";
+import EntidadesCorporativas from "./pages/EntidadesCorporativas";
 import DashboardPayables from "./pages/DashboardPayables";
 import AccountsPayable from "./pages/AccountsPayable";
 import NewBill from "./pages/NewBill";
@@ -54,6 +58,7 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const isMobile = useIsMobile();
 
   if (loading) {
     return (
@@ -70,14 +75,21 @@ function AppContent() {
   return (
     <BrowserRouter>
       <StatePersistenceProvider>
-        <div className="min-h-screen bg-background">
-          <AppHeader />
-          <React.Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-            </div>
-          }>
-            <Routes>
+        <SidebarProvider 
+          defaultOpen={!isMobile} 
+          open={undefined}
+        >
+          <div className="min-h-screen flex w-full bg-background">
+            <AppSidebar />
+            <SidebarInset className="flex-1">
+              <AppHeader />
+              <main className="flex-1 p-4 md:p-6">
+                <React.Suspense fallback={
+                  <div className="min-h-screen flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+                  </div>
+                }>
+                  <Routes>
             <Route path="/" element={<DashboardPayables />} />
             <Route path="/dashboard/financial" element={<DashboardFinancial />} />
             <Route path="/dashboard/hr" element={<DashboardHR />} />
@@ -110,14 +122,18 @@ function AppContent() {
                 <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
                 <Route path="/hr/process-run" element={<HRProcessRun />} />
                 <Route path="/pessoas" element={<Pessoas />} />
-          <Route path="/settings" element={<Cadastros />} />
+            <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
+            <Route path="/settings" element={<Cadastros />} />
                 <Route path="/reports" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </React.Suspense>
-          <UndoRedoManager />
-        </div>
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </React.Suspense>
+              </main>
+            </SidebarInset>
+            <UndoRedoManager />
+          </div>
+        </SidebarProvider>
       </StatePersistenceProvider>
     </BrowserRouter>
   );
