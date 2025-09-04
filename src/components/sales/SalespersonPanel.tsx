@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Users, Target, DollarSign, TrendingUp, Download } from "lucide-react";
+import { Users, Target, DollarSign, TrendingUp, RefreshCw } from "lucide-react";
 import { useSalesData, Salesperson } from "@/hooks/useSalesData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +27,13 @@ export function SalespersonPanel() {
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
+
+  // Automatic sync on mount and when component becomes visible
+  useEffect(() => {
+    syncSalespeople();
+  }, []);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -56,55 +61,83 @@ export function SalespersonPanel() {
     }).format(value);
   };
 
-  // Import salespeople from database
-  const importFromDatabase = async () => {
-    setLoading(true);
+  // Intelligent sync that preserves existing data
+  const syncSalespeople = async () => {
+    setSyncing(true);
     try {
-      // Try to get from pessoas table where tipo includes 'vendedora'
-      const { data: pessoasData, error: pessoasError } = await supabase
+      // Get salespeople from pessoas table first (main source)
+      const { data: pessoasData } = await supabase
         .from('pessoas')
-        .select('id, nome, tipo')
-        .ilike('tipo', '%vendedora%');
+        .select('id, nome, categorias')
+        .contains('categorias', ['vendedora']);
 
-      let vendedorasData: any[] = [];
+      let vendedorasData: any[] = pessoasData || [];
 
-      // If no vendedoras found in pessoas, try vendedoras table
-      if (!pessoasData || pessoasData.length === 0) {
-        const { data: vendedorasTableData, error: vendedorasError } = await supabase
+      // If no vendedoras found in pessoas, fallback to vendedoras table
+      if (vendedorasData.length === 0) {
+        const { data: vendedorasTableData } = await supabase
           .from('vendedoras')
           .select('id, nome')
           .eq('ativo', true);
-
-        if (vendedorasError) throw vendedorasError;
+        
         vendedorasData = vendedorasTableData || [];
-      } else {
-        vendedorasData = pessoasData;
       }
 
-      const importedSalespeople: Salesperson[] = vendedorasData.map(person => ({
-        id: person.id,
-        nome: person.nome,
-        meta_mensal: 0,
-        supermeta_mensal: 0,
-        metas_mensais: {},
-        supermetas_mensais: {}
-      }));
-
-      importSalespeople(importedSalespeople);
+      const dbSalespeopleIds = new Set(vendedorasData.map(p => p.id));
+      const currentSalespeopleIds = new Set(salespeople.map(s => s.id));
       
-      toast({
-        title: "Importação realizada",
-        description: `${importedSalespeople.length} vendedora(s) importada(s) com sucesso`,
-      });
+      let changes = 0;
+
+      // Add new salespeople (preserve existing metas)
+      const newSalespeople = vendedorasData.filter(person => 
+        !currentSalespeopleIds.has(person.id)
+      );
+
+      if (newSalespeople.length > 0) {
+        const salespeopleToAdd: Salesperson[] = newSalespeople.map(person => ({
+          id: person.id,
+          nome: person.nome,
+          meta_mensal: 0,
+          supermeta_mensal: 0,
+          metas_mensais: {},
+          supermetas_mensais: {}
+        }));
+
+        // Add to existing salespeople instead of replacing
+        importSalespeople([...salespeople, ...salespeopleToAdd]);
+        changes += newSalespeople.length;
+      }
+
+      // Remove deactivated salespeople
+      const salespeopleToRemove = salespeople.filter(s => 
+        !dbSalespeopleIds.has(s.id)
+      );
+
+      if (salespeopleToRemove.length > 0) {
+        const filteredSalespeople = salespeople.filter(s => 
+          dbSalespeopleIds.has(s.id)
+        );
+        importSalespeople(filteredSalespeople);
+        changes += salespeopleToRemove.length;
+      }
+
+      // Show feedback only if there were actual changes
+      if (changes > 0) {
+        toast({
+          title: "Sincronização concluída",
+          description: `${newSalespeople.length} adicionada(s), ${salespeopleToRemove.length} removida(s)`,
+        });
+      }
+
     } catch (error) {
-      console.error('Error importing salespeople:', error);
+      console.error('Error syncing salespeople:', error);
       toast({
-        title: "Erro",
-        description: "Erro ao importar vendedoras do banco de dados",
+        title: "Erro na sincronização",
+        description: "Erro ao sincronizar vendedoras",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setSyncing(false);
     }
   };
 
@@ -158,14 +191,15 @@ export function SalespersonPanel() {
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 Painel de Vendedoras
+                {syncing && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Gerencie metas, vendas e acompanhe comissões por vendedora
+                Sincronização automática • Metas preservadas
               </p>
             </div>
-            <Button onClick={importFromDatabase} disabled={loading} variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Importar do Cadastro
+            <Button onClick={syncSalespeople} disabled={syncing} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
             </Button>
           </div>
         </CardHeader>
@@ -201,8 +235,8 @@ export function SalespersonPanel() {
           {salespeople.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhuma vendedora cadastrada</p>
-              <p className="text-sm">Clique em "Importar do Cadastro" para começar</p>
+              <p>Nenhuma vendedora encontrada</p>
+              <p className="text-sm">Cadastre vendedoras em Cadastros → Pessoas ou clique em "Atualizar"</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
