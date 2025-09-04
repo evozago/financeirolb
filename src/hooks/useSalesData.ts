@@ -5,6 +5,8 @@ export interface Salesperson {
   nome: string;
   meta_mensal: number;
   supermeta_mensal: number;
+  metas_mensais: { [key: string]: number }; // key format: "YYYY-MM"
+  supermetas_mensais: { [key: string]: number }; // key format: "YYYY-MM"
 }
 
 export interface MonthlySales {
@@ -130,7 +132,9 @@ export function useSalesData() {
   const addSalesperson = (salesperson: Omit<Salesperson, 'id'>) => {
     const newSalesperson: Salesperson = {
       ...salesperson,
-      id: Date.now().toString()
+      id: Date.now().toString(),
+      metas_mensais: salesperson.metas_mensais || {},
+      supermetas_mensais: salesperson.supermetas_mensais || {}
     };
     const updated = [...salespeople, newSalesperson];
     setSalespeople(updated);
@@ -252,20 +256,60 @@ export function useSalesData() {
     return ((currentTotal - previousTotal) / previousTotal) * 100;
   };
 
+  const getMonthlyMeta = (vendedoraId: string, year: number, month: number): number => {
+    const salesperson = salespeople.find(s => s.id === vendedoraId);
+    if (!salesperson) return 0;
+    
+    const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+    return salesperson.metas_mensais[monthKey] || salesperson.meta_mensal || 0;
+  };
+
+  const getMonthlySupermeta = (vendedoraId: string, year: number, month: number): number => {
+    const salesperson = salespeople.find(s => s.id === vendedoraId);
+    if (!salesperson) return 0;
+    
+    const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+    return salesperson.supermetas_mensais[monthKey] || salesperson.supermeta_mensal || 0;
+  };
+
+  const updateMonthlyMeta = (vendedoraId: string, year: number, month: number, meta: number, supermeta: number) => {
+    const salesperson = salespeople.find(s => s.id === vendedoraId);
+    if (!salesperson) return;
+
+    const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+    const updatedSalesperson = {
+      ...salesperson,
+      metas_mensais: {
+        ...salesperson.metas_mensais,
+        [monthKey]: meta
+      },
+      supermetas_mensais: {
+        ...salesperson.supermetas_mensais,
+        [monthKey]: supermeta
+      }
+    };
+
+    const updated = salespeople.map(s => s.id === vendedoraId ? updatedSalesperson : s);
+    setSalespeople(updated);
+    saveToStorage(STORAGE_KEYS.salespeople, updated);
+  };
+
   const calculateCommission = (vendedoraId: string, year: number, month: number): number => {
     const salesperson = salespeople.find(s => s.id === vendedoraId);
     if (!salesperson) return 0;
 
     const sales = getMonthlySales(year, month, vendedoraId);
+    const meta = getMonthlyMeta(vendedoraId, year, month);
+    const supermeta = getMonthlySupermeta(vendedoraId, year, month);
     
-    if (sales <= salesperson.meta_mensal) {
+    if (sales <= meta) {
       return sales * 0.03; // 3% up to goal
-    } else if (sales <= salesperson.supermeta_mensal) {
-      return salesperson.meta_mensal * 0.03; // 3% on goal amount only
+    } else if (sales <= supermeta) {
+      return meta * 0.03; // 3% on goal amount only
     } else {
       // 3% on goal + 5% on amount exceeding super goal
-      const baseCommission = salesperson.meta_mensal * 0.03;
-      const superGoalCommission = (sales - salesperson.supermeta_mensal) * 0.05;
+      const baseCommission = meta * 0.03;
+      const superGoalCommission = (sales - supermeta) * 0.05;
       return baseCommission + superGoalCommission;
     }
   };
@@ -288,6 +332,12 @@ export function useSalesData() {
     );
     
     return activeSellers.size;
+  };
+
+  const getMonthlyMetaTotal = (year: number, month: number): number => {
+    return salespeople.reduce((total, salesperson) => {
+      return total + getMonthlyMeta(salesperson.id, year, month);
+    }, 0);
   };
 
   // Year management
@@ -343,6 +393,10 @@ export function useSalesData() {
     getAccumulatedGrowth,
     calculateCommission,
     getTotalSalesCurrentYear,
-    getActiveSalespeopleCount
+    getActiveSalespeopleCount,
+    getMonthlyMeta,
+    getMonthlySupermeta,
+    updateMonthlyMeta,
+    getMonthlyMetaTotal
   };
 }
