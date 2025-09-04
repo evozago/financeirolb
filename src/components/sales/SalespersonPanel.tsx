@@ -83,46 +83,78 @@ export function SalespersonPanel() {
         vendedorasData = vendedorasTableData || [];
       }
 
-      const dbSalespeopleIds = new Set(vendedorasData.map(p => p.id));
-      const currentSalespeopleIds = new Set(salespeople.map(s => s.id));
+      // Create maps for intelligent matching
+      const dbSalespeopleByID = new Map(vendedorasData.map(p => [p.id, p]));
+      const dbSalespeopleByName = new Map(vendedorasData.map(p => [p.nome.toLowerCase(), p]));
+      const currentSalespeopleByName = new Map(salespeople.map(s => [s.nome.toLowerCase(), s]));
       
       let addedCount = 0;
       let removedCount = 0;
+      let updatedCount = 0;
 
-      // Add new salespeople (preserving database IDs)
-      const newSalespeople = vendedorasData.filter(person => 
-        !currentSalespeopleIds.has(person.id)
-      );
+      // Process salespeople with intelligent matching
+      const processedSalespeople: Salesperson[] = [];
+      const processedDBIds = new Set<string>();
 
-      // Only proceed if there are changes to make
-      if (newSalespeople.length > 0 || salespeople.some(s => !dbSalespeopleIds.has(s.id))) {
-        // Build the complete new array preserving existing data
-        let updatedSalespeople = [...salespeople];
-        
-        // Add new salespeople with database IDs
-        for (const person of newSalespeople) {
-          updatedSalespeople.push({
-            id: person.id, // Preserve database ID
-            nome: person.nome,
-            meta_mensal: 0,
-            supermeta_mensal: 0,
-            metas_mensais: {},
-            supermetas_mensais: {}
+      // First pass: match by ID (exact match)
+      for (const localSalesperson of salespeople) {
+        const dbMatch = dbSalespeopleByID.get(localSalesperson.id);
+        if (dbMatch) {
+          // Exact ID match - keep all data, just update name if needed
+          processedSalespeople.push({
+            ...localSalesperson,
+            nome: dbMatch.nome // Update name in case it changed in DB
           });
-          addedCount++;
+          processedDBIds.add(dbMatch.id);
+          if (localSalesperson.nome !== dbMatch.nome) {
+            updatedCount++;
+          }
         }
-        
-        // Filter out removed salespeople
-        const salespeopleToKeep = updatedSalespeople.filter(s => 
-          dbSalespeopleIds.has(s.id)
-        );
-        
-        removedCount = updatedSalespeople.length - salespeopleToKeep.length;
-        
-        // Only call importSalespeople once with the final result
-        if (addedCount > 0 || removedCount > 0) {
-          importSalespeople(salespeopleToKeep);
+      }
+
+      // Second pass: match by name (for salespeople with different IDs)
+      for (const localSalesperson of salespeople) {
+        if (!dbSalespeopleByID.has(localSalesperson.id)) {
+          const dbMatch = dbSalespeopleByName.get(localSalesperson.nome.toLowerCase());
+          if (dbMatch && !processedDBIds.has(dbMatch.id)) {
+            // Name match but different ID - preserve all local data, update ID
+            processedSalespeople.push({
+              ...localSalesperson,
+              id: dbMatch.id, // Update to match database ID
+              nome: dbMatch.nome // Update name to match database
+            });
+            processedDBIds.add(dbMatch.id);
+            updatedCount++;
+          } else if (!dbMatch) {
+            // Salesperson exists locally but not in DB - will be removed
+            removedCount++;
+          }
         }
+      }
+
+      // Third pass: add completely new salespeople from database
+      for (const dbSalesperson of vendedorasData) {
+        if (!processedDBIds.has(dbSalesperson.id)) {
+          // Check if we already have someone with this name locally
+          const existingByName = currentSalespeopleByName.get(dbSalesperson.nome.toLowerCase());
+          if (!existingByName) {
+            // Completely new salesperson
+            processedSalespeople.push({
+              id: dbSalesperson.id,
+              nome: dbSalesperson.nome,
+              meta_mensal: 0,
+              supermeta_mensal: 0,
+              metas_mensais: {},
+              supermetas_mensais: {}
+            });
+            addedCount++;
+          }
+        }
+      }
+
+      // Only update if there are actual changes
+      if (addedCount > 0 || removedCount > 0 || updatedCount > 0) {
+        importSalespeople(processedSalespeople);
       }
 
       // Show feedback only if there were actual changes
