@@ -19,10 +19,7 @@ export function SalespersonPanel() {
     updateMonthlySale,
     calculateCommission,
     getMonthlySales,
-    importSalespeople,
-    getMonthlyMeta,
-    getMonthlySupermeta,
-    updateMonthlyMeta
+    importSalespeople
   } = useSalesData();
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -85,9 +82,7 @@ export function SalespersonPanel() {
         id: person.id,
         nome: person.nome,
         meta_mensal: 0,
-        supermeta_mensal: 0,
-        metas_mensais: {},
-        supermetas_mensais: {}
+        supermeta_mensal: 0
       }));
 
       importSalespeople(importedSalespeople);
@@ -119,15 +114,14 @@ export function SalespersonPanel() {
   };
 
   const updateMeta = (vendedoraId: string, field: 'meta_mensal' | 'supermeta_mensal', value: string) => {
+    const salesperson = salespeople.find(s => s.id === vendedoraId);
+    if (!salesperson) return;
+
     const numValue = parseFloat(value) || 0;
-    
-    if (field === 'meta_mensal') {
-      const currentSupermeta = getMonthlySupermeta(vendedoraId, selectedYear, selectedMonth);
-      updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, numValue, currentSupermeta);
-    } else {
-      const currentMeta = getMonthlyMeta(vendedoraId, selectedYear, selectedMonth);
-      updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, currentMeta, numValue);
-    }
+    updateSalesperson({
+      ...salesperson,
+      [field]: numValue
+    });
   };
 
   // Calculate monthly commission data for chart
@@ -222,10 +216,8 @@ export function SalespersonPanel() {
                   {salespeople.map((salesperson) => {
                     const sales = getMonthlySales(selectedYear, selectedMonth, salesperson.id);
                     const commission = calculateCommission(salesperson.id, selectedYear, selectedMonth);
-                    const monthlyMeta = getMonthlyMeta(salesperson.id, selectedYear, selectedMonth);
-                    const monthlySupermeta = getMonthlySupermeta(salesperson.id, selectedYear, selectedMonth);
-                    const metaPercentage = monthlyMeta > 0 
-                      ? (sales / monthlyMeta) * 100 
+                    const metaPercentage = salesperson.meta_mensal > 0 
+                      ? (sales / salesperson.meta_mensal) * 100 
                       : 0;
 
                     return (
@@ -235,7 +227,7 @@ export function SalespersonPanel() {
                         <td className="p-3">
                           <Input
                             type="number"
-                            value={monthlyMeta || ''}
+                            value={salesperson.meta_mensal || ''}
                             onChange={(e) => updateMeta(salesperson.id, 'meta_mensal', e.target.value)}
                             className="text-center"
                             placeholder="0"
@@ -245,7 +237,7 @@ export function SalespersonPanel() {
                         <td className="p-3">
                           <Input
                             type="number"
-                            value={monthlySupermeta || ''}
+                            value={salesperson.supermeta_mensal || ''}
                             onChange={(e) => updateMeta(salesperson.id, 'supermeta_mensal', e.target.value)}
                             className="text-center"
                             placeholder="0"
@@ -283,13 +275,13 @@ export function SalespersonPanel() {
                         <td className="p-3 text-center">
                           <Badge 
                             variant={
-                              sales >= monthlySupermeta ? "default" :
-                              sales >= monthlyMeta ? "secondary" : 
+                              sales >= salesperson.supermeta_mensal ? "default" :
+                              sales >= salesperson.meta_mensal ? "secondary" : 
                               "outline"
                             }
                           >
-                            {sales >= monthlySupermeta ? "Super Meta" :
-                             sales >= monthlyMeta ? "Meta Atingida" : 
+                            {sales >= salesperson.supermeta_mensal ? "Super Meta" :
+                             sales >= salesperson.meta_mensal ? "Meta Atingida" : 
                              "Em Andamento"}
                           </Badge>
                         </td>
