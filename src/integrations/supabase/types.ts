@@ -453,10 +453,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contas_pagar_corporativas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
             columns: ["credor_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
+            columns: ["credor_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
           {
@@ -533,10 +547,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contas_recorrentes_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contas_recorrentes_credor_id_fkey"
             columns: ["credor_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_recorrentes_credor_id_fkey"
+            columns: ["credor_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
           {
@@ -744,10 +772,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "documentos_fiscais_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "documentos_fiscais_emitente_id_fkey"
             columns: ["emitente_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_fiscais_emitente_id_fkey"
+            columns: ["emitente_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
         ]
@@ -928,6 +970,13 @@ export type Database = {
             referencedRelation: "entidades_corporativas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "entidade_enderecos_entidade_id_fkey"
+            columns: ["entidade_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
         ]
       }
       entidade_papeis: {
@@ -967,6 +1016,13 @@ export type Database = {
             columns: ["entidade_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entidade_papeis_entidade_id_fkey"
+            columns: ["entidade_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
           {
@@ -1186,6 +1242,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fornecedores_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fornecedores_filial_id_fkey"
             columns: ["filial_id"]
             isOneToOne: false
@@ -1328,6 +1391,13 @@ export type Database = {
             columns: ["entidade_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funcionarios_detalhes_entidade_id_fkey"
+            columns: ["entidade_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
           {
@@ -1792,6 +1862,13 @@ export type Database = {
             referencedRelation: "vendas_corporativas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "itens_venda_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vw_fato_vendas"
+            referencedColumns: ["id_venda"]
+          },
         ]
       }
       marcas: {
@@ -2087,6 +2164,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contas_pagar_corporativas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_conta_pagar_conta_pagar_id_fkey"
+            columns: ["conta_pagar_id"]
+            isOneToOne: false
+            referencedRelation: "vw_fato_parcelas"
+            referencedColumns: ["id_conta"]
           },
         ]
       }
@@ -2440,6 +2524,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "produtos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "produtos_marca_id_fkey"
             columns: ["marca_id"]
             isOneToOne: false
@@ -2598,6 +2689,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
             referencedColumns: ["id"]
           },
           {
@@ -2813,6 +2911,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vendas_corporativas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vendas_corporativas_filial_id_fkey"
             columns: ["filial_id"]
             isOneToOne: false
@@ -2824,6 +2929,13 @@ export type Database = {
             columns: ["vendedor_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
         ]
@@ -3100,6 +3212,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recurring_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "recurring_bills_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -3168,6 +3287,184 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      vw_dim_categorias: {
+        Row: {
+          ativo: boolean | null
+          id: string | null
+          nome: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          id?: string | null
+          nome?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          id?: string | null
+          nome?: string | null
+        }
+        Relationships: []
+      }
+      vw_dim_entidades: {
+        Row: {
+          ativo: boolean | null
+          cpf_cnpj: string | null
+          email: string | null
+          id: string | null
+          nome_fantasia: string | null
+          nome_razao_social: string | null
+          telefone: string | null
+          tipo_pessoa: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cpf_cnpj?: string | null
+          email?: string | null
+          id?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string | null
+          telefone?: string | null
+          tipo_pessoa?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cpf_cnpj?: string | null
+          email?: string | null
+          id?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string | null
+          telefone?: string | null
+          tipo_pessoa?: string | null
+        }
+        Relationships: []
+      }
+      vw_fato_parcelas: {
+        Row: {
+          ano_vencimento: string | null
+          data_emissao: string | null
+          data_pagamento: string | null
+          data_vencimento: string | null
+          id_categoria: string | null
+          id_conta: string | null
+          id_credor: string | null
+          id_filial: string | null
+          id_parcela: string | null
+          meio_pagamento: string | null
+          mes_vencimento: string | null
+          status: string | null
+          valor: number | null
+          valor_pago: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_corporativas_categoria_id_fkey"
+            columns: ["id_categoria"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_categoria_id_fkey"
+            columns: ["id_categoria"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
+            columns: ["id_credor"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
+            columns: ["id_credor"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_filial_id_fkey"
+            columns: ["id_filial"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vw_fato_vendas: {
+        Row: {
+          ano_venda: string | null
+          data_venda: string | null
+          id_cliente: string | null
+          id_filial: string | null
+          id_venda: string | null
+          id_vendedor: string | null
+          mes_venda: string | null
+          status_venda: string | null
+          valor: number | null
+        }
+        Insert: {
+          ano_venda?: never
+          data_venda?: string | null
+          id_cliente?: string | null
+          id_filial?: string | null
+          id_venda?: string | null
+          id_vendedor?: string | null
+          mes_venda?: never
+          status_venda?: string | null
+          valor?: number | null
+        }
+        Update: {
+          ano_venda?: never
+          data_venda?: string | null
+          id_cliente?: string | null
+          id_filial?: string | null
+          id_venda?: string | null
+          id_vendedor?: string | null
+          mes_venda?: never
+          status_venda?: string | null
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_corporativas_cliente_id_fkey"
+            columns: ["id_cliente"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_cliente_id_fkey"
+            columns: ["id_cliente"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_filial_id_fkey"
+            columns: ["id_filial"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_vendedor_id_fkey"
+            columns: ["id_vendedor"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_vendedor_id_fkey"
+            columns: ["id_vendedor"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -3274,6 +3571,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_dashboard_financeiro_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_dashboard_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -3282,6 +3583,10 @@ export type Database = {
           vencendo_hoje: number
           vencidos: number
         }[]
+      }
+      get_entidade_dashboard: {
+        Args: { p_entidade_id: string }
+        Returns: Json
       }
       get_expenses_by_category: {
         Args: { p_end_date?: string; p_start_date?: string }
@@ -3389,6 +3694,25 @@ export type Database = {
           total_count: number
           total_pago: number
           total_vencido: number
+        }[]
+      }
+      search_entidades_corporativas: {
+        Args: {
+          p_limite?: number
+          p_offset?: number
+          p_papel?: string
+          p_query?: string
+        }
+        Returns: {
+          ativo: boolean
+          cpf_cnpj: string
+          email: string
+          id: string
+          nome_fantasia: string
+          nome_razao_social: string
+          papeis: string[]
+          telefone: string
+          tipo_pessoa: string
         }[]
       }
       update_ap_installments_relationships: {
