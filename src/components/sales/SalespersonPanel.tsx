@@ -86,46 +86,50 @@ export function SalespersonPanel() {
       const dbSalespeopleIds = new Set(vendedorasData.map(p => p.id));
       const currentSalespeopleIds = new Set(salespeople.map(s => s.id));
       
-      let changes = 0;
+      let addedCount = 0;
+      let removedCount = 0;
 
-      // Add new salespeople (preserve existing metas)
+      // Add new salespeople (preserving database IDs)
       const newSalespeople = vendedorasData.filter(person => 
         !currentSalespeopleIds.has(person.id)
       );
 
-      if (newSalespeople.length > 0) {
-        const salespeopleToAdd: Salesperson[] = newSalespeople.map(person => ({
-          id: person.id,
-          nome: person.nome,
-          meta_mensal: 0,
-          supermeta_mensal: 0,
-          metas_mensais: {},
-          supermetas_mensais: {}
-        }));
-
-        // Add to existing salespeople instead of replacing
-        importSalespeople([...salespeople, ...salespeopleToAdd]);
-        changes += newSalespeople.length;
-      }
-
-      // Remove deactivated salespeople
-      const salespeopleToRemove = salespeople.filter(s => 
-        !dbSalespeopleIds.has(s.id)
-      );
-
-      if (salespeopleToRemove.length > 0) {
-        const filteredSalespeople = salespeople.filter(s => 
+      // Only proceed if there are changes to make
+      if (newSalespeople.length > 0 || salespeople.some(s => !dbSalespeopleIds.has(s.id))) {
+        // Build the complete new array preserving existing data
+        let updatedSalespeople = [...salespeople];
+        
+        // Add new salespeople with database IDs
+        for (const person of newSalespeople) {
+          updatedSalespeople.push({
+            id: person.id, // Preserve database ID
+            nome: person.nome,
+            meta_mensal: 0,
+            supermeta_mensal: 0,
+            metas_mensais: {},
+            supermetas_mensais: {}
+          });
+          addedCount++;
+        }
+        
+        // Filter out removed salespeople
+        const salespeopleToKeep = updatedSalespeople.filter(s => 
           dbSalespeopleIds.has(s.id)
         );
-        importSalespeople(filteredSalespeople);
-        changes += salespeopleToRemove.length;
+        
+        removedCount = updatedSalespeople.length - salespeopleToKeep.length;
+        
+        // Only call importSalespeople once with the final result
+        if (addedCount > 0 || removedCount > 0) {
+          importSalespeople(salespeopleToKeep);
+        }
       }
 
       // Show feedback only if there were actual changes
-      if (changes > 0) {
+      if (addedCount > 0 || removedCount > 0) {
         toast({
           title: "Sincronização concluída",
-          description: `${newSalespeople.length} adicionada(s), ${salespeopleToRemove.length} removida(s)`,
+          description: `${addedCount} adicionada(s), ${removedCount} removida(s)`,
         });
       }
 
