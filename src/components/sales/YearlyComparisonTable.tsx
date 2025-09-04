@@ -4,17 +4,26 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, Edit3, Check, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Edit3, Check, X, Plus, Trash2, Calendar } from "lucide-react";
 import { useSalesData } from "@/hooks/useSalesData";
 import { cn } from "@/lib/utils";
 
 export function YearlyComparisonTable() {
-  const { yearlySales, updateYearlySale, getYearlySales, getYearOverYearGrowth } = useSalesData();
+  const { 
+    yearlySales, 
+    updateYearlySale, 
+    getYearlySales, 
+    getYearOverYearGrowth,
+    availableYears,
+    addYear,
+    removeYear
+  } = useSalesData();
   const [editingCell, setEditingCell] = useState<{ year: number; month: number } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  const [newYear, setNewYear] = useState<string>('');
+  const [showYearManager, setShowYearManager] = useState<boolean>(false);
 
   const currentYear = new Date().getFullYear();
-  const years = [2022, currentYear - 1, currentYear, currentYear + 1];
   const months = [
     { value: 1, label: 'Jan' },
     { value: 2, label: 'Fev' },
@@ -29,6 +38,20 @@ export function YearlyComparisonTable() {
     { value: 11, label: 'Nov' },
     { value: 12, label: 'Dez' },
   ];
+
+  const handleAddYear = () => {
+    const year = parseInt(newYear);
+    if (!isNaN(year) && year > 1900 && year < 2100) {
+      addYear(year);
+      setNewYear('');
+    }
+  };
+
+  const handleRemoveYear = (year: number) => {
+    if (availableYears.length > 1) { // Keep at least one year
+      removeYear(year);
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -66,7 +89,7 @@ export function YearlyComparisonTable() {
   // Prepare chart data
   const chartData = months.map(month => {
     const dataPoint: any = { month: month.label };
-    years.forEach(year => {
+    availableYears.forEach(year => {
       dataPoint[year.toString()] = getYearlySales(year, month.value);
     });
     return dataPoint;
@@ -98,12 +121,63 @@ export function YearlyComparisonTable() {
           </p>
         </CardHeader>
         <CardContent>
+          {/* Year Management */}
+          <div className="mb-6">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowYearManager(!showYearManager)}
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Gerenciar Anos
+              </Button>
+            </div>
+            
+            {showYearManager && (
+              <div className="bg-muted/30 p-4 rounded-lg space-y-4">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Adicionar ano (ex: 2025)"
+                    value={newYear}
+                    onChange={(e) => setNewYear(e.target.value)}
+                    className="w-48"
+                  />
+                  <Button onClick={handleAddYear} size="sm" disabled={!newYear}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {availableYears.map(year => (
+                    <Badge key={year} variant="secondary" className="flex items-center gap-2">
+                      {year}
+                      {availableYears.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveYear(year)}
+                          className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
                   <th className="border border-border p-3 text-left font-medium">Mês</th>
-                  {years.map(year => (
+                  {availableYears.map(year => (
                     <th key={year} className="border border-border p-3 text-center font-medium min-w-32">
                       {year}
                     </th>
@@ -116,7 +190,7 @@ export function YearlyComparisonTable() {
                     <td className="border border-border p-3 font-medium bg-muted/50">
                       {month.label}
                     </td>
-                    {years.map(year => {
+                    {availableYears.map(year => {
                       const value = getYearlySales(year, month.value);
                       const growth = getYearOverYearGrowth(year, month.value);
                       const isEditing = editingCell?.year === year && editingCell?.month === month.value;
@@ -157,7 +231,7 @@ export function YearlyComparisonTable() {
                               <div className="font-medium text-sm">
                                 {value > 0 ? formatCurrency(value) : '-'}
                               </div>
-                              {year > years[0] && (
+                              {year > availableYears[0] && (
                                 <div className={cn(
                                   "text-xs flex items-center justify-center gap-1",
                                   growth > 0 ? "text-green-600" : growth < 0 ? "text-red-600" : "text-muted-foreground"
@@ -180,7 +254,7 @@ export function YearlyComparisonTable() {
                 {/* Total row */}
                 <tr className="bg-muted/50 border-t-2 border-border">
                   <td className="border border-border p-3 font-bold">TOTAL</td>
-                  {years.map(year => {
+                  {availableYears.map(year => {
                     const total = getYearTotal(year);
                     const previousTotal = getYearTotal(year - 1);
                     const totalGrowth = previousTotal > 0 ? ((total - previousTotal) / previousTotal) * 100 : 0;
@@ -191,7 +265,7 @@ export function YearlyComparisonTable() {
                           <div className="text-sm">
                             {total > 0 ? formatCurrency(total) : '-'}
                           </div>
-                          {year > years[0] && (
+                          {year > availableYears[0] && (
                             <div className={cn(
                               "text-xs flex items-center justify-center gap-1",
                               totalGrowth > 0 ? "text-green-600" : totalGrowth < 0 ? "text-red-600" : "text-muted-foreground"
@@ -233,7 +307,7 @@ export function YearlyComparisonTable() {
                 formatter={(value: number) => formatCurrency(value)}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
               />
-              {years.map((year, index) => (
+              {availableYears.map((year, index) => (
                 <Line
                   key={year}
                   type="monotone"

@@ -20,6 +20,10 @@ export interface YearlySales {
   total_vendas: number;
 }
 
+export interface YearConfig {
+  years: number[];
+}
+
 export interface GrowthSimulation {
   type: 'fixed' | 'percentage';
   value: number;
@@ -30,6 +34,7 @@ const STORAGE_KEYS = {
   salespeople: 'sales_management_salespeople',
   monthlySales: 'sales_management_monthly_sales',
   yearlySales: 'sales_management_yearly_sales',
+  availableYears: 'sales_management_available_years',
   growthSimulation: 'sales_management_growth_simulation',
   lastUpdate: 'sales_management_last_update'
 };
@@ -38,6 +43,7 @@ export function useSalesData() {
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [monthlySales, setMonthlySales] = useState<MonthlySales[]>([]);
   const [yearlySales, setYearlySales] = useState<YearlySales[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [growthSimulation, setGrowthSimulation] = useState<GrowthSimulation>({
     type: 'fixed',
     value: 0,
@@ -51,11 +57,22 @@ export function useSalesData() {
       const storedSalespeople = localStorage.getItem(STORAGE_KEYS.salespeople);
       const storedMonthlySales = localStorage.getItem(STORAGE_KEYS.monthlySales);
       const storedYearlySales = localStorage.getItem(STORAGE_KEYS.yearlySales);
+      const storedAvailableYears = localStorage.getItem(STORAGE_KEYS.availableYears);
       const storedGrowthSimulation = localStorage.getItem(STORAGE_KEYS.growthSimulation);
       const storedLastUpdate = localStorage.getItem(STORAGE_KEYS.lastUpdate);
 
       if (storedSalespeople) setSalespeople(JSON.parse(storedSalespeople));
       if (storedMonthlySales) setMonthlySales(JSON.parse(storedMonthlySales));
+      
+      // Initialize available years
+      if (storedAvailableYears) {
+        setAvailableYears(JSON.parse(storedAvailableYears));
+      } else {
+        const currentYear = new Date().getFullYear();
+        const initialYears = [2022, 2023, currentYear, currentYear + 1];
+        setAvailableYears(initialYears);
+        saveToStorage(STORAGE_KEYS.availableYears, initialYears);
+      }
       
       if (storedYearlySales) {
         setYearlySales(JSON.parse(storedYearlySales));
@@ -273,11 +290,36 @@ export function useSalesData() {
     return activeSellers.size;
   };
 
+  // Year management
+  const addYear = (year: number) => {
+    if (!availableYears.includes(year)) {
+      const updated = [...availableYears, year].sort((a, b) => a - b);
+      setAvailableYears(updated);
+      saveToStorage(STORAGE_KEYS.availableYears, updated);
+    }
+  };
+
+  const removeYear = (year: number) => {
+    const updated = availableYears.filter(y => y !== year);
+    setAvailableYears(updated);
+    saveToStorage(STORAGE_KEYS.availableYears, updated);
+    
+    // Also remove all sales data for this year
+    const updatedYearlySales = yearlySales.filter(s => s.year !== year);
+    setYearlySales(updatedYearlySales);
+    saveToStorage(STORAGE_KEYS.yearlySales, updatedYearlySales);
+    
+    const updatedMonthlySales = monthlySales.filter(s => s.year !== year);
+    setMonthlySales(updatedMonthlySales);
+    saveToStorage(STORAGE_KEYS.monthlySales, updatedMonthlySales);
+  };
+
   return {
     // Data
     salespeople,
     monthlySales,
     yearlySales,
+    availableYears,
     growthSimulation,
     lastUpdate,
     
@@ -289,6 +331,10 @@ export function useSalesData() {
     updateYearlySale,
     updateGrowthSimulation,
     applyGrowthSimulation,
+    
+    // Year management
+    addYear,
+    removeYear,
     
     // Helper functions
     getYearlySales,
