@@ -213,6 +213,42 @@ export type Database = {
           },
         ]
       }
+      arquivos_sistema: {
+        Row: {
+          created_at: string
+          id: string
+          mime_type: string
+          nome_arquivo: string
+          nome_original: string
+          sha256_hash: string
+          storage_path: string
+          tamanho_bytes: number
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mime_type: string
+          nome_arquivo: string
+          nome_original: string
+          sha256_hash: string
+          storage_path: string
+          tamanho_bytes: number
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mime_type?: string
+          nome_arquivo?: string
+          nome_original?: string
+          sha256_hash?: string
+          storage_path?: string
+          tamanho_bytes?: number
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       categorias_produtos: {
         Row: {
           ativo: boolean
@@ -350,6 +386,79 @@ export type Database = {
           },
         ]
       }
+      contas_recorrentes: {
+        Row: {
+          ativo: boolean
+          categoria_id: string | null
+          created_at: string
+          created_by: string | null
+          credor_id: string
+          dia_base: number
+          filial_id: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          periodicidade: string
+          proxima_geracao: string | null
+          updated_at: string
+          valor_padrao: number
+        }
+        Insert: {
+          ativo?: boolean
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credor_id: string
+          dia_base: number
+          filial_id?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          periodicidade: string
+          proxima_geracao?: string | null
+          updated_at?: string
+          valor_padrao: number
+        }
+        Update: {
+          ativo?: boolean
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credor_id?: string
+          dia_base?: number
+          filial_id?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          periodicidade?: string
+          proxima_geracao?: string | null
+          updated_at?: string
+          valor_padrao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_recorrentes_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_recorrentes_credor_id_fkey"
+            columns: ["credor_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_recorrentes_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contatos: {
         Row: {
           ativo: boolean
@@ -453,6 +562,149 @@ export type Database = {
         }
         Relationships: []
       }
+      documentos_fiscais: {
+        Row: {
+          arquivo_pdf_id: string | null
+          arquivo_xml_id: string | null
+          chave_nfe: string
+          created_at: string
+          created_by: string | null
+          data_emissao: string
+          data_entrada: string | null
+          destinatario_id: string | null
+          emitente_id: string
+          id: string
+          numero_documento: string
+          observacoes: string | null
+          serie: string
+          situacao: string | null
+          tipo_documento: string
+          updated_at: string
+          valor_cofins: number | null
+          valor_icms: number | null
+          valor_ipi: number | null
+          valor_pis: number | null
+          valor_total: number
+        }
+        Insert: {
+          arquivo_pdf_id?: string | null
+          arquivo_xml_id?: string | null
+          chave_nfe: string
+          created_at?: string
+          created_by?: string | null
+          data_emissao: string
+          data_entrada?: string | null
+          destinatario_id?: string | null
+          emitente_id: string
+          id?: string
+          numero_documento: string
+          observacoes?: string | null
+          serie: string
+          situacao?: string | null
+          tipo_documento: string
+          updated_at?: string
+          valor_cofins?: number | null
+          valor_icms?: number | null
+          valor_ipi?: number | null
+          valor_pis?: number | null
+          valor_total: number
+        }
+        Update: {
+          arquivo_pdf_id?: string | null
+          arquivo_xml_id?: string | null
+          chave_nfe?: string
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string
+          data_entrada?: string | null
+          destinatario_id?: string | null
+          emitente_id?: string
+          id?: string
+          numero_documento?: string
+          observacoes?: string | null
+          serie?: string
+          situacao?: string | null
+          tipo_documento?: string
+          updated_at?: string
+          valor_cofins?: number | null
+          valor_icms?: number | null
+          valor_ipi?: number | null
+          valor_pis?: number | null
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_fiscais_arquivo_pdf_id_fkey"
+            columns: ["arquivo_pdf_id"]
+            isOneToOne: false
+            referencedRelation: "arquivos_sistema"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_fiscais_arquivo_xml_id_fkey"
+            columns: ["arquivo_xml_id"]
+            isOneToOne: false
+            referencedRelation: "arquivos_sistema"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_fiscais_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_fiscais_emitente_id_fkey"
+            columns: ["emitente_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      endereco_detalhado: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          created_at: string
+          id: string
+          logradouro: string | null
+          numero: string | null
+          pais: string | null
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          logradouro?: string | null
+          numero?: string | null
+          pais?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          logradouro?: string | null
+          numero?: string | null
+          pais?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       enderecos: {
         Row: {
           ativo: boolean
@@ -547,6 +799,96 @@ export type Database = {
           },
         ]
       }
+      entidade_enderecos: {
+        Row: {
+          created_at: string
+          endereco_id: string
+          entidade_id: string
+          id: string
+          principal: boolean
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          endereco_id: string
+          entidade_id: string
+          id?: string
+          principal?: boolean
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          endereco_id?: string
+          entidade_id?: string
+          id?: string
+          principal?: boolean
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entidade_enderecos_endereco_id_fkey"
+            columns: ["endereco_id"]
+            isOneToOne: false
+            referencedRelation: "endereco_detalhado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entidade_enderecos_entidade_id_fkey"
+            columns: ["entidade_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entidade_papeis: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          entidade_id: string
+          id: string
+          observacoes: string | null
+          papel_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          entidade_id: string
+          id?: string
+          observacoes?: string | null
+          papel_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          entidade_id?: string
+          id?: string
+          observacoes?: string | null
+          papel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entidade_papeis_entidade_id_fkey"
+            columns: ["entidade_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entidade_papeis_papel_id_fkey"
+            columns: ["papel_id"]
+            isOneToOne: false
+            referencedRelation: "papeis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entidades: {
         Row: {
           ativo: boolean
@@ -577,6 +919,84 @@ export type Database = {
           razao_social?: string | null
           tipo?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      entidades_corporativas: {
+        Row: {
+          ativo: boolean
+          cpf_cnpj: string | null
+          cpf_cnpj_normalizado: string | null
+          created_at: string
+          created_by: string | null
+          data_fundacao: string | null
+          data_nascimento: string | null
+          email: string | null
+          email_normalizado: string | null
+          estado_civil: string | null
+          genero: string | null
+          id: string
+          inscricao_estadual: string | null
+          nacionalidade: string | null
+          nome_fantasia: string | null
+          nome_razao_social: string
+          observacoes: string | null
+          profissao: string | null
+          rg: string | null
+          telefone: string | null
+          tipo_pessoa: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cpf_cnpj?: string | null
+          cpf_cnpj_normalizado?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
+          email?: string | null
+          email_normalizado?: string | null
+          estado_civil?: string | null
+          genero?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          nacionalidade?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social: string
+          observacoes?: string | null
+          profissao?: string | null
+          rg?: string | null
+          telefone?: string | null
+          tipo_pessoa: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cpf_cnpj?: string | null
+          cpf_cnpj_normalizado?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
+          email?: string | null
+          email_normalizado?: string | null
+          estado_civil?: string | null
+          genero?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          nacionalidade?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string
+          observacoes?: string | null
+          profissao?: string | null
+          rg?: string | null
+          telefone?: string | null
+          tipo_pessoa?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -750,6 +1170,92 @@ export type Database = {
           valor_transporte_total?: number
         }
         Relationships: []
+      }
+      funcionarios_detalhes: {
+        Row: {
+          cargo_id: string | null
+          chave_pix: string | null
+          created_at: string
+          data_admissao: string | null
+          data_demissao: string | null
+          dias_uteis_mes: number | null
+          entidade_id: string
+          filial_id: string | null
+          id: string
+          salario_base: number | null
+          setor_id: string | null
+          status_funcionario: string | null
+          tipo_chave_pix: string | null
+          updated_at: string
+          valor_transporte_dia: number | null
+          valor_transporte_total: number | null
+        }
+        Insert: {
+          cargo_id?: string | null
+          chave_pix?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_demissao?: string | null
+          dias_uteis_mes?: number | null
+          entidade_id: string
+          filial_id?: string | null
+          id: string
+          salario_base?: number | null
+          setor_id?: string | null
+          status_funcionario?: string | null
+          tipo_chave_pix?: string | null
+          updated_at?: string
+          valor_transporte_dia?: number | null
+          valor_transporte_total?: number | null
+        }
+        Update: {
+          cargo_id?: string | null
+          chave_pix?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_demissao?: string | null
+          dias_uteis_mes?: number | null
+          entidade_id?: string
+          filial_id?: string | null
+          id?: string
+          salario_base?: number | null
+          setor_id?: string | null
+          status_funcionario?: string | null
+          tipo_chave_pix?: string | null
+          updated_at?: string
+          valor_transporte_dia?: number | null
+          valor_transporte_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionarios_detalhes_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "hr_cargos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funcionarios_detalhes_entidade_id_fkey"
+            columns: ["entidade_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funcionarios_detalhes_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funcionarios_detalhes_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "hr_setores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hr_cargos: {
         Row: {
@@ -1316,6 +1822,33 @@ export type Database = {
           valor_pis?: number | null
           valor_total?: number
           xml_content?: string
+        }
+        Relationships: []
+      }
+      papeis: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2499,6 +3032,14 @@ export type Database = {
       migrate_funcionarios_to_pessoas: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      normaliza_cpf_cnpj: {
+        Args: { input_text: string }
+        Returns: string
+      }
+      normaliza_email: {
+        Args: { input_text: string }
+        Returns: string
       }
       normalize_installment_info: {
         Args: { numero_parcela: number; total_parcelas: number; valor: number }
