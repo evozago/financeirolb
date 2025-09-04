@@ -16,7 +16,8 @@ export function YearlyComparisonTable() {
     getYearOverYearGrowth,
     availableYears,
     addYear,
-    removeYear
+    removeYear,
+    getMonthlyMetaTotal
   } = useSalesData();
   const [editingCell, setEditingCell] = useState<{ year: number; month: number } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -195,6 +196,14 @@ export function YearlyComparisonTable() {
                       const growth = getYearOverYearGrowth(year, month.value);
                       const isEditing = editingCell?.year === year && editingCell?.month === month.value;
                       
+                      // Check if it's a future month and show meta as forecast
+                      const currentDate = new Date();
+                      const currentYear = currentDate.getFullYear();
+                      const currentMonth = currentDate.getMonth() + 1;
+                      const isFutureMonth = year === currentYear && month.value > currentMonth;
+                      const metaTotal = getMonthlyMetaTotal(year, month.value);
+                      const displayValue = isFutureMonth && value === 0 && metaTotal > 0 ? metaTotal : value;
+                      
                       return (
                         <td
                           key={year}
@@ -228,8 +237,14 @@ export function YearlyComparisonTable() {
                             </div>
                           ) : (
                             <div className="space-y-1">
-                              <div className="font-medium text-sm">
-                                {value > 0 ? formatCurrency(value) : '-'}
+                              <div className={cn(
+                                "font-medium text-sm",
+                                isFutureMonth && value === 0 && metaTotal > 0 && "text-muted-foreground italic"
+                              )}>
+                                {displayValue > 0 ? formatCurrency(displayValue) : '-'}
+                                {isFutureMonth && value === 0 && metaTotal > 0 && (
+                                  <span className="text-xs ml-1">(meta)</span>
+                                )}
                               </div>
                               {year > availableYears[0] && (
                                 <div className={cn(
