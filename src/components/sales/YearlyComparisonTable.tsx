@@ -14,7 +14,7 @@ export function YearlyComparisonTable() {
   const [editValue, setEditValue] = useState<string>('');
 
   const currentYear = new Date().getFullYear();
-  const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+  const years = [2022, currentYear - 1, currentYear, currentYear + 1];
   const months = [
     { value: 1, label: 'Jan' },
     { value: 2, label: 'Fev' },
@@ -34,8 +34,8 @@ export function YearlyComparisonTable() {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(value);
   };
 

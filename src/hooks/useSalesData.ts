@@ -56,7 +56,29 @@ export function useSalesData() {
 
       if (storedSalespeople) setSalespeople(JSON.parse(storedSalespeople));
       if (storedMonthlySales) setMonthlySales(JSON.parse(storedMonthlySales));
-      if (storedYearlySales) setYearlySales(JSON.parse(storedYearlySales));
+      
+      if (storedYearlySales) {
+        setYearlySales(JSON.parse(storedYearlySales));
+      } else {
+        // Initialize with 2022 data from the image
+        const initial2022Data: YearlySales[] = [
+          { year: 2022, month: 1, total_vendas: 145440 },
+          { year: 2022, month: 2, total_vendas: 51912 },
+          { year: 2022, month: 3, total_vendas: 76282.37 },
+          { year: 2022, month: 4, total_vendas: 85641.82 },
+          { year: 2022, month: 5, total_vendas: 194924.83 },
+          { year: 2022, month: 6, total_vendas: 179640.11 },
+          { year: 2022, month: 7, total_vendas: 119190.72 },
+          { year: 2022, month: 8, total_vendas: 101530.41 },
+          { year: 2022, month: 9, total_vendas: 113588.43 },
+          { year: 2022, month: 10, total_vendas: 171966.21 },
+          { year: 2022, month: 11, total_vendas: 216776.78 },
+          { year: 2022, month: 12, total_vendas: 272129.87 }
+        ];
+        setYearlySales(initial2022Data);
+        saveToStorage(STORAGE_KEYS.yearlySales, initial2022Data);
+      }
+      
       if (storedGrowthSimulation) setGrowthSimulation(JSON.parse(storedGrowthSimulation));
       if (storedLastUpdate) setLastUpdate(storedLastUpdate);
       else updateLastUpdate();
