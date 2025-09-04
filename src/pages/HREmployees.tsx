@@ -90,7 +90,7 @@ export default function HREmployees() {
           created_at,
           entidade_papeis!inner(
             papel_id,
-            papeis_corporativos!inner(nome)
+            papeis!inner(nome)
           ),
           funcionarios_detalhes(
             cargo_id,
@@ -103,7 +103,7 @@ export default function HREmployees() {
           )
         `, { count: 'exact' })
         .eq('tipo_pessoa', 'PF')
-        .eq('entidade_papeis.papeis_corporativos.nome', 'Funcionário')
+        .eq('entidade_papeis.papeis.nome', 'Funcionário')
         .eq('entidade_papeis.ativo', true);
 
       // Apply filters
