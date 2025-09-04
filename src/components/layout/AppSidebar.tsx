@@ -14,7 +14,8 @@ import {
   Package,
   UserCheck,
   Briefcase,
-  Home
+  Home,
+  Target
 } from 'lucide-react';
 import {
   Sidebar,
@@ -61,6 +62,12 @@ const navigationGroups: NavigationGroup[] = [
         label: 'Vendas',
         icon: TrendingUp,
         description: 'Desempenho de vendas'
+      },
+      {
+        href: '/sales/management',
+        label: 'Gestão de Vendas',
+        icon: Target,
+        description: 'Sistema interativo de vendas'
       },
       {
         href: '/dashboard/purchases',

@@ -40,6 +40,7 @@ import NotFound from "./pages/NotFound";
 // Dashboard variants
 const DashboardSales = React.lazy(() => import("./pages/DashboardSales"));
 const SalespersonPerformance = React.lazy(() => import("./pages/SalespersonPerformance"));
+const SalesManagement = React.lazy(() => import("./pages/SalesManagement"));
 const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
 
@@ -84,6 +85,7 @@ function AppContent() {
             
             <Route path="/dashboard/sales" element={<DashboardSales />} />
             <Route path="/sales/performance" element={<SalespersonPerformance />} />
+            <Route path="/sales/management" element={<SalesManagement />} />
             <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
             <Route path="/accounts-payable" element={<AccountsPayable />} />
             <Route path="/accounts-payable/new" element={<NewBill />} />
