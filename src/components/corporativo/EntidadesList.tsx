@@ -31,7 +31,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
   const [entidades, setEntidades] = useState<Entidade[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [papelFilter, setPapelFilter] = useState('');
+  const [papelFilter, setPapelFilter] = useState('all');
   const [papeis, setPapeis] = useState<{ nome: string }[]>([]);
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
       // Usar a função RPC para buscar entidades com filtros
       const { data, error } = await supabase.rpc('search_entidades_corporativas', {
         p_query: searchQuery || null,
-        p_papel: papelFilter || null,
+        p_papel: papelFilter === 'all' ? null : papelFilter,
         p_limite: 100,
         p_offset: 0
       });
@@ -121,7 +121,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
               <SelectValue placeholder="Filtrar por papel" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos os papéis</SelectItem>
+              <SelectItem value="all">Todos os papéis</SelectItem>
               {papeis.map((papel) => (
                 <SelectItem key={papel.nome} value={papel.nome}>
                   {papel.nome}
