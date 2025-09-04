@@ -77,32 +77,56 @@ export default function HREmployees() {
     try {
       setLoading(true);
       
+      // Query employees from the new corporate entities system
       let query = supabase
-        .from('pessoas')
+        .from('entidades_corporativas')
         .select(`
-          id, nome, cpf, email, telefone, ativo, created_at,
-          cargo_id, setor_id, dados_funcionario,
-          hr_cargos(nome),
-          hr_setores(nome)
+          id,
+          nome_razao_social,
+          cpf_cnpj,
+          email,
+          telefone,
+          ativo,
+          created_at,
+          entidade_papeis!inner(
+            papel_id,
+            papeis_corporativos!inner(nome)
+          ),
+          funcionarios_detalhes(
+            cargo_id,
+            setor_id,
+            data_admissao,
+            salario_base,
+            status_funcionario,
+            hr_cargos(nome),
+            hr_setores(nome)
+          )
         `, { count: 'exact' })
-        .contains('categorias', ['funcionario']);
+        .eq('tipo_pessoa', 'PF')
+        .eq('entidade_papeis.papeis_corporativos.nome', 'Funcionário')
+        .eq('entidade_papeis.ativo', true);
 
       // Apply filters
       if (filters.search) {
-        query = query.or(`nome.ilike.%${filters.search}%,cpf.ilike.%${filters.search}%,email.ilike.%${filters.search}%`);
+        query = query.or(`nome_razao_social.ilike.%${filters.search}%,cpf_cnpj.ilike.%${filters.search}%,email.ilike.%${filters.search}%`);
       }
       
       if (filters.status && filters.status !== 'all') {
-        const statusFilter = filters.status === 'ativo' ? true : false;
-        query = query.eq('ativo', statusFilter);
+        if (filters.status === 'ativo') {
+          query = query.eq('ativo', true).eq('funcionarios_detalhes.status_funcionario', 'ativo');
+        } else if (filters.status === 'inativo') {
+          query = query.or('ativo.eq.false,funcionarios_detalhes.status_funcionario.eq.inativo');
+        } else if (filters.status === 'rescindido') {
+          query = query.eq('funcionarios_detalhes.status_funcionario', 'rescindido');
+        }
       }
       
       if (filters.cargo) {
-        query = query.eq('hr_cargos.nome', filters.cargo);
+        query = query.eq('funcionarios_detalhes.hr_cargos.nome', filters.cargo);
       }
       
       if (filters.setor) {
-        query = query.eq('hr_setores.nome', filters.setor);
+        query = query.eq('funcionarios_detalhes.hr_setores.nome', filters.setor);
       }
 
       // Apply pagination
@@ -110,27 +134,33 @@ export default function HREmployees() {
       const to = from + pagination.pageSize - 1;
       query = query.range(from, to);
 
-      const { data, error, count } = await query.order('nome');
+      const { data, error, count } = await query.order('nome_razao_social');
       
       if (error) throw error;
       
       // Transform data to match expected format
-      const transformedData = (data || []).map(person => ({
-        id: person.id,
-        nome: person.nome,
-        cpf: person.cpf || '',
-        email: person.email || '',
-        telefone: person.telefone || '',
-        cargo: person.hr_cargos?.nome || '',
-        setor: person.hr_setores?.nome || '',
-        data_admissao: (person.dados_funcionario as any)?.data_admissao || '',
-        status_funcionario: person.ativo ? 'ativo' : 'inativo',
-        ativo: person.ativo,
-        salario: (person.dados_funcionario as any)?.salario || 0,
-        cargo_id: person.cargo_id,
-        setor_id: person.setor_id,
-        dados_funcionario: person.dados_funcionario
-      }));
+      const transformedData = (data || []).map(entity => {
+        const funcionarioDetails = entity.funcionarios_detalhes?.[0];
+        const statusFuncionario = funcionarioDetails?.status_funcionario || 'ativo';
+        const ativoGeral = entity.ativo && statusFuncionario === 'ativo';
+        
+        return {
+          id: entity.id,
+          nome: entity.nome_razao_social,
+          cpf: entity.cpf_cnpj || '',
+          email: entity.email || '',
+          telefone: entity.telefone || '',
+          cargo: funcionarioDetails?.hr_cargos?.nome || '',
+          setor: funcionarioDetails?.hr_setores?.nome || '',
+          data_admissao: funcionarioDetails?.data_admissao || '',
+          status_funcionario: statusFuncionario,
+          ativo: ativoGeral,
+          salario: funcionarioDetails?.salario_base || 0,
+          cargo_id: funcionarioDetails?.cargo_id,
+          setor_id: funcionarioDetails?.setor_id,
+          dados_funcionario: funcionarioDetails
+        };
+      });
       
       setEmployees(transformedData);
       setTotalCount(count || 0);
@@ -196,7 +226,7 @@ export default function HREmployees() {
       const newActive = !employee.ativo;
       
       const { error } = await supabase
-        .from('pessoas')
+        .from('entidades_corporativas')
         .update({ ativo: newActive })
         .eq('id', employee.id);
       
