@@ -386,6 +386,95 @@ export type Database = {
           },
         ]
       }
+      contas_pagar_corporativas: {
+        Row: {
+          categoria_id: string | null
+          created_at: string
+          created_by: string | null
+          credor_id: string
+          data_competencia: string | null
+          data_emissao: string
+          descricao: string
+          documento_fiscal_id: string | null
+          filial_id: string | null
+          id: string
+          numero_documento: string | null
+          numero_nota: string | null
+          observacoes: string | null
+          origem: string | null
+          status: string | null
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credor_id: string
+          data_competencia?: string | null
+          data_emissao: string
+          descricao: string
+          documento_fiscal_id?: string | null
+          filial_id?: string | null
+          id?: string
+          numero_documento?: string | null
+          numero_nota?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          status?: string | null
+          updated_at?: string
+          valor_total: number
+        }
+        Update: {
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credor_id?: string
+          data_competencia?: string | null
+          data_emissao?: string
+          descricao?: string
+          documento_fiscal_id?: string | null
+          filial_id?: string | null
+          id?: string
+          numero_documento?: string | null
+          numero_nota?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          status?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_corporativas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
+            columns: ["credor_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_documento_fiscal_id_fkey"
+            columns: ["documento_fiscal_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_fiscais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_corporativas_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contas_recorrentes: {
         Row: {
           ativo: boolean
@@ -1638,6 +1727,73 @@ export type Database = {
           },
         ]
       }
+      itens_venda: {
+        Row: {
+          created_at: string
+          desconto_unitario: number | null
+          descricao: string
+          id: string
+          marca_id: string | null
+          observacoes: string | null
+          preco_unitario: number
+          produto_id: string | null
+          quantidade: number
+          sku: string | null
+          valor_total: number
+          venda_id: string
+        }
+        Insert: {
+          created_at?: string
+          desconto_unitario?: number | null
+          descricao: string
+          id?: string
+          marca_id?: string | null
+          observacoes?: string | null
+          preco_unitario: number
+          produto_id?: string | null
+          quantidade?: number
+          sku?: string | null
+          valor_total: number
+          venda_id: string
+        }
+        Update: {
+          created_at?: string
+          desconto_unitario?: number | null
+          descricao?: string
+          id?: string
+          marca_id?: string | null
+          observacoes?: string | null
+          preco_unitario?: number
+          produto_id?: string | null
+          quantidade?: number
+          sku?: string | null
+          valor_total?: number
+          venda_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_venda_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "marcas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_venda_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_venda_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas_corporativas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marcas: {
         Row: {
           ativo: boolean
@@ -1851,6 +2007,88 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      parcelas_conta_pagar: {
+        Row: {
+          comprovante_id: string | null
+          conta_bancaria_id: string | null
+          conta_pagar_id: string
+          created_at: string
+          data_pagamento: string | null
+          data_vencimento: string
+          desconto: number | null
+          id: string
+          juros: number | null
+          meio_pagamento: string | null
+          multa: number | null
+          numero_parcela: number
+          observacoes: string | null
+          status: string | null
+          updated_at: string
+          valor_pago: number | null
+          valor_parcela: number
+        }
+        Insert: {
+          comprovante_id?: string | null
+          conta_bancaria_id?: string | null
+          conta_pagar_id: string
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento: string
+          desconto?: number | null
+          id?: string
+          juros?: number | null
+          meio_pagamento?: string | null
+          multa?: number | null
+          numero_parcela: number
+          observacoes?: string | null
+          status?: string | null
+          updated_at?: string
+          valor_pago?: number | null
+          valor_parcela: number
+        }
+        Update: {
+          comprovante_id?: string | null
+          conta_bancaria_id?: string | null
+          conta_pagar_id?: string
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento?: string
+          desconto?: number | null
+          id?: string
+          juros?: number | null
+          meio_pagamento?: string | null
+          multa?: number | null
+          numero_parcela?: number
+          observacoes?: string | null
+          status?: string | null
+          updated_at?: string
+          valor_pago?: number | null
+          valor_parcela?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelas_conta_pagar_comprovante_id_fkey"
+            columns: ["comprovante_id"]
+            isOneToOne: false
+            referencedRelation: "arquivos_sistema"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_conta_pagar_conta_bancaria_id_fkey"
+            columns: ["conta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_conta_pagar_conta_pagar_id_fkey"
+            columns: ["conta_pagar_id"]
+            isOneToOne: false
+            referencedRelation: "contas_pagar_corporativas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pedidos_produtos: {
         Row: {
@@ -2513,6 +2751,79 @@ export type Database = {
             columns: ["vendedora_id"]
             isOneToOne: false
             referencedRelation: "vendedoras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendas_corporativas: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          data_venda: string
+          desconto_total: number | null
+          filial_id: string | null
+          id: string
+          meio_pagamento: string | null
+          numero_venda: string | null
+          observacoes: string | null
+          status_venda: string | null
+          updated_at: string
+          valor_total: number
+          vendedor_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          data_venda?: string
+          desconto_total?: number | null
+          filial_id?: string | null
+          id?: string
+          meio_pagamento?: string | null
+          numero_venda?: string | null
+          observacoes?: string | null
+          status_venda?: string | null
+          updated_at?: string
+          valor_total?: number
+          vendedor_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_venda?: string
+          desconto_total?: number | null
+          filial_id?: string | null
+          id?: string
+          meio_pagamento?: string | null
+          numero_venda?: string | null
+          observacoes?: string | null
+          status_venda?: string | null
+          updated_at?: string
+          valor_total?: number
+          vendedor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_corporativas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_filial_id_fkey"
+            columns: ["filial_id"]
+            isOneToOne: false
+            referencedRelation: "filiais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_corporativas_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
             referencedColumns: ["id"]
           },
         ]
