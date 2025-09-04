@@ -68,12 +68,6 @@ const navigationGroups: NavigationGroup[] = [
         icon: Package,
         description: 'Gestão de compras'
       },
-      {
-        href: '/dashboard/hr',
-        label: 'RH',
-        icon: UserCheck,
-        description: 'Recursos humanos'
-      },
     ]
   },
   {
@@ -135,12 +129,6 @@ const navigationGroups: NavigationGroup[] = [
         label: 'Pessoas',
         icon: Users,
         description: 'Cadastro de pessoas'
-      },
-      {
-        href: '/hr',
-        label: 'RH',
-        icon: Users,
-        description: 'Gestão de recursos humanos'
       },
     ]
   },

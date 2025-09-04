@@ -32,14 +32,6 @@ const dashboardOptions: DashboardOption[] = [
     color: 'bg-blue-500/10 text-blue-600 border-blue-500/20'
   },
   {
-    id: 'hr',
-    label: 'Recursos Humanos',
-    description: 'Funcionários, folha de pagamento e gestão de pessoal',
-    icon: Users,
-    path: '/dashboard/hr',
-    color: 'bg-green-500/10 text-green-600 border-green-500/20'
-  },
-  {
     id: 'sales',
     label: 'Vendas',
     description: 'Metas, performance e acompanhamento de vendas',
@@ -74,7 +66,7 @@ export function DashboardSelector() {
             Escolha o contexto de trabalho
           </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {dashboardOptions.map((option) => {
             const isActive = currentDashboard === option.id;
             const Icon = option.icon;

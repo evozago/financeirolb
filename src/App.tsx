@@ -37,21 +37,10 @@ import ManageFiliais from "./pages/ManageFiliais";
 import RecurringBills from "./pages/RecurringBills";
 import NotFound from "./pages/NotFound";
 
-// HR Module imports
-// HR Module imports
-const HR = React.lazy(() => import("./pages/HR"));
-const HREmployees = React.lazy(() => import("./pages/HREmployees"));
-const HRNewEmployee = React.lazy(() => import("./pages/HRNewEmployee"));
-const HREmployeeDetail = React.lazy(() => import("./pages/HREmployeeDetail"));
-const HREditEmployee = React.lazy(() => import("./pages/HREditEmployee"));
-const HRPayrollRuns = React.lazy(() => import("./pages/HRPayrollRuns"));
-const HRProcessRun = React.lazy(() => import("./pages/HRProcessRun"));
-
 // Dashboard variants
 const DashboardSales = React.lazy(() => import("./pages/DashboardSales"));
 const SalespersonPerformance = React.lazy(() => import("./pages/SalespersonPerformance"));
 const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
-const DashboardHR = React.lazy(() => import("./pages/DashboardHR"));
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
 
 const queryClient = new QueryClient();
@@ -92,7 +81,7 @@ function AppContent() {
                   <Routes>
             <Route path="/" element={<DashboardPayables />} />
             <Route path="/dashboard/financial" element={<DashboardFinancial />} />
-            <Route path="/dashboard/hr" element={<DashboardHR />} />
+            
             <Route path="/dashboard/sales" element={<DashboardSales />} />
             <Route path="/sales/performance" element={<SalespersonPerformance />} />
             <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
@@ -114,13 +103,6 @@ function AppContent() {
             <Route path="/orders/:id/edit" element={<EditOrder />} />
             <Route path="/recurring-bills" element={<RecurringBills />} />
                 <Route path="/filiais" element={<ManageFiliais />} />
-                <Route path="/hr" element={<HR />} />
-                <Route path="/hr/employees" element={<HREmployees />} />
-                <Route path="/hr/employees/new" element={<HRNewEmployee />} />
-                <Route path="/hr/employees/:id" element={<HREmployeeDetail />} />
-                <Route path="/hr/employees/:id/edit" element={<HREditEmployee />} />
-                <Route path="/hr/payroll-runs" element={<HRPayrollRuns />} />
-                <Route path="/hr/process-run" element={<HRProcessRun />} />
                 <Route path="/pessoas" element={<Pessoas />} />
             <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
             <Route path="/settings" element={<Cadastros />} />
