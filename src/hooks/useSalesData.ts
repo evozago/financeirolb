@@ -261,7 +261,7 @@ export function useSalesData() {
     if (!salesperson) return 0;
     
     const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
-    return salesperson.metas_mensais?.[monthKey] || salesperson.meta_mensal || 0;
+    return salesperson.metas_mensais[monthKey] || salesperson.meta_mensal || 0;
   };
 
   const getMonthlySupermeta = (vendedoraId: string, year: number, month: number): number => {
@@ -269,7 +269,7 @@ export function useSalesData() {
     if (!salesperson) return 0;
     
     const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
-    return salesperson.supermetas_mensais?.[monthKey] || salesperson.supermeta_mensal || 0;
+    return salesperson.supermetas_mensais[monthKey] || salesperson.supermeta_mensal || 0;
   };
 
   const updateMonthlyMeta = (vendedoraId: string, year: number, month: number, meta: number, supermeta: number) => {
@@ -280,11 +280,11 @@ export function useSalesData() {
     const updatedSalesperson = {
       ...salesperson,
       metas_mensais: {
-        ...(salesperson.metas_mensais || {}),
+        ...salesperson.metas_mensais,
         [monthKey]: meta
       },
       supermetas_mensais: {
-        ...(salesperson.supermetas_mensais || {}),
+        ...salesperson.supermetas_mensais,
         [monthKey]: supermeta
       }
     };
