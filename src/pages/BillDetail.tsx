@@ -55,6 +55,7 @@ interface BillData {
   banco_pagador?: string;
   dados_pagamento?: string;
   observacoes?: string;
+  valor_pago?: number;
 }
 
 export default function BillDetail() {
@@ -320,6 +321,20 @@ export default function BillDetail() {
           {item.dados_pagamento || '-'}
         </div>
       ),
+    },
+    {
+      key: 'desconto',
+      header: 'Desconto',
+      cell: (item) => {
+        if (item.status !== 'pago' || !item.valor_pago) return '-';
+        const desconto = item.valor - item.valor_pago;
+        return desconto > 0 ? (
+          <div className="font-mono text-success">
+            {formatCurrency(desconto)}
+          </div>
+        ) : '-';
+      },
+      className: 'text-right',
     },
     {
       key: 'actions',
