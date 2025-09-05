@@ -52,6 +52,8 @@ interface BillData {
   categoria?: string;
   forma_pagamento?: string;
   banco?: string;
+  banco_pagador?: string;
+  dados_pagamento?: string;
   observacoes?: string;
 }
 
@@ -291,6 +293,33 @@ export default function BillDetail() {
       key: 'status',
       header: 'Status',
       cell: (item) => getStatusBadge(item.status, item.data_vencimento),
+    },
+    {
+      key: 'data_pagamento',
+      header: 'Data Pagamento',
+      cell: (item) => (
+        <div className="font-mono">
+          {item.data_pagamento ? formatDate(item.data_pagamento) : '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'banco_pagador',
+      header: 'Banco Pagador',
+      cell: (item) => (
+        <div className="text-sm">
+          {item.banco_pagador || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'dados_pagamento',
+      header: 'Código Identificador',
+      cell: (item) => (
+        <div className="font-mono text-xs">
+          {item.dados_pagamento || '-'}
+        </div>
+      ),
     },
     {
       key: 'actions',
