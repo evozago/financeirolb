@@ -17,6 +17,7 @@ import { BillToPayInstallment, PayablesFilter, Supplier } from '@/types/payables
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUndoActions } from '@/hooks/useUndoActions';
+import { BatchPaymentModal, BatchPaymentData } from '@/components/features/payables/BatchPaymentModal';
 
 // Transform Supabase data to app format
 const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
@@ -81,6 +82,7 @@ export default function AccountsPayable() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
+  const [batchPaymentModalOpen, setBatchPaymentModalOpen] = useState(false);
 
   // Mapear chaves da interface para colunas do banco
   const getOrderColumn = (key: string) => {
@@ -406,7 +408,13 @@ export default function AccountsPayable() {
     navigate(`/bills/${item.id}`);
   };
 
-  const handleMarkAsPaid = async (items: BillToPayInstallment[], paymentData?: any[]) => {
+  const handleMarkAsPaid = async (items: BillToPayInstallment[], paymentData?: BatchPaymentData[]) => {
+    // Se não há dados de pagamento, abrir o modal para coletar os dados
+    if (!paymentData || paymentData.length === 0) {
+      setBatchPaymentModalOpen(true);
+      return;
+    }
+    
     setLoading(true);
     try {
       console.log('handleMarkAsPaid called with items:', items.map(i => ({ id: i.id, supplier: i.bill?.supplier.name })));
@@ -447,48 +455,42 @@ export default function AccountsPayable() {
         data_hora_pagamento: null,
       }));
       
-      // Se temos dados de pagamento específicos, usar eles, senão usar dados padrão
-      if (paymentData && paymentData.length > 0) {
-        for (const payment of paymentData) {
-          // Ensure bankAccountId is a valid UUID or null
-          let bankAccountId = null;
-          if (payment.bankAccountId) {
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-            if (uuidRegex.test(payment.bankAccountId)) {
-              bankAccountId = payment.bankAccountId;
-            } else {
-              console.warn(`Invalid bankAccountId UUID: ${payment.bankAccountId}, setting to null`);
-            }
-          }
-          
-          const { error } = await supabase
-            .from('ap_installments')
-            .update({ 
-              status: 'pago',
-              data_pagamento: payment.dataPagamento,
-              data_hora_pagamento: new Date().toISOString(),
-              banco: payment.bancoPagador,
-              conta_bancaria_id: bankAccountId,
-              observacoes: payment.observacoes,
-              valor_pago: payment.valorPago
-            })
-            .eq('id', payment.installmentId);
-          
-          if (error) {
-            throw error;
+      // Processar pagamentos com os dados detalhados fornecidos
+      for (const payment of paymentData) {
+        // Ensure bankAccountId is a valid UUID or null
+        let bankAccountId = null;
+        if (payment.bankAccountId) {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (uuidRegex.test(payment.bankAccountId)) {
+            bankAccountId = payment.bankAccountId;
+          } else {
+            console.warn(`Invalid bankAccountId UUID: ${payment.bankAccountId}, setting to null`);
           }
         }
-      } else {
+
+        // Preparar dados de atualização com novos campos
+        const updateData: any = {
+          status: 'pago',
+          data_pagamento: payment.dataPagamento,
+          data_hora_pagamento: new Date().toISOString(),
+          banco: payment.bancoPagador,
+          conta_bancaria_id: bankAccountId,
+          observacoes: payment.observacoes,
+          valor_pago: payment.valorPago
+        };
+
+        // Adicionar código identificador se fornecido
+        if (payment.codigoIdentificador) {
+          // Usar um campo personalizado ou adicionar às observações
+          updateData.observacoes = updateData.observacoes 
+            ? `${updateData.observacoes} | Código: ${payment.codigoIdentificador}`
+            : `Código: ${payment.codigoIdentificador}`;
+        }
+        
         const { error } = await supabase
           .from('ap_installments')
-          .update({ 
-            status: 'pago',
-            data_pagamento: new Date().toISOString().split('T')[0],
-            data_hora_pagamento: new Date().toISOString(),
-            // Explicitly set conta_bancaria_id to null to avoid UUID errors
-            conta_bancaria_id: null
-          })
-          .in('id', itemIds);
+          .update(updateData)
+          .eq('id', payment.installmentId);
         
         if (error) {
           throw error;
@@ -514,9 +516,18 @@ export default function AccountsPayable() {
         loadInstallments();
       });
       
+      const totalPago = paymentData.reduce((sum, p) => sum + p.valorPago, 0);
+      const totalOriginal = paymentData.reduce((sum, p) => sum + p.valorOriginal, 0);
+      const economia = totalOriginal - totalPago;
+      
+      let description = `${validItems.length} conta(s) marcada(s) como paga(s)`;
+      if (economia > 0.01) {
+        description += ` com economia de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(economia)}`;
+      }
+      
       toast({
         title: "Sucesso",
-        description: `${validItems.length} conta(s) marcada(s) como paga(s)`,
+        description,
       });
     } catch (error) {
       console.error('Error marking as paid:', error);
@@ -527,6 +538,18 @@ export default function AccountsPayable() {
       });
     } finally {
       setLoading(false);
+      setBatchPaymentModalOpen(false);
+    }
+  };
+
+  // Handler para pagamento em lote com dados detalhados
+  const handleBatchPayment = async (paymentData: BatchPaymentData[]) => {
+    try {
+      // Chamar handleMarkAsPaid com os dados de pagamento
+      await handleMarkAsPaid(selectedItems, paymentData);
+      setBatchPaymentModalOpen(false);
+    } catch (error) {
+      console.error('Error in batch payment:', error);
     }
   };
 
@@ -1179,6 +1202,15 @@ export default function AccountsPayable() {
         mode={importMode}
         onImport={handleImport}
         onDownloadTemplate={importMode === 'spreadsheet' ? handleDownloadTemplate : undefined}
+      />
+
+      {/* Batch Payment Modal */}
+      <BatchPaymentModal
+        open={batchPaymentModalOpen}
+        onOpenChange={setBatchPaymentModalOpen}
+        installments={selectedItems}
+        onPaymentConfirm={handleBatchPayment}
+        loading={loading}
       />
 
       {/* Bulk Edit Modal */}
