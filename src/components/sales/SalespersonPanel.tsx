@@ -137,7 +137,15 @@ export function SalespersonPanel() {
         if (!processedDBIds.has(dbSalesperson.id)) {
           // Check if we already have someone with this name locally
           const existingByName = currentSalespeopleByName.get(dbSalesperson.nome.toLowerCase());
-          if (!existingByName) {
+          if (existingByName) {
+            // Exists locally with same name but different ID - preserve all data, just update ID
+            processedSalespeople.push({
+              ...existingByName,
+              id: dbSalesperson.id,
+              nome: dbSalesperson.nome
+            });
+            updatedCount++;
+          } else {
             // Completely new salesperson
             processedSalespeople.push({
               id: dbSalesperson.id,
