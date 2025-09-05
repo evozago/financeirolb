@@ -473,19 +473,12 @@ export default function AccountsPayable() {
           status: 'pago',
           data_pagamento: payment.dataPagamento,
           data_hora_pagamento: new Date().toISOString(),
-          banco: payment.bancoPagador,
+          banco_pagador: payment.bancoPagador,
+          dados_pagamento: payment.codigoIdentificador,
           conta_bancaria_id: bankAccountId,
           observacoes: payment.observacoes,
           valor_pago: payment.valorPago
         };
-
-        // Adicionar código identificador se fornecido
-        if (payment.codigoIdentificador) {
-          // Usar um campo personalizado ou adicionar às observações
-          updateData.observacoes = updateData.observacoes 
-            ? `${updateData.observacoes} | Código: ${payment.codigoIdentificador}`
-            : `Código: ${payment.codigoIdentificador}`;
-        }
         
         const { error } = await supabase
           .from('ap_installments')

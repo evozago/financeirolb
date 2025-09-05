@@ -214,7 +214,7 @@ export function BatchPaymentModal({
         valorOriginal: inst.amount,
         bancoPagador: values.bancoPagador,
         bankAccountId: bankAccounts.find(b => b.nome_banco === values.bancoPagador)?.id,
-        dataPagamento: format(values.dataPagamento, 'yyyy-MM-dd'),
+        dataPagamento: `${values.dataPagamento.getFullYear()}-${String(values.dataPagamento.getMonth() + 1).padStart(2, '0')}-${String(values.dataPagamento.getDate()).padStart(2, '0')}`,
         codigoIdentificador: values.codigoIdentificador,
         tipoAjuste: values.tipoAjuste,
         valorAjuste: values.valorAjuste,
