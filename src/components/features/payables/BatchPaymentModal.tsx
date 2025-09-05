@@ -331,7 +331,7 @@ export function BatchPaymentModal({
                               onSelect={(date) => date && handleValueChange(installment.id, 'dataPagamento', date)}
                               locale={ptBR}
                               initialFocus
-                              className="p-3"
+                              className="p-3 pointer-events-auto"
                             />
                           </PopoverContent>
                         </Popover>
