@@ -3589,9 +3589,7 @@ export type Database = {
         Returns: Json
       }
       get_expenses_by_category: {
-        Args:
-          | Record<PropertyKey, never>
-          | { p_end_date?: string; p_start_date?: string }
+        Args: Record<PropertyKey, never>
         Returns: {
           categoria: string
           count_items: number
