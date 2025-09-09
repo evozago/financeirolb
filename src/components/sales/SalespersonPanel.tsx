@@ -66,23 +66,11 @@ export function SalespersonPanel() {
   const syncSalespeople = async () => {
     setSyncing(true);
     try {
-      // Get salespeople from pessoas table first (main source)
-      const { data: pessoasData } = await supabase
-        .from('pessoas')
-        .select('id, nome, categorias')
-        .contains('categorias', ['vendedora']);
-
-      let vendedorasData: any[] = pessoasData || [];
-
-      // If no vendedoras found in pessoas, fallback to vendedoras table
-      if (vendedorasData.length === 0) {
-        const { data: vendedorasTableData } = await supabase
-          .from('vendedoras')
-          .select('id, nome')
-          .eq('ativo', true);
-        
-        vendedorasData = vendedorasTableData || [];
-      }
+      // Get salespeople from vendedoras table
+      const { data: vendedorasData } = await supabase
+        .from('vendedoras')
+        .select('id, nome')
+        .eq('ativo', true);
 
       // Create maps for intelligent matching
       const dbSalespeopleByID = new Map(vendedorasData.map(p => [p.id, p]));

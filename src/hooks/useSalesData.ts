@@ -195,16 +195,42 @@ export function useSalesData() {
   // Add explicit save functions for UI
   const saveAllData = async () => {
     try {
-      // Save all data to ensure persistence
-      await Promise.all([
-        ...salespeople.map(sp => updateSalesperson(sp)),
-        ...yearlySales.map(ys => updateYearlySale(ys)),
-        ...monthlySales.map(ms => updateMonthlySale(ms))
-      ]);
+      // Save data sequentially to prevent conflicts
+      const results = [];
+      
+      // Save salespeople data first
+      for (const sp of salespeople) {
+        try {
+          await updateSalesperson(sp);
+          results.push(`Vendedora ${sp.nome} salva`);
+        } catch (error) {
+          console.error(`Error saving salesperson ${sp.nome}:`, error);
+        }
+      }
+      
+      // Save yearly sales data
+      for (const ys of yearlySales) {
+        try {
+          await updateYearlySale(ys);
+          results.push(`Vendas ${ys.year}/${ys.month} salvas`);
+        } catch (error) {
+          console.error(`Error saving yearly sale ${ys.year}/${ys.month}:`, error);
+        }
+      }
+      
+      // Save monthly sales data
+      for (const ms of monthlySales) {
+        try {
+          await updateMonthlySale(ms);
+          results.push(`Vendas detalhadas ${ms.year}/${ms.month} salvas`);
+        } catch (error) {
+          console.error(`Error saving monthly sale ${ms.year}/${ms.month}:`, error);
+        }
+      }
       
       toast({
         title: 'Dados salvos!',
-        description: 'Todos os dados foram salvos com sucesso',
+        description: `${results.length} operações concluídas com sucesso`,
       });
     } catch (error) {
       console.error('Error saving data:', error);
