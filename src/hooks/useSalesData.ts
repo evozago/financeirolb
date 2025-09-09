@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export interface Salesperson {
   id: string;
@@ -32,15 +34,6 @@ export interface GrowthSimulation {
   enabled: boolean;
 }
 
-const STORAGE_KEYS = {
-  salespeople: 'sales_management_salespeople',
-  monthlySales: 'sales_management_monthly_sales',
-  yearlySales: 'sales_management_yearly_sales',
-  availableYears: 'sales_management_available_years',
-  growthSimulation: 'sales_management_growth_simulation',
-  lastUpdate: 'sales_management_last_update'
-};
-
 export function useSalesData() {
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [monthlySales, setMonthlySales] = useState<MonthlySales[]>([]);
@@ -52,84 +45,173 @@ export function useSalesData() {
     enabled: false
   });
   const [lastUpdate, setLastUpdate] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Load data from localStorage on component mount
+  // Load data from Supabase on component mount
   useEffect(() => {
-    try {
-      const storedSalespeople = localStorage.getItem(STORAGE_KEYS.salespeople);
-      const storedMonthlySales = localStorage.getItem(STORAGE_KEYS.monthlySales);
-      const storedYearlySales = localStorage.getItem(STORAGE_KEYS.yearlySales);
-      const storedAvailableYears = localStorage.getItem(STORAGE_KEYS.availableYears);
-      const storedGrowthSimulation = localStorage.getItem(STORAGE_KEYS.growthSimulation);
-      const storedLastUpdate = localStorage.getItem(STORAGE_KEYS.lastUpdate);
+    loadAllData();
+  }, []);
 
-      if (storedSalespeople) setSalespeople(JSON.parse(storedSalespeople));
-      if (storedMonthlySales) setMonthlySales(JSON.parse(storedMonthlySales));
-      
-      // Initialize available years
-      if (storedAvailableYears) {
-        setAvailableYears(JSON.parse(storedAvailableYears));
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        loadSalespeople(),
+        loadYearlySales(),
+        loadMonthlySales(),
+        loadAvailableYears()
+      ]);
+    } catch (error) {
+      console.error('Error loading sales data:', error);
+      toast({
+        title: 'Erro ao carregar dados',
+        description: 'Erro ao carregar dados de vendas',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSalespeople = async () => {
+    try {
+      // Try to load from vendedoras table
+      const { data } = await supabase
+        .from('vendedoras')
+        .select('*')
+        .eq('ativo', true);
+
+      if (data) {
+        const formattedSalespeople: Salesperson[] = data.map(v => ({
+          id: v.id,
+          nome: v.nome,
+          meta_mensal: 0,
+          supermeta_mensal: 0,
+          metas_mensais: {},
+          supermetas_mensais: {}
+        }));
+        setSalespeople(formattedSalespeople);
+      }
+    } catch (error) {
+      console.error('Error loading salespeople:', error);
+    }
+  };
+
+  const loadYearlySales = async () => {
+    try {
+      // Calculate yearly totals from vendas table
+      const { data } = await supabase
+        .from('vendas')
+        .select('valor_venda, data_venda')
+        .order('data_venda');
+
+      if (data) {
+        // Group by year and month
+        const salesByMonth: { [key: string]: number } = {};
+        
+        data.forEach(venda => {
+          const date = new Date(venda.data_venda);
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const key = `${year}-${month}`;
+          
+          salesByMonth[key] = (salesByMonth[key] || 0) + (venda.valor_venda || 0);
+        });
+
+        const formattedData: YearlySales[] = Object.entries(salesByMonth).map(([key, total]) => {
+          const [year, month] = key.split('-').map(Number);
+          return {
+            year,
+            month,
+            total_vendas: total
+          };
+        });
+        
+        setYearlySales(formattedData);
+      }
+    } catch (error) {
+      console.error('Error loading yearly sales:', error);
+    }
+  };
+
+  const loadMonthlySales = async () => {
+    try {
+      const { data } = await supabase
+        .from('vendas')
+        .select('valor_venda, data_venda, vendedora_id')
+        .order('data_venda');
+
+      if (data) {
+        // Group by year, month, and vendedora_id
+        const salesByVendedora: { [key: string]: number } = {};
+        
+        data.forEach(venda => {
+          if (!venda.vendedora_id) return;
+          
+          const date = new Date(venda.data_venda);
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const key = `${year}-${month}-${venda.vendedora_id}`;
+          
+          salesByVendedora[key] = (salesByVendedora[key] || 0) + (venda.valor_venda || 0);
+        });
+
+        const formattedData: MonthlySales[] = Object.entries(salesByVendedora).map(([key, vendas]) => {
+          const [year, month, vendedora_id] = key.split('-');
+          return {
+            year: Number(year),
+            month: Number(month),
+            vendedora_id,
+            vendas
+          };
+        });
+        
+        setMonthlySales(formattedData);
+      }
+    } catch (error) {
+      console.error('Error loading monthly sales:', error);
+    }
+  };
+
+  const loadAvailableYears = async () => {
+    try {
+      const { data } = await supabase
+        .from('vendas')
+        .select('data_venda')
+        .order('data_venda');
+
+      if (data && data.length > 0) {
+        const years = [...new Set(data.map(d => new Date(d.data_venda).getFullYear()))];
+        const currentYear = new Date().getFullYear();
+        const allYears = [...new Set([...years, currentYear, currentYear + 1])].sort();
+        setAvailableYears(allYears);
       } else {
         const currentYear = new Date().getFullYear();
         const initialYears = [2022, 2023, currentYear, currentYear + 1];
         setAvailableYears(initialYears);
-        saveToStorage(STORAGE_KEYS.availableYears, initialYears);
       }
-      
-      if (storedYearlySales) {
-        setYearlySales(JSON.parse(storedYearlySales));
-      } else {
-        // Initialize with 2022 data from the image
-        const initial2022Data: YearlySales[] = [
-          { year: 2022, month: 1, total_vendas: 145440 },
-          { year: 2022, month: 2, total_vendas: 51912 },
-          { year: 2022, month: 3, total_vendas: 76282.37 },
-          { year: 2022, month: 4, total_vendas: 85641.82 },
-          { year: 2022, month: 5, total_vendas: 194924.83 },
-          { year: 2022, month: 6, total_vendas: 179640.11 },
-          { year: 2022, month: 7, total_vendas: 119190.72 },
-          { year: 2022, month: 8, total_vendas: 101530.41 },
-          { year: 2022, month: 9, total_vendas: 113588.43 },
-          { year: 2022, month: 10, total_vendas: 171966.21 },
-          { year: 2022, month: 11, total_vendas: 216776.78 },
-          { year: 2022, month: 12, total_vendas: 272129.87 }
-        ];
-        setYearlySales(initial2022Data);
-        saveToStorage(STORAGE_KEYS.yearlySales, initial2022Data);
-      }
-      
-      if (storedGrowthSimulation) setGrowthSimulation(JSON.parse(storedGrowthSimulation));
-      if (storedLastUpdate) setLastUpdate(storedLastUpdate);
-      else updateLastUpdate();
     } catch (error) {
-      console.error('Error loading data from localStorage:', error);
-    }
-  }, []);
-
-  // Save to localStorage whenever data changes
-  const saveToStorage = (key: string, data: any) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-      updateLastUpdate();
-    } catch (error) {
-      console.error('Error saving to localStorage:', error);
+      console.error('Error loading available years:', error);
+      const currentYear = new Date().getFullYear();
+      setAvailableYears([2022, 2023, currentYear, currentYear + 1]);
     }
   };
 
   const updateLastUpdate = () => {
     const now = new Date().toLocaleString('pt-BR');
     setLastUpdate(now);
-    localStorage.setItem(STORAGE_KEYS.lastUpdate, now);
   };
 
-  // CRUD operations for salespeople
-  const updateSalesperson = (salesperson: Salesperson) => {
+  // CRUD operations for salespeople  
+  const updateSalesperson = async (salesperson: Salesperson) => {
+    // Just update local state since we'll store metas separately
     const updated = salespeople.map(s => s.id === salesperson.id ? salesperson : s);
     setSalespeople(updated);
-    saveToStorage(STORAGE_KEYS.salespeople, updated);
+    updateLastUpdate();
   };
 
-  const addSalesperson = (salesperson: Omit<Salesperson, 'id'>) => {
+  const addSalesperson = async (salesperson: Omit<Salesperson, 'id'>) => {
     const newSalesperson: Salesperson = {
       ...salesperson,
       id: Date.now().toString(),
@@ -138,16 +220,17 @@ export function useSalesData() {
     };
     const updated = [...salespeople, newSalesperson];
     setSalespeople(updated);
-    saveToStorage(STORAGE_KEYS.salespeople, updated);
+    updateLastUpdate();
   };
 
   const importSalespeople = (newSalespeople: Salesperson[]) => {
     setSalespeople(newSalespeople);
-    saveToStorage(STORAGE_KEYS.salespeople, newSalespeople);
+    updateLastUpdate();
   };
 
   // CRUD operations for monthly sales
-  const updateMonthlySale = (sale: MonthlySales) => {
+  const updateMonthlySale = async (sale: MonthlySales) => {
+    // For now, just update local state - we could create actual sales records later
     const existing = monthlySales.findIndex(s => 
       s.year === sale.year && 
       s.month === sale.month && 
@@ -162,11 +245,12 @@ export function useSalesData() {
     }
     
     setMonthlySales(updated);
-    saveToStorage(STORAGE_KEYS.monthlySales, updated);
+    updateLastUpdate();
   };
 
   // CRUD operations for yearly sales
-  const updateYearlySale = (sale: YearlySales) => {
+  const updateYearlySale = async (sale: YearlySales) => {
+    // For now, just update local state - we could store this in a summary table later
     const existing = yearlySales.findIndex(s => 
       s.year === sale.year && s.month === sale.month
     );
@@ -179,13 +263,13 @@ export function useSalesData() {
     }
     
     setYearlySales(updated);
-    saveToStorage(STORAGE_KEYS.yearlySales, updated);
+    updateLastUpdate();
   };
 
   // Growth simulation
   const updateGrowthSimulation = (simulation: GrowthSimulation) => {
     setGrowthSimulation(simulation);
-    saveToStorage(STORAGE_KEYS.growthSimulation, simulation);
+    updateLastUpdate();
   };
 
   // Apply growth simulation to future months
@@ -272,7 +356,7 @@ export function useSalesData() {
     return salesperson.supermetas_mensais?.[monthKey] || salesperson.supermeta_mensal || 0;
   };
 
-  const updateMonthlyMeta = (vendedoraId: string, year: number, month: number, meta: number, supermeta: number) => {
+  const updateMonthlyMeta = async (vendedoraId: string, year: number, month: number, meta: number, supermeta: number) => {
     const salesperson = salespeople.find(s => s.id === vendedoraId);
     if (!salesperson) return;
 
@@ -289,9 +373,28 @@ export function useSalesData() {
       }
     };
 
-    const updated = salespeople.map(s => s.id === vendedoraId ? updatedSalesperson : s);
-    setSalespeople(updated);
-    saveToStorage(STORAGE_KEYS.salespeople, updated);
+    try {
+      // Try to save to metas_mensais table
+      await supabase
+        .from('metas_mensais')
+        .upsert({
+          vendedora_id: vendedoraId,
+          ano: year,
+          mes: month,
+          meta_valor: meta,
+          supermeta_valor: supermeta
+        });
+
+      const updated = salespeople.map(s => s.id === vendedoraId ? updatedSalesperson : s);
+      setSalespeople(updated);
+      updateLastUpdate();
+    } catch (error) {
+      console.error('Error updating monthly meta:', error);
+      // Still update local state even if database save fails
+      const updated = salespeople.map(s => s.id === vendedoraId ? updatedSalesperson : s);
+      setSalespeople(updated);
+      updateLastUpdate();
+    }
   };
 
   const calculateCommission = (vendedoraId: string, year: number, month: number): number => {
@@ -341,27 +444,26 @@ export function useSalesData() {
   };
 
   // Year management
-  const addYear = (year: number) => {
+  const addYear = async (year: number) => {
     if (!availableYears.includes(year)) {
       const updated = [...availableYears, year].sort((a, b) => a - b);
       setAvailableYears(updated);
-      saveToStorage(STORAGE_KEYS.availableYears, updated);
+      updateLastUpdate();
     }
   };
 
-  const removeYear = (year: number) => {
+  const removeYear = async (year: number) => {
+    // Update local state
     const updated = availableYears.filter(y => y !== year);
     setAvailableYears(updated);
-    saveToStorage(STORAGE_KEYS.availableYears, updated);
     
-    // Also remove all sales data for this year
     const updatedYearlySales = yearlySales.filter(s => s.year !== year);
     setYearlySales(updatedYearlySales);
-    saveToStorage(STORAGE_KEYS.yearlySales, updatedYearlySales);
     
     const updatedMonthlySales = monthlySales.filter(s => s.year !== year);
     setMonthlySales(updatedMonthlySales);
-    saveToStorage(STORAGE_KEYS.monthlySales, updatedMonthlySales);
+    
+    updateLastUpdate();
   };
 
   return {
@@ -372,6 +474,7 @@ export function useSalesData() {
     availableYears,
     growthSimulation,
     lastUpdate,
+    loading,
     
     // CRUD operations
     updateSalesperson,
@@ -381,6 +484,9 @@ export function useSalesData() {
     updateYearlySale,
     updateGrowthSimulation,
     applyGrowthSimulation,
+    
+    // Data loading
+    loadAllData,
     
     // Year management
     addYear,

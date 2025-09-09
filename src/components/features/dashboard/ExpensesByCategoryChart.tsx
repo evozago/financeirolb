@@ -52,10 +52,7 @@ export function ExpensesByCategoryChart() {
     try {
       setLoading(true);
       
-      const { data: categoryData, error } = await supabase.rpc('get_expenses_by_category', {
-        p_start_date: format(startDate, 'yyyy-MM-dd'),
-        p_end_date: format(endDate, 'yyyy-MM-dd')
-      });
+      const { data: categoryData, error } = await supabase.rpc('get_expenses_by_category');
 
       if (error) {
         console.error('Error loading category data:', error);
