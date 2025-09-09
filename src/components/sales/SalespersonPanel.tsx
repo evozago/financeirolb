@@ -186,9 +186,9 @@ export function SalespersonPanel() {
     }
   };
 
-  const updateSales = (vendedoraId: string, value: string) => {
+  const updateSales = async (vendedoraId: string, value: string) => {
     const numValue = parseFloat(value) || 0;
-    updateMonthlySale({
+    await updateMonthlySale({
       year: selectedYear,
       month: selectedMonth,
       vendedora_id: vendedoraId,
@@ -196,15 +196,15 @@ export function SalespersonPanel() {
     });
   };
 
-  const updateMeta = (vendedoraId: string, field: 'meta_mensal' | 'supermeta_mensal', value: string) => {
+  const updateMeta = async (vendedoraId: string, field: 'meta_mensal' | 'supermeta_mensal', value: string) => {
     const numValue = parseFloat(value) || 0;
     
     if (field === 'meta_mensal') {
       const currentSupermeta = getMonthlySupermeta(vendedoraId, selectedYear, selectedMonth);
-      updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, numValue, currentSupermeta);
+      await updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, numValue, currentSupermeta);
     } else {
       const currentMeta = getMonthlyMeta(vendedoraId, selectedYear, selectedMonth);
-      updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, currentMeta, numValue);
+      await updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, currentMeta, numValue);
     }
   };
 
@@ -321,6 +321,7 @@ export function SalespersonPanel() {
                             type="number"
                             value={monthlyMeta || ''}
                             onChange={(e) => updateMeta(salesperson.id, 'meta_mensal', e.target.value)}
+                            onBlur={(e) => updateMeta(salesperson.id, 'meta_mensal', e.target.value)}
                             className="text-center"
                             placeholder="0"
                           />
@@ -331,6 +332,7 @@ export function SalespersonPanel() {
                             type="number"
                             value={monthlySupermeta || ''}
                             onChange={(e) => updateMeta(salesperson.id, 'supermeta_mensal', e.target.value)}
+                            onBlur={(e) => updateMeta(salesperson.id, 'supermeta_mensal', e.target.value)}
                             className="text-center"
                             placeholder="0"
                           />
@@ -341,6 +343,7 @@ export function SalespersonPanel() {
                             type="number"
                             value={sales || ''}
                             onChange={(e) => updateSales(salesperson.id, e.target.value)}
+                            onBlur={(e) => updateSales(salesperson.id, e.target.value)}
                             className="text-center"
                             placeholder="0"
                           />
