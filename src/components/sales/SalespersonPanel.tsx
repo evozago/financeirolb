@@ -22,7 +22,8 @@ export function SalespersonPanel() {
     importSalespeople,
     getMonthlyMeta,
     getMonthlySupermeta,
-    updateMonthlyMeta
+    updateMonthlyMeta,
+    saveAllData
   } = useSalesData();
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -241,10 +242,15 @@ export function SalespersonPanel() {
                 Sincronização automática • Metas preservadas
               </p>
             </div>
-            <Button onClick={syncSalespeople} disabled={syncing} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={saveAllData} variant="default" size="sm">
+                💾 Salvar Tudo
+              </Button>
+              <Button onClick={syncSalespeople} disabled={syncing} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Atualizar
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

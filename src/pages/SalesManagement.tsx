@@ -1,13 +1,24 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { SalesHeader } from "@/components/sales/SalesHeader";
 import { YearlyComparisonTable } from "@/components/sales/YearlyComparisonTable";
 import { SalespersonPanel } from "@/components/sales/SalespersonPanel";
 import { GrowthSimulation } from "@/components/sales/GrowthSimulation";
+import { useSalesData } from "@/hooks/useSalesData";
+import { Save } from "lucide-react";
 
 export default function SalesManagement() {
+  const { saveAllData } = useSalesData();
+
   return (
     <div className="container mx-auto p-6 space-y-8">
-      <SalesHeader />
+      <div className="flex items-center justify-between">
+        <SalesHeader />
+        <Button onClick={saveAllData} size="lg" className="bg-green-600 hover:bg-green-700">
+          <Save className="h-4 w-4 mr-2" />
+          💾 SALVAR TODOS OS DADOS
+        </Button>
+      </div>
 
       <Tabs defaultValue="comparison" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">

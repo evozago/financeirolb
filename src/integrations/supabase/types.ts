@@ -2940,6 +2940,63 @@ export type Database = {
           },
         ]
       }
+      vendas_mensais_detalhadas: {
+        Row: {
+          ano: number
+          created_at: string
+          id: string
+          mes: number
+          updated_at: string
+          valor_vendas: number
+          vendedora_id: string
+        }
+        Insert: {
+          ano: number
+          created_at?: string
+          id?: string
+          mes: number
+          updated_at?: string
+          valor_vendas?: number
+          vendedora_id: string
+        }
+        Update: {
+          ano?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          updated_at?: string
+          valor_vendas?: number
+          vendedora_id?: string
+        }
+        Relationships: []
+      }
+      vendas_mensais_totais: {
+        Row: {
+          ano: number
+          created_at: string
+          id: string
+          mes: number
+          total_vendas: number
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          created_at?: string
+          id?: string
+          mes: number
+          total_vendas?: number
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          total_vendas?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vendedora_ferias: {
         Row: {
           aprovado: boolean
@@ -3011,6 +3068,36 @@ export type Database = {
           meta_mensal?: number | null
           nome?: string
           telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vendedoras_completas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          metas_mensais: Json | null
+          nome: string
+          supermetas_mensais: Json | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          metas_mensais?: Json | null
+          nome: string
+          supermetas_mensais?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          metas_mensais?: Json | null
+          nome?: string
+          supermetas_mensais?: Json | null
           updated_at?: string
         }
         Relationships: []

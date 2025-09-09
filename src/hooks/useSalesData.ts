@@ -76,9 +76,9 @@ export function useSalesData() {
 
   const loadSalespeople = async () => {
     try {
-      // Try to load from vendedoras table
+      // Load from vendedoras_completas table
       const { data } = await supabase
-        .from('vendedoras')
+        .from('vendedoras_completas')
         .select('*')
         .eq('ativo', true);
 
@@ -88,101 +88,90 @@ export function useSalesData() {
           nome: v.nome,
           meta_mensal: 0,
           supermeta_mensal: 0,
-          metas_mensais: {},
-          supermetas_mensais: {}
+          metas_mensais: (v.metas_mensais as any) || {},
+          supermetas_mensais: (v.supermetas_mensais as any) || {}
         }));
         setSalespeople(formattedSalespeople);
+        
+        // Save to localStorage as backup
+        localStorage.setItem('sales_backup_salespeople', JSON.stringify(formattedSalespeople));
       }
     } catch (error) {
       console.error('Error loading salespeople:', error);
+      // Try to load from localStorage backup
+      const backup = localStorage.getItem('sales_backup_salespeople');
+      if (backup) {
+        setSalespeople(JSON.parse(backup));
+      }
     }
   };
 
   const loadYearlySales = async () => {
     try {
-      // Calculate yearly totals from vendas table
       const { data } = await supabase
-        .from('vendas')
-        .select('valor_venda, data_venda')
-        .order('data_venda');
+        .from('vendas_mensais_totais')
+        .select('*')
+        .order('ano, mes');
 
       if (data) {
-        // Group by year and month
-        const salesByMonth: { [key: string]: number } = {};
-        
-        data.forEach(venda => {
-          const date = new Date(venda.data_venda);
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-          const key = `${year}-${month}`;
-          
-          salesByMonth[key] = (salesByMonth[key] || 0) + (venda.valor_venda || 0);
-        });
-
-        const formattedData: YearlySales[] = Object.entries(salesByMonth).map(([key, total]) => {
-          const [year, month] = key.split('-').map(Number);
-          return {
-            year,
-            month,
-            total_vendas: total
-          };
-        });
-        
+        const formattedData: YearlySales[] = data.map(d => ({
+          year: d.ano,
+          month: d.mes,
+          total_vendas: d.total_vendas || 0
+        }));
         setYearlySales(formattedData);
+        
+        // Save to localStorage as backup
+        localStorage.setItem('sales_backup_yearly', JSON.stringify(formattedData));
       }
     } catch (error) {
       console.error('Error loading yearly sales:', error);
+      // Try to load from localStorage backup
+      const backup = localStorage.getItem('sales_backup_yearly');
+      if (backup) {
+        setYearlySales(JSON.parse(backup));
+      }
     }
   };
 
   const loadMonthlySales = async () => {
     try {
       const { data } = await supabase
-        .from('vendas')
-        .select('valor_venda, data_venda, vendedora_id')
-        .order('data_venda');
+        .from('vendas_mensais_detalhadas')
+        .select('*')
+        .order('ano, mes, vendedora_id');
 
       if (data) {
-        // Group by year, month, and vendedora_id
-        const salesByVendedora: { [key: string]: number } = {};
-        
-        data.forEach(venda => {
-          if (!venda.vendedora_id) return;
-          
-          const date = new Date(venda.data_venda);
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-          const key = `${year}-${month}-${venda.vendedora_id}`;
-          
-          salesByVendedora[key] = (salesByVendedora[key] || 0) + (venda.valor_venda || 0);
-        });
-
-        const formattedData: MonthlySales[] = Object.entries(salesByVendedora).map(([key, vendas]) => {
-          const [year, month, vendedora_id] = key.split('-');
-          return {
-            year: Number(year),
-            month: Number(month),
-            vendedora_id,
-            vendas
-          };
-        });
-        
+        const formattedData: MonthlySales[] = data.map(d => ({
+          year: d.ano,
+          month: d.mes,
+          vendedora_id: d.vendedora_id,
+          vendas: d.valor_vendas || 0
+        }));
         setMonthlySales(formattedData);
+        
+        // Save to localStorage as backup
+        localStorage.setItem('sales_backup_monthly', JSON.stringify(formattedData));
       }
     } catch (error) {
       console.error('Error loading monthly sales:', error);
+      // Try to load from localStorage backup
+      const backup = localStorage.getItem('sales_backup_monthly');
+      if (backup) {
+        setMonthlySales(JSON.parse(backup));
+      }
     }
   };
 
   const loadAvailableYears = async () => {
     try {
       const { data } = await supabase
-        .from('vendas')
-        .select('data_venda')
-        .order('data_venda');
+        .from('vendas_mensais_totais')
+        .select('ano')
+        .order('ano');
 
       if (data && data.length > 0) {
-        const years = [...new Set(data.map(d => new Date(d.data_venda).getFullYear()))];
+        const years = [...new Set(data.map(d => d.ano))];
         const currentYear = new Date().getFullYear();
         const allYears = [...new Set([...years, currentYear, currentYear + 1])].sort();
         setAvailableYears(allYears);
@@ -203,12 +192,65 @@ export function useSalesData() {
     setLastUpdate(now);
   };
 
+  // Add explicit save functions for UI
+  const saveAllData = async () => {
+    try {
+      // Save all data to ensure persistence
+      await Promise.all([
+        ...salespeople.map(sp => updateSalesperson(sp)),
+        ...yearlySales.map(ys => updateYearlySale(ys)),
+        ...monthlySales.map(ms => updateMonthlySale(ms))
+      ]);
+      
+      toast({
+        title: 'Dados salvos!',
+        description: 'Todos os dados foram salvos com sucesso',
+      });
+    } catch (error) {
+      console.error('Error saving data:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Erro ao salvar alguns dados, verifique sua conexão',
+        variant: 'destructive'
+      });
+    }
+  };
+
   // CRUD operations for salespeople  
   const updateSalesperson = async (salesperson: Salesperson) => {
-    // Just update local state since we'll store metas separately
-    const updated = salespeople.map(s => s.id === salesperson.id ? salesperson : s);
-    setSalespeople(updated);
-    updateLastUpdate();
+    try {
+      const { error } = await supabase
+        .from('vendedoras_completas')
+        .upsert({
+          id: salesperson.id,
+          nome: salesperson.nome,
+          ativo: true,
+          metas_mensais: salesperson.metas_mensais,
+          supermetas_mensais: salesperson.supermetas_mensais
+        });
+
+      if (error) throw error;
+
+      const updated = salespeople.map(s => s.id === salesperson.id ? salesperson : s);
+      setSalespeople(updated);
+      
+      // Save to localStorage as backup
+      localStorage.setItem('sales_backup_salespeople', JSON.stringify(updated));
+      updateLastUpdate();
+    } catch (error) {
+      console.error('Error updating salesperson:', error);
+      // Still update local state
+      const updated = salespeople.map(s => s.id === salesperson.id ? salesperson : s);
+      setSalespeople(updated);
+      localStorage.setItem('sales_backup_salespeople', JSON.stringify(updated));
+      updateLastUpdate();
+      
+      toast({
+        title: 'Aviso',
+        description: 'Dados salvos localmente, erro ao sincronizar com servidor',
+        variant: 'destructive'
+      });
+    }
   };
 
   const addSalesperson = async (salesperson: Omit<Salesperson, 'id'>) => {
@@ -230,40 +272,117 @@ export function useSalesData() {
 
   // CRUD operations for monthly sales
   const updateMonthlySale = async (sale: MonthlySales) => {
-    // For now, just update local state - we could create actual sales records later
-    const existing = monthlySales.findIndex(s => 
-      s.year === sale.year && 
-      s.month === sale.month && 
-      s.vendedora_id === sale.vendedora_id
-    );
+    try {
+      const { error } = await supabase
+        .from('vendas_mensais_detalhadas')
+        .upsert({
+          ano: sale.year,
+          mes: sale.month,
+          vendedora_id: sale.vendedora_id,
+          valor_vendas: sale.vendas
+        });
 
-    let updated;
-    if (existing >= 0) {
-      updated = monthlySales.map((s, i) => i === existing ? sale : s);
-    } else {
-      updated = [...monthlySales, sale];
+      if (error) throw error;
+
+      const existing = monthlySales.findIndex(s => 
+        s.year === sale.year && 
+        s.month === sale.month && 
+        s.vendedora_id === sale.vendedora_id
+      );
+
+      let updated;
+      if (existing >= 0) {
+        updated = monthlySales.map((s, i) => i === existing ? sale : s);
+      } else {
+        updated = [...monthlySales, sale];
+      }
+      
+      setMonthlySales(updated);
+      
+      // Save to localStorage as backup
+      localStorage.setItem('sales_backup_monthly', JSON.stringify(updated));
+      updateLastUpdate();
+    } catch (error) {
+      console.error('Error updating monthly sale:', error);
+      // Still update local state
+      const existing = monthlySales.findIndex(s => 
+        s.year === sale.year && 
+        s.month === sale.month && 
+        s.vendedora_id === sale.vendedora_id
+      );
+
+      let updated;
+      if (existing >= 0) {
+        updated = monthlySales.map((s, i) => i === existing ? sale : s);
+      } else {
+        updated = [...monthlySales, sale];
+      }
+      
+      setMonthlySales(updated);
+      localStorage.setItem('sales_backup_monthly', JSON.stringify(updated));
+      updateLastUpdate();
+      
+      toast({
+        title: 'Aviso',
+        description: 'Dados salvos localmente, erro ao sincronizar com servidor',
+        variant: 'destructive'
+      });
     }
-    
-    setMonthlySales(updated);
-    updateLastUpdate();
   };
 
   // CRUD operations for yearly sales
   const updateYearlySale = async (sale: YearlySales) => {
-    // For now, just update local state - we could store this in a summary table later
-    const existing = yearlySales.findIndex(s => 
-      s.year === sale.year && s.month === sale.month
-    );
+    try {
+      const { error } = await supabase
+        .from('vendas_mensais_totais')
+        .upsert({
+          ano: sale.year,
+          mes: sale.month,
+          total_vendas: sale.total_vendas
+        });
 
-    let updated;
-    if (existing >= 0) {
-      updated = yearlySales.map((s, i) => i === existing ? sale : s);
-    } else {
-      updated = [...yearlySales, sale];
+      if (error) throw error;
+
+      const existing = yearlySales.findIndex(s => 
+        s.year === sale.year && s.month === sale.month
+      );
+
+      let updated;
+      if (existing >= 0) {
+        updated = yearlySales.map((s, i) => i === existing ? sale : s);
+      } else {
+        updated = [...yearlySales, sale];
+      }
+      
+      setYearlySales(updated);
+      
+      // Save to localStorage as backup
+      localStorage.setItem('sales_backup_yearly', JSON.stringify(updated));
+      updateLastUpdate();
+    } catch (error) {
+      console.error('Error updating yearly sale:', error);
+      // Still update local state
+      const existing = yearlySales.findIndex(s => 
+        s.year === sale.year && s.month === sale.month
+      );
+
+      let updated;
+      if (existing >= 0) {
+        updated = yearlySales.map((s, i) => i === existing ? sale : s);
+      } else {
+        updated = [...yearlySales, sale];
+      }
+      
+      setYearlySales(updated);
+      localStorage.setItem('sales_backup_yearly', JSON.stringify(updated));
+      updateLastUpdate();
+      
+      toast({
+        title: 'Aviso',
+        description: 'Dados salvos localmente, erro ao sincronizar com servidor',
+        variant: 'destructive'
+      });
     }
-    
-    setYearlySales(updated);
-    updateLastUpdate();
   };
 
   // Growth simulation
@@ -374,7 +493,18 @@ export function useSalesData() {
     };
 
     try {
-      // Try to save to metas_mensais table
+      // Save to database
+      const { error } = await supabase
+        .from('vendedoras_completas')
+        .update({
+          metas_mensais: updatedSalesperson.metas_mensais,
+          supermetas_mensais: updatedSalesperson.supermetas_mensais
+        })
+        .eq('id', vendedoraId);
+
+      if (error) throw error;
+
+      // Also save to metas_mensais table
       await supabase
         .from('metas_mensais')
         .upsert({
@@ -387,12 +517,16 @@ export function useSalesData() {
 
       const updated = salespeople.map(s => s.id === vendedoraId ? updatedSalesperson : s);
       setSalespeople(updated);
+      
+      // Save to localStorage as backup
+      localStorage.setItem('sales_backup_salespeople', JSON.stringify(updated));
       updateLastUpdate();
     } catch (error) {
       console.error('Error updating monthly meta:', error);
-      // Still update local state even if database save fails
+      // Still update local state
       const updated = salespeople.map(s => s.id === vendedoraId ? updatedSalesperson : s);
       setSalespeople(updated);
+      localStorage.setItem('sales_backup_salespeople', JSON.stringify(updated));
       updateLastUpdate();
     }
   };
@@ -487,6 +621,7 @@ export function useSalesData() {
     
     // Data loading
     loadAllData,
+    saveAllData,
     
     // Year management
     addYear,

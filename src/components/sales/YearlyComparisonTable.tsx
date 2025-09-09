@@ -17,7 +17,8 @@ export function YearlyComparisonTable() {
     availableYears,
     addYear,
     removeYear,
-    getMonthlyMetaTotal
+    getMonthlyMetaTotal,
+    saveAllData
   } = useSalesData();
   const [editingCell, setEditingCell] = useState<{ year: number; month: number } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -113,10 +114,15 @@ export function YearlyComparisonTable() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Edit3 className="h-5 w-5" />
-            Comparativo Ano a Ano - Vendas Mensais
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Edit3 className="h-5 w-5" />
+              Comparativo Ano a Ano - Vendas Mensais
+            </CardTitle>
+            <Button onClick={saveAllData} variant="default" size="sm">
+              💾 Salvar Alterações
+            </Button>
+          </div>
           <p className="text-sm text-muted-foreground">
             Clique em qualquer célula para editar os valores. As cores indicam crescimento vs ano anterior.
           </p>
