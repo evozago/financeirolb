@@ -48,10 +48,7 @@ export function useSalesData() {
   const [salespersonData, setSalespersonData] = useState<SalespersonPanelData[]>([]);
 
   const fetchAllData = useCallback(async () => {
-    if (!primaryEntity) {
-      setLoading(false);
-      return;
-    };
+    if (!primaryEntity) return;
     setLoading(true);
 
     try {
@@ -144,7 +141,6 @@ export function useSalesData() {
   const saveAllData = async () => {
     if (!primaryEntity) return;
     setLoading(true);
-
     try {
       // --- Preparar e salvar dados do Comparativo Anual ---
       const yearlySalesToUpsert: YearlySale[] = [];
