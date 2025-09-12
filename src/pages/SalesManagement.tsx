@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SalesHeader } from "@/components/sales/SalesHeader";
 import { YearlyComparisonTable } from "@/components/sales/YearlyComparisonTable";
@@ -8,54 +8,37 @@ import { useSalesData } from "@/hooks/useSalesData";
 import { Save } from "lucide-react";
 
 export default function SalesManagement() {
-  const { loading, saveAllData } = useSalesData();
+  const { saveAllData } = useSalesData();
 
   return (
     <div className="container mx-auto p-6 space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestão de Vendas</h1>
-          <p className="text-muted-foreground">
-            Configure metas de vendedoras e analise o crescimento das vendas
-          </p>
-        </div>
-
-        <Button onClick={saveAllData} disabled={loading} className="gap-2">
-          <Save className="h-4 w-4" />
-          {loading ? "Salvando..." : "Salvar Tudo"}
+      <div className="flex items-center justify-between">
+        <SalesHeader />
+        <Button onClick={saveAllData} size="lg" className="bg-green-600 hover:bg-green-700">
+          <Save className="h-4 w-4 mr-2" />
+          💾 SALVAR TODOS OS DADOS
         </Button>
       </div>
 
-      <SalesHeader />
+      <Tabs defaultValue="comparison" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="comparison">Comparativo Anual</TabsTrigger>
+          <TabsTrigger value="salespeople">Vendedoras</TabsTrigger>
+          <TabsTrigger value="simulation">Simulação</TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Comparativo Anual</CardTitle>
-            <CardDescription>
-              Vendas mensais por ano para análise de tendências
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <YearlyComparisonTable />
-          </CardContent>
-        </Card>
+        <TabsContent value="comparison" className="space-y-6">
+          <YearlyComparisonTable />
+        </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Gestão de Vendedoras</CardTitle>
-            <CardDescription>
-              Configure metas mensais e acompanhe performance
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SalespersonPanel />
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="salespeople" className="space-y-6">
+          <SalespersonPanel />
+        </TabsContent>
 
-      <GrowthSimulation />
+        <TabsContent value="simulation" className="space-y-6">
+          <GrowthSimulation />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
