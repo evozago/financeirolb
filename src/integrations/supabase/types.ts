@@ -1871,6 +1871,30 @@ export type Database = {
           },
         ]
       }
+      label_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          template_data: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          template_data: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          template_data?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       marcas: {
         Row: {
           ativo: boolean
@@ -2757,6 +2781,141 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_goals: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          goal_amount: number
+          id: string
+          month: number
+          salesperson_id: string | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          goal_amount: number
+          id?: string
+          month: number
+          salesperson_id?: string | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          goal_amount?: number
+          id?: string
+          month?: number
+          salesperson_id?: string | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_goals_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "pessoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_monthly_sales: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          month: number
+          total_sales: number
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          month: number
+          total_sales: number
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          month?: number
+          total_sales?: number
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_monthly_sales_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entidades_corporativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_monthly_sales_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
         ]
