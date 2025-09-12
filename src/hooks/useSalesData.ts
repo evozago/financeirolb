@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { toast } from '@/components/ui/use-toast';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../components/auth/AuthProvider';
+import { toast } from '../components/ui/use-toast';
 
-// --- Interfaces de Tipos ---
+// Tipos de dados para as tabelas
 export interface YearlySale {
   id?: string;
   entity_id: string;
@@ -21,6 +21,7 @@ export interface SalespersonGoal {
   goal_amount: number;
 }
 
+// Estrutura de dados que os componentes irão usar
 export interface YearlyComparisonData {
   month: number;
   monthName: string;
@@ -33,43 +34,31 @@ export interface SalespersonPanelData {
   monthly_goals: { [month: number]: number | string };
 }
 
-// --- Definição do Contexto ---
-interface SalesDataContextType {
-  loading: boolean;
-  entityNotSelected: boolean;
-  currentYear: number;
-  setCurrentYear: (year: number) => void;
-  yearlyData: YearlyComparisonData[];
-  updateYearlySale: (month: number, year: number, value: string) => void;
-  salespersonData: SalespersonPanelData[];
-  updateSalespersonGoal: (salesperson_id: string, month: number, value: string) => void;
-  saveAllData: () => Promise<void>;
-}
-
-const SalesDataContext = createContext<SalesDataContextType | undefined>(undefined);
-
 const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-// --- Componente Provedor ---
-export function SalesDataProvider({ children }: { children: ReactNode }) {
+export function useSalesData() {
   const { primaryEntity } = useAuth();
   const [loading, setLoading] = useState(true);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [entityNotSelected, setEntityNotSelected] = useState(false);
   
+  // Estado para a tabela de Comparativo Anual
   const [yearlyData, setYearlyData] = useState<YearlyComparisonData[]>([]);
+  
+  // Estado para o painel de Vendedoras
   const [salespersonData, setSalespersonData] = useState<SalespersonPanelData[]>([]);
 
   const fetchAllData = useCallback(async () => {
     if (!primaryEntity) {
-      setEntityNotSelected(true);
-      setLoading(false);
-      return;
+        setEntityNotSelected(true);
+        setLoading(false);
+        return;
     }
     setEntityNotSelected(false);
     setLoading(true);
 
     try {
+      // --- Fetch para Comparativo Anual ---
       const yearsToFetch = [currentYear, currentYear - 1, currentYear - 2];
       const { data: yearlySales, error: yearlyError } = await supabase
         .from('store_monthly_sales')
@@ -80,7 +69,11 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
 
       const formattedYearlyData = months.map((monthName, index) => {
         const month = index + 1;
-        const data: YearlyComparisonData = { month, monthName, years: {} };
+        const data: YearlyComparisonData = {
+          month,
+          monthName,
+          years: {},
+        };
         yearsToFetch.forEach(year => {
           const sale = yearlySales.find(s => s.year === year && s.month === month);
           data.years[year] = sale ? sale.total_sales : '';
@@ -89,10 +82,11 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
       });
       setYearlyData(formattedYearlyData);
 
+      // --- Fetch para Metas das Vendedoras ---
       const { data: people, error: peopleError } = await supabase
         .from('pessoas')
         .select('id, nome_razao_social')
-        .eq('tipo_pessoa', 'Vendedor');
+        .eq('tipo_pessoa', 'Vendedor'); // Ajuste se o filtro for diferente
       if (peopleError) throw peopleError;
 
       const { data: goals, error: goalsError } = await supabase
@@ -129,10 +123,13 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Funções para atualizar o estado localmente
   const updateYearlySale = (month: number, year: number, value: string) => {
     setYearlyData(prevData =>
       prevData.map(row =>
-        row.month === month ? { ...row, years: { ...row.years, [year]: value } } : row
+        row.month === month
+          ? { ...row, years: { ...row.years, [year]: value } }
+          : row
       )
     );
   };
@@ -140,7 +137,9 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
   const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
     setSalespersonData(prevData =>
       prevData.map(person =>
-        person.salesperson_id === salesperson_id ? { ...person, monthly_goals: { ...person.monthly_goals, [month]: value } } : person
+        person.salesperson_id === salesperson_id
+          ? { ...person, monthly_goals: { ...person.monthly_goals, [month]: value } }
+          : person
       )
     );
   };
@@ -149,10 +148,11 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     if (!primaryEntity) return;
     setLoading(true);
     try {
+      // --- Preparar e salvar dados do Comparativo Anual ---
       const yearlySalesToUpsert: YearlySale[] = [];
       yearlyData.forEach(row => {
         Object.entries(row.years).forEach(([year, total_sales]) => {
-          if (total_sales !== '' && total_sales !== null) {
+          if (total_sales !== '' && total_sales !== null && total_sales !== undefined) {
             yearlySalesToUpsert.push({
               entity_id: primaryEntity.id,
               year: parseInt(year),
@@ -164,14 +164,17 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
       });
 
       if (yearlySalesToUpsert.length > 0) {
-        const { error: yearlyError } = await supabase.from('store_monthly_sales').upsert(yearlySalesToUpsert, { onConflict: 'entity_id, year, month' });
+        const { error: yearlyError } = await supabase
+          .from('store_monthly_sales')
+          .upsert(yearlySalesToUpsert, { onConflict: 'entity_id, year, month' });
         if (yearlyError) throw yearlyError;
       }
 
+      // --- Preparar e salvar dados das Metas das Vendedoras ---
       const salespersonGoalsToUpsert: SalespersonGoal[] = [];
       salespersonData.forEach(person => {
         Object.entries(person.monthly_goals).forEach(([month, goal_amount]) => {
-          if (goal_amount !== '' && goal_amount !== null) {
+          if (goal_amount !== '' && goal_amount !== null && goal_amount !== undefined) {
             salespersonGoalsToUpsert.push({
               entity_id: primaryEntity.id,
               salesperson_id: person.salesperson_id,
@@ -184,7 +187,9 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
       });
       
       if (salespersonGoalsToUpsert.length > 0) {
-        const { error: goalsError } = await supabase.from('sales_goals').upsert(salespersonGoalsToUpsert, { onConflict: 'salesperson_id, entity_id, year, month' });
+        const { error: goalsError } = await supabase
+          .from('sales_goals')
+          .upsert(salespersonGoalsToUpsert, { onConflict: 'salesperson_id, entity_id, year, month' });
         if (goalsError) throw goalsError;
       }
 
@@ -194,11 +199,11 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
       console.error('Error saving all data:', error);
       toast({ title: "Erro ao salvar", description: (error as Error).message, variant: "destructive" });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
-  const value = {
+  return {
     loading,
     entityNotSelected,
     currentYear,
@@ -209,15 +214,4 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     updateSalespersonGoal,
     saveAllData,
   };
-
-  return <SalesDataContext.Provider value={value}>{children}</SalesDataContext.Provider>;
-}
-
-// --- Hook para Consumir o Contexto ---
-export function useSalesData() {
-  const context = useContext(SalesDataContext);
-  if (context === undefined) {
-    throw new Error('useSalesData must be used within a SalesDataProvider');
-  }
-  return context;
 }
