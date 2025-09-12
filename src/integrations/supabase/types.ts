@@ -2112,12 +2112,14 @@ export type Database = {
       parcelas_conta_pagar: {
         Row: {
           comprovante_id: string | null
+          comprovante_path: string | null
           conta_bancaria_id: string | null
           conta_pagar_id: string
           created_at: string
           data_pagamento: string | null
           data_vencimento: string
           desconto: number | null
+          forma_pagamento: string | null
           id: string
           juros: number | null
           meio_pagamento: string | null
@@ -2125,18 +2127,21 @@ export type Database = {
           numero_parcela: number
           observacoes: string | null
           status: string | null
+          total_parcelas: number | null
           updated_at: string
           valor_pago: number | null
           valor_parcela: number
         }
         Insert: {
           comprovante_id?: string | null
+          comprovante_path?: string | null
           conta_bancaria_id?: string | null
           conta_pagar_id: string
           created_at?: string
           data_pagamento?: string | null
           data_vencimento: string
           desconto?: number | null
+          forma_pagamento?: string | null
           id?: string
           juros?: number | null
           meio_pagamento?: string | null
@@ -2144,18 +2149,21 @@ export type Database = {
           numero_parcela: number
           observacoes?: string | null
           status?: string | null
+          total_parcelas?: number | null
           updated_at?: string
           valor_pago?: number | null
           valor_parcela: number
         }
         Update: {
           comprovante_id?: string | null
+          comprovante_path?: string | null
           conta_bancaria_id?: string | null
           conta_pagar_id?: string
           created_at?: string
           data_pagamento?: string | null
           data_vencimento?: string
           desconto?: number | null
+          forma_pagamento?: string | null
           id?: string
           juros?: number | null
           meio_pagamento?: string | null
@@ -2163,6 +2171,7 @@ export type Database = {
           numero_parcela?: number
           observacoes?: string | null
           status?: string | null
+          total_parcelas?: number | null
           updated_at?: string
           valor_pago?: number | null
           valor_parcela?: number
@@ -2188,13 +2197,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contas_pagar_corporativas"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "parcelas_conta_pagar_conta_pagar_id_fkey"
-            columns: ["conta_pagar_id"]
-            isOneToOne: false
-            referencedRelation: "vw_fato_parcelas"
-            referencedColumns: ["id_conta"]
           },
         ]
       }
@@ -3587,55 +3589,53 @@ export type Database = {
       }
       vw_fato_parcelas: {
         Row: {
-          ano_vencimento: string | null
-          data_emissao: string | null
+          ano_vencimento: number | null
+          banco_pagamento: string | null
+          categoria: string | null
+          conta_descricao: string | null
+          conta_pagar_id: string | null
+          created_at: string | null
+          credor_documento: string | null
+          credor_id: string | null
+          credor_nome: string | null
           data_pagamento: string | null
           data_vencimento: string | null
-          id_categoria: string | null
-          id_conta: string | null
-          id_credor: string | null
-          id_filial: string | null
-          id_parcela: string | null
-          meio_pagamento: string | null
-          mes_vencimento: string | null
+          desconto: number | null
+          filial: string | null
+          forma_pagamento: string | null
+          id: string | null
+          juros: number | null
+          mes_vencimento: number | null
+          multa: number | null
+          numero_documento: string | null
+          numero_parcela: number | null
           status: string | null
-          valor: number | null
+          status_formatado: string | null
+          total_parcelas: number | null
+          updated_at: string | null
           valor_pago: number | null
+          valor_parcela: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "contas_pagar_corporativas_categoria_id_fkey"
-            columns: ["id_categoria"]
-            isOneToOne: false
-            referencedRelation: "categorias_produtos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contas_pagar_corporativas_categoria_id_fkey"
-            columns: ["id_categoria"]
-            isOneToOne: false
-            referencedRelation: "vw_dim_categorias"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
-            columns: ["id_credor"]
+            columns: ["credor_id"]
             isOneToOne: false
             referencedRelation: "entidades_corporativas"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "contas_pagar_corporativas_credor_id_fkey"
-            columns: ["id_credor"]
+            columns: ["credor_id"]
             isOneToOne: false
             referencedRelation: "vw_dim_entidades"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contas_pagar_corporativas_filial_id_fkey"
-            columns: ["id_filial"]
+            foreignKeyName: "parcelas_conta_pagar_conta_pagar_id_fkey"
+            columns: ["conta_pagar_id"]
             isOneToOne: false
-            referencedRelation: "filiais"
+            referencedRelation: "contas_pagar_corporativas"
             referencedColumns: ["id"]
           },
         ]
@@ -3886,6 +3886,10 @@ export type Database = {
       map_cnpj_to_filial: {
         Args: { cnpj_emitente: string }
         Returns: string
+      }
+      migrate_ap_installments_to_corporative_v2: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       migrate_fornecedores_to_pessoas: {
         Args: Record<PropertyKey, never>
