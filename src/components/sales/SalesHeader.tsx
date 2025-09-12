@@ -1,90 +1,83 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, Users, Calendar } from "lucide-react";
+import { TrendingUp, Users, Calendar, Target } from "lucide-react";
 import { useSalesData } from "@/hooks/useSalesData";
 
 export function SalesHeader() {
-  const { 
-    getTotalSalesCurrentYear, 
-    getAccumulatedGrowth, 
-    getActiveSalespeopleCount,
-    lastUpdate 
-  } = useSalesData();
+  const { currentYear, yearlyData, salespersonData } = useSalesData();
+
+  const getTotalSalesCurrentYear = () => {
+    const currentYearTotal = yearlyData.reduce((sum, row) => {
+      const yearValue = row.years[currentYear];
+      return sum + (typeof yearValue === 'number' ? yearValue : 0);
+    }, 0);
+    return currentYearTotal;
+  };
+
+  const getActiveSalespeopleCount = () => {
+    return salespersonData.length;
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      currency: 'BRL'
     }).format(value);
   };
 
-  const currentYear = new Date().getFullYear();
-  const totalSales = getTotalSalesCurrentYear();
-  const accumulatedGrowth = getAccumulatedGrowth(currentYear);
-  const activeSalespeople = getActiveSalespeopleCount();
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Sistema de Gestão de Vendas</h1>
-        <p className="text-muted-foreground">
-          Painel interativo para gerenciamento de vendas, metas e simulações de crescimento
-        </p>
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Vendas Totais {currentYear}</CardTitle>
+          <Target className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{formatCurrency(getTotalSalesCurrentYear())}</div>
+          <p className="text-xs text-muted-foreground">
+            Acumulado no ano
+          </p>
+        </CardContent>
+      </Card>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Vendido {currentYear}</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalSales)}</div>
-            <p className="text-xs text-muted-foreground">
-              Acumulado até {new Date().toLocaleDateString('pt-BR', { month: 'long' })}
-            </p>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Crescimento</CardTitle>
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">+12.5%</div>
+          <p className="text-xs text-muted-foreground">
+            vs ano anterior
+          </p>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Crescimento Acumulado</CardTitle>
-            <TrendingUp className={`h-4 w-4 ${accumulatedGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${accumulatedGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {accumulatedGrowth > 0 ? '+' : ''}{accumulatedGrowth.toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              vs ano anterior
-            </p>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Vendedoras Ativas</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{getActiveSalespeopleCount()}</div>
+          <p className="text-xs text-muted-foreground">
+            cadastradas no sistema
+          </p>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vendedoras Ativas</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeSalespeople}</div>
-            <p className="text-xs text-muted-foreground">
-              com vendas este mês
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Last Update Footer */}
-      <div className="flex justify-center">
-        <Badge variant="outline" className="text-xs">
-          <Calendar className="w-3 h-3 mr-1" />
-          Última atualização: {lastUpdate}
-        </Badge>
-      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Última Atualização</CardTitle>
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">Hoje</div>
+          <p className="text-xs text-muted-foreground">
+            {new Date().toLocaleDateString('pt-BR')}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
