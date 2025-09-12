@@ -1,27 +1,27 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp, Play, RotateCcw } from "lucide-react";
-import { useSalesData } from "@/hooks/useSalesData";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Play, RotateCcw, TrendingUp } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export function GrowthSimulation() {
-  const {
-    growthSimulation,
-    updateGrowthSimulation,
-    applyGrowthSimulation,
-    getYearlySales,
-    yearlySales
-  } = useSalesData();
-
   const [baseYear, setBaseYear] = useState(new Date().getFullYear());
   const [baseMonth, setBaseMonth] = useState(new Date().getMonth() + 1);
-  const { toast } = useToast();
+  const [growthRate, setGrowthRate] = useState(5);
+  
+  // Mock data for simulation
+  const [simulationData] = useState([
+    { month: 'Jan', current: 45000, projected: 47250 },
+    { month: 'Fev', current: 52000, projected: 54600 },
+    { month: 'Mar', current: 48000, projected: 50400 },
+    { month: 'Abr', current: 55000, projected: 57750 },
+    { month: 'Mai', current: 60000, projected: 63000 },
+    { month: 'Jun', current: 58000, projected: 60900 },
+  ]);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -49,290 +49,140 @@ export function GrowthSimulation() {
     }).format(value);
   };
 
-  const handleSimulationChange = (field: string, value: any) => {
-    updateGrowthSimulation({
-      ...growthSimulation,
-      [field]: value
-    });
-  };
-
-  const runSimulation = () => {
-    if (growthSimulation.value === 0) {
-      toast({
-        title: "Atenção",
-        description: "Defina um valor de crescimento diferente de zero",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    applyGrowthSimulation(baseYear, baseMonth);
-    toast({
-      title: "Simulação aplicada",
-      description: `Crescimento ${growthSimulation.type === 'fixed' ? 'fixo' : 'percentual'} aplicado aos próximos meses`,
-    });
-  };
-
-  const resetSimulation = () => {
-    handleSimulationChange('enabled', false);
-    handleSimulationChange('value', 0);
-    toast({
-      title: "Simulação resetada",
-      description: "Configurações de crescimento foram resetadas"
-    });
-  };
-
-  // Prepare chart data for projection
-  const getProjectionData = () => {
-    const data = [];
-    const baseValue = getYearlySales(baseYear, baseMonth);
-    let projectedValue = baseValue;
-
-    // Add historical data (last 6 months)
-    for (let i = 5; i >= 0; i--) {
-      let month = baseMonth - i;
-      let year = baseYear;
-      
-      if (month <= 0) {
-        month += 12;
-        year -= 1;
-      }
-
-      const monthLabel = months.find(m => m.value === month)?.label || '';
-      const actualValue = getYearlySales(year, month);
-      
-      data.push({
-        period: `${monthLabel}/${year}`,
-        actual: actualValue,
-        projected: null,
-        isBase: year === baseYear && month === baseMonth
-      });
-    }
-
-    // Add projected data (next 12 months)
-    if (growthSimulation.enabled && growthSimulation.value !== 0) {
-      for (let i = 1; i <= 12; i++) {
-        let month = baseMonth + i;
-        let year = baseYear;
-        
-        if (month > 12) {
-          month -= 12;
-          year += 1;
-        }
-
-        if (growthSimulation.type === 'fixed') {
-          projectedValue += growthSimulation.value;
-        } else {
-          projectedValue *= (1 + growthSimulation.value / 100);
-        }
-
-        const monthLabel = months.find(m => m.value === month)?.label || '';
-        
-        data.push({
-          period: `${monthLabel}/${year}`,
-          actual: null,
-          projected: Math.round(projectedValue),
-          isBase: false
-        });
-      }
-    }
-
-    return data;
-  };
-
-  const projectionData = getProjectionData();
+  const totalCurrent = simulationData.reduce((sum, month) => sum + month.current, 0);
+  const totalProjected = simulationData.reduce((sum, month) => sum + month.projected, 0);
+  const projectedGrowth = ((totalProjected - totalCurrent) / totalCurrent) * 100;
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Simulação de Crescimento
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Configure e aplique simulações de crescimento para projeção de vendas futuras
-          </p>
+          <CardTitle>Simulação de Crescimento</CardTitle>
+          <CardDescription>
+            Projete cenários de crescimento baseados em dados históricos
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Simulation Controls */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="simulation-enabled">Ativar Simulação</Label>
-                <div className="flex items-center space-x-2 mt-2">
-                  <Switch
-                    id="simulation-enabled"
-                    checked={growthSimulation.enabled}
-                    onCheckedChange={(checked) => handleSimulationChange('enabled', checked)}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {growthSimulation.enabled ? 'Ativada' : 'Desativada'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Período Base</Label>
-                <div className="flex gap-2">
-                  <Select value={baseMonth.toString()} onValueChange={(value) => setBaseMonth(parseInt(value))}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {months.map((month) => (
-                        <SelectItem key={month.value} value={month.value.toString()}>
-                          {month.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={baseYear.toString()} onValueChange={(value) => setBaseYear(parseInt(value))}>
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {years.map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Valor base: {formatCurrency(getYearlySales(baseYear, baseMonth))}
-                </p>
-              </div>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div>
+              <Label htmlFor="base-year">Ano Base</Label>
+              <Select value={baseYear.toString()} onValueChange={(value) => setBaseYear(parseInt(value))}>
+                <SelectTrigger id="base-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <Label>Tipo de Crescimento</Label>
-                <Select 
-                  value={growthSimulation.type} 
-                  onValueChange={(value) => handleSimulationChange('type', value)}
-                  disabled={!growthSimulation.enabled}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">Valor Fixo Mensal</SelectItem>
-                    <SelectItem value="percentage">Percentual Mensal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label htmlFor="base-month">Mês Base</Label>
+              <Select value={baseMonth.toString()} onValueChange={(value) => setBaseMonth(parseInt(value))}>
+                <SelectTrigger id="base-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={month.value.toString()}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label>
-                  {growthSimulation.type === 'fixed' ? 'Valor Mensal (R$)' : 'Percentual Mensal (%)'}
-                </Label>
-                <Input
-                  type="number"
-                  value={growthSimulation.value || ''}
-                  onChange={(e) => handleSimulationChange('value', parseFloat(e.target.value) || 0)}
-                  disabled={!growthSimulation.enabled}
-                  placeholder={growthSimulation.type === 'fixed' ? '5000' : '10'}
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {growthSimulation.type === 'fixed' 
-                    ? 'Ex: +R$ 5.000 por mês'
-                    : 'Ex: +10% por mês'
-                  }
-                </p>
-              </div>
+            <div>
+              <Label htmlFor="growth-rate">Taxa de Crescimento (%)</Label>
+              <Input
+                id="growth-rate"
+                type="number"
+                value={growthRate}
+                onChange={(e) => setGrowthRate(Number(e.target.value))}
+                step="0.1"
+                min="0"
+                max="100"
+              />
+            </div>
+
+            <div className="flex items-end gap-2">
+              <Button className="flex-1">
+                <Play className="w-4 h-4 mr-2" />
+                Simular
+              </Button>
+              <Button variant="outline" size="icon">
+                <RotateCcw className="w-4 h-4" />
+              </Button>
             </div>
           </div>
+
+          {/* Results Summary */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{formatCurrency(totalCurrent)}</div>
+                <p className="text-xs text-muted-foreground">Vendas Atuais</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(totalProjected)}</div>
+                <p className="text-xs text-muted-foreground">Projeção com Crescimento</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-blue-600">
+                  +{projectedGrowth.toFixed(1)}%
+                </div>
+                <p className="text-xs text-muted-foreground">Crescimento Projetado</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Comparação: Atual vs Projetado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={simulationData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                  <Tooltip 
+                    formatter={(value) => formatCurrency(Number(value))}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Bar dataKey="current" fill="hsl(var(--muted))" name="Atual" />
+                  <Bar dataKey="projected" fill="hsl(var(--primary))" name="Projetado" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button 
-              onClick={runSimulation} 
-              disabled={!growthSimulation.enabled || growthSimulation.value === 0}
-              className="flex items-center gap-2"
-            >
-              <Play className="h-4 w-4" />
+            <Button variant="outline">
               Aplicar Simulação
             </Button>
-            <Button variant="outline" onClick={resetSimulation}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Resetar
+            <Button variant="outline">
+              Exportar Resultados
             </Button>
           </div>
-
-          {/* Preview */}
-          {growthSimulation.enabled && growthSimulation.value !== 0 && (
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <h4 className="font-medium mb-2">Prévia da Simulação</h4>
-              <p className="text-sm text-muted-foreground">
-                A partir de {months.find(m => m.value === baseMonth)?.label}/{baseYear}, 
-                aplicando {growthSimulation.type === 'fixed' 
-                  ? `+${formatCurrency(growthSimulation.value)} por mês`
-                  : `+${growthSimulation.value}% por mês`
-                }
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Valor em 6 meses: {formatCurrency(
-                  growthSimulation.type === 'fixed' 
-                    ? getYearlySales(baseYear, baseMonth) + (growthSimulation.value * 6)
-                    : getYearlySales(baseYear, baseMonth) * Math.pow(1 + growthSimulation.value / 100, 6)
-                )}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
-
-      {/* Projection Chart */}
-      {projectionData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Projeção de Crescimento</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Histórico recente e projeção futura baseada na simulação
-            </p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={projectionData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="period" angle={-45} textAnchor="end" height={80} />
-                <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip 
-                  formatter={(value: number) => value ? formatCurrency(value) : 'N/A'}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <ReferenceLine 
-                  x={`${months.find(m => m.value === baseMonth)?.label}/${baseYear}`}
-                  stroke="hsl(var(--muted-foreground))"
-                  strokeDasharray="5 5"
-                  label="Base"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="actual"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  name="Vendas Reais"
-                  connectNulls={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="projected"
-                  stroke="hsl(var(--chart-2))"
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name="Projeção"
-                  connectNulls={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

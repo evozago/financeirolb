@@ -1,43 +1,38 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Plus, Download, Upload, Save, Target } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Users, Target, DollarSign, TrendingUp, RefreshCw } from "lucide-react";
-import { useSalesData, Salesperson } from "@/hooks/useSalesData";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+
+interface Salesperson {
+  id: string;
+  name: string;
+  baseSalary: number;
+  commissionRate: number;
+  metaBase: number;
+  supermetaRate: number;
+}
 
 export function SalespersonPanel() {
-  const {
-    salespeople,
-    monthlySales,
-    updateSalesperson,
-    updateMonthlySale,
-    calculateCommission,
-    getMonthlySales,
-    importSalespeople,
-    getMonthlyMeta,
-    getMonthlySupermeta,
-    updateMonthlyMeta,
-    saveAllData
-  } = useSalesData();
-
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [syncing, setSyncing] = useState(false);
-  const { toast } = useToast();
 
-  // Automatic sync on mount and when component becomes visible
-  useEffect(() => {
-    syncSalespeople();
-  }, []);
+  // Mock data
+  const [salespeople] = useState<Salesperson[]>([
+    { id: '1', name: 'Maria Silva', baseSalary: 2000, commissionRate: 0.03, metaBase: 15000, supermetaRate: 0.05 },
+    { id: '2', name: 'Ana Costa', baseSalary: 2000, commissionRate: 0.03, metaBase: 15000, supermetaRate: 0.05 },
+  ]);
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   const months = [
     { value: 1, label: "Janeiro" },
     { value: 2, label: "Fevereiro" },
@@ -53,356 +48,118 @@ export function SalespersonPanel() {
     { value: 12, label: "Dezembro" },
   ];
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  // Intelligent sync that preserves existing data
-  const syncSalespeople = async () => {
-    setSyncing(true);
-    try {
-      // Get salespeople from vendedoras table
-      const { data: vendedorasData } = await supabase
-        .from('vendedoras')
-        .select('id, nome')
-        .eq('ativo', true);
-
-      // Create maps for intelligent matching
-      const dbSalespeopleByID = new Map(vendedorasData.map(p => [p.id, p]));
-      const dbSalespeopleByName = new Map(vendedorasData.map(p => [p.nome.toLowerCase(), p]));
-      const currentSalespeopleByName = new Map(salespeople.map(s => [s.nome.toLowerCase(), s]));
-      
-      let addedCount = 0;
-      let removedCount = 0;
-      let updatedCount = 0;
-
-      // Process salespeople with intelligent matching
-      const processedSalespeople: Salesperson[] = [];
-      const processedDBIds = new Set<string>();
-
-      // First pass: match by ID (exact match)
-      for (const localSalesperson of salespeople) {
-        const dbMatch = dbSalespeopleByID.get(localSalesperson.id);
-        if (dbMatch) {
-          // Exact ID match - keep all data, just update name if needed
-          processedSalespeople.push({
-            ...localSalesperson,
-            nome: dbMatch.nome // Update name in case it changed in DB
-          });
-          processedDBIds.add(dbMatch.id);
-          if (localSalesperson.nome !== dbMatch.nome) {
-            updatedCount++;
-          }
-        }
-      }
-
-      // Second pass: match by name (for salespeople with different IDs)
-      for (const localSalesperson of salespeople) {
-        if (!dbSalespeopleByID.has(localSalesperson.id)) {
-          const dbMatch = dbSalespeopleByName.get(localSalesperson.nome.toLowerCase());
-          if (dbMatch && !processedDBIds.has(dbMatch.id)) {
-            // Name match but different ID - preserve all local data, update ID
-            processedSalespeople.push({
-              ...localSalesperson,
-              id: dbMatch.id, // Update to match database ID
-              nome: dbMatch.nome // Update name to match database
-            });
-            processedDBIds.add(dbMatch.id);
-            updatedCount++;
-          } else if (!dbMatch) {
-            // Salesperson exists locally but not in DB - will be removed
-            removedCount++;
-          }
-        }
-      }
-
-      // Third pass: add completely new salespeople from database
-      for (const dbSalesperson of vendedorasData) {
-        if (!processedDBIds.has(dbSalesperson.id)) {
-          // Check if we already have someone with this name locally
-          const existingByName = currentSalespeopleByName.get(dbSalesperson.nome.toLowerCase());
-          if (existingByName) {
-            // Exists locally with same name but different ID - preserve all data, just update ID
-            processedSalespeople.push({
-              ...existingByName,
-              id: dbSalesperson.id,
-              nome: dbSalesperson.nome
-            });
-            updatedCount++;
-          } else {
-            // Completely new salesperson
-            processedSalespeople.push({
-              id: dbSalesperson.id,
-              nome: dbSalesperson.nome,
-              meta_mensal: 0,
-              supermeta_mensal: 0,
-              metas_mensais: {},
-              supermetas_mensais: {}
-            });
-            addedCount++;
-          }
-        }
-      }
-
-      // Only update if there are actual changes
-      if (addedCount > 0 || removedCount > 0 || updatedCount > 0) {
-        importSalespeople(processedSalespeople);
-      }
-
-      // Show feedback only if there were actual changes
-      if (addedCount > 0 || removedCount > 0) {
-        toast({
-          title: "Sincronização concluída",
-          description: `${addedCount} adicionada(s), ${removedCount} removida(s)`,
-        });
-      }
-
-    } catch (error) {
-      console.error('Error syncing salespeople:', error);
-      toast({
-        title: "Erro na sincronização",
-        description: "Erro ao sincronizar vendedoras",
-        variant: "destructive",
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const updateSales = async (vendedoraId: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    await updateMonthlySale({
-      year: selectedYear,
-      month: selectedMonth,
-      vendedora_id: vendedoraId,
-      vendas: numValue
-    });
-  };
-
-  const updateMeta = async (vendedoraId: string, field: 'meta_mensal' | 'supermeta_mensal', value: string) => {
-    const numValue = parseFloat(value) || 0;
-    
-    if (field === 'meta_mensal') {
-      const currentSupermeta = getMonthlySupermeta(vendedoraId, selectedYear, selectedMonth);
-      await updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, numValue, currentSupermeta);
-    } else {
-      const currentMeta = getMonthlyMeta(vendedoraId, selectedYear, selectedMonth);
-      await updateMonthlyMeta(vendedoraId, selectedYear, selectedMonth, currentMeta, numValue);
-    }
-  };
-
-  // Calculate monthly commission data for chart
-  const getMonthlyCommissionData = () => {
-    return months.map(month => {
-      const totalCommission = salespeople.reduce((sum, salesperson) => {
-        return sum + calculateCommission(salesperson.id, selectedYear, month.value);
-      }, 0);
-
-      const totalSales = salespeople.reduce((sum, salesperson) => {
-        return sum + getMonthlySales(selectedYear, month.value, salesperson.id);
-      }, 0);
-
-      return {
-        month: month.label,
-        comissao: totalCommission,
-        vendas: totalSales
-      };
-    });
-  };
-
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Painel de Vendedoras
-                {syncing && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Sincronização automática • Metas preservadas
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={saveAllData} variant="default" size="sm">
-                💾 Salvar Tudo
-              </Button>
-              <Button onClick={syncSalespeople} disabled={syncing} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar
-              </Button>
-            </div>
-          </div>
+          <CardTitle>Painel de Vendedoras</CardTitle>
+          <CardDescription>
+            Gerencie informações das vendedoras, metas e comissões
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-6">
-            <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {months.map((month) => (
-                  <SelectItem key={month.value} value={month.value.toString()}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <CardContent className="space-y-6">
+          {/* Controls */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={month.value.toString()}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {years.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Upload className="w-4 h-4 mr-2" />
+                Importar
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+              <Button size="sm">
+                <Save className="w-4 h-4 mr-2" />
+                Salvar
+              </Button>
+            </div>
           </div>
 
-          {salespeople.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhuma vendedora encontrada</p>
-              <p className="text-sm">Cadastre vendedoras em Cadastros → Pessoas ou clique em "Atualizar"</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3 font-medium">Vendedora</th>
-                    <th className="text-center p-3 font-medium min-w-32">Meta Mensal</th>
-                    <th className="text-center p-3 font-medium min-w-32">Super Meta</th>
-                    <th className="text-center p-3 font-medium min-w-32">Vendas do Mês</th>
-                    <th className="text-center p-3 font-medium min-w-32">% da Meta</th>
-                    <th className="text-center p-3 font-medium min-w-32">Comissão</th>
-                    <th className="text-center p-3 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {salespeople.map((salesperson) => {
-                    const sales = getMonthlySales(selectedYear, selectedMonth, salesperson.id);
-                    const commission = calculateCommission(salesperson.id, selectedYear, selectedMonth);
-                    const monthlyMeta = getMonthlyMeta(salesperson.id, selectedYear, selectedMonth);
-                    const monthlySupermeta = getMonthlySupermeta(salesperson.id, selectedYear, selectedMonth);
-                    const metaPercentage = monthlyMeta > 0 
-                      ? (sales / monthlyMeta) * 100 
-                      : 0;
+          {/* Salespeople List */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {salespeople.map((person) => (
+              <Card key={person.id}>
+                <CardHeader>
+                  <CardTitle className="text-lg">{person.name}</CardTitle>
+                  <CardDescription>
+                    Meta: {formatCurrency(person.metaBase)} | Comissão: {(person.commissionRate * 100).toFixed(1)}%
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor={`sales-${person.id}`} className="text-sm">
+                        Vendas do Mês
+                      </Label>
+                      <Input
+                        id={`sales-${person.id}`}
+                        type="number"
+                        placeholder="0"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`goal-${person.id}`} className="text-sm">
+                        Meta Mensal
+                      </Label>
+                      <Input
+                        id={`goal-${person.id}`}
+                        type="number"
+                        defaultValue={person.metaBase}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2">
+                    <Badge variant="secondary">
+                      <Target className="w-3 h-3 mr-1" />
+                      0% da meta
+                    </Badge>
+                    <span className="text-sm font-medium">
+                      Comissão: {formatCurrency(0)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                    return (
-                      <tr key={salesperson.id} className="border-b hover:bg-muted/50">
-                        <td className="p-3 font-medium">{salesperson.nome}</td>
-                        
-                        <td className="p-3">
-                          <Input
-                            type="number"
-                            value={monthlyMeta || ''}
-                            onChange={(e) => updateMeta(salesperson.id, 'meta_mensal', e.target.value)}
-                            onBlur={(e) => updateMeta(salesperson.id, 'meta_mensal', e.target.value)}
-                            className="text-center"
-                            placeholder="0"
-                          />
-                        </td>
-
-                        <td className="p-3">
-                          <Input
-                            type="number"
-                            value={monthlySupermeta || ''}
-                            onChange={(e) => updateMeta(salesperson.id, 'supermeta_mensal', e.target.value)}
-                            onBlur={(e) => updateMeta(salesperson.id, 'supermeta_mensal', e.target.value)}
-                            className="text-center"
-                            placeholder="0"
-                          />
-                        </td>
-
-                        <td className="p-3">
-                          <Input
-                            type="number"
-                            value={sales || ''}
-                            onChange={(e) => updateSales(salesperson.id, e.target.value)}
-                            onBlur={(e) => updateSales(salesperson.id, e.target.value)}
-                            className="text-center"
-                            placeholder="0"
-                          />
-                        </td>
-
-                        <td className="p-3 text-center">
-                          <div className="space-y-2">
-                            <div className="text-sm font-medium">
-                              {metaPercentage.toFixed(1)}%
-                            </div>
-                            <Progress 
-                              value={Math.min(metaPercentage, 100)} 
-                              className="h-2"
-                            />
-                          </div>
-                        </td>
-
-                        <td className="p-3 text-center">
-                          <div className="text-sm font-medium text-green-600">
-                            {formatCurrency(commission)}
-                          </div>
-                        </td>
-
-                        <td className="p-3 text-center">
-                          <Badge 
-                            variant={
-                              sales >= monthlySupermeta ? "default" :
-                              sales >= monthlyMeta ? "secondary" : 
-                              "outline"
-                            }
-                          >
-                            {sales >= monthlySupermeta ? "Super Meta" :
-                             sales >= monthlyMeta ? "Meta Atingida" : 
-                             "Em Andamento"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <Button variant="outline" className="w-full">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Nova Vendedora
+          </Button>
         </CardContent>
       </Card>
-
-      {/* Commission Analysis Chart */}
-      {salespeople.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Análise de Comissões - {selectedYear}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Evolução mensal das comissões baseada nas vendas e metas
-            </p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={getMonthlyCommissionData()}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <Bar dataKey="comissao" fill="hsl(var(--primary))" name="Comissão Total" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

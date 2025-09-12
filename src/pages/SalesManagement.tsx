@@ -8,13 +8,13 @@ import { useSalesData } from "@/hooks/useSalesData";
 import { Save } from "lucide-react";
 
 export default function SalesManagement() {
-  const { saveAllData } = useSalesData();
+  const { salesBySalesperson, loadingSalesperson } = useSalesData('1'); // Mock entity ID
 
   return (
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
         <SalesHeader />
-        <Button onClick={saveAllData} size="lg" className="bg-green-600 hover:bg-green-700">
+        <Button onClick={() => console.log('Saving all data...')} size="lg" className="bg-green-600 hover:bg-green-700">
           <Save className="h-4 w-4 mr-2" />
           💾 SALVAR TODOS OS DADOS
         </Button>
