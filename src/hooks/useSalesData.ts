@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../integrations/supabase/client'; // Caminho corrigido
-import { Sale, SalespersonGoal } from '../types/payables'; // Caminho corrigido
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { toast } from '@/components/ui/use-toast';
 
-// Definições de tipo para os novos dados
-export interface MonthlyStoreSale {
+// Tipos de dados para as tabelas
+export interface YearlySale {
   id?: string;
   entity_id: string;
   year: number;
@@ -11,159 +12,204 @@ export interface MonthlyStoreSale {
   total_sales: number;
 }
 
-export interface SalespersonMonthlyGoal {
+export interface SalespersonGoal {
   id?: string;
   salesperson_id: string;
   entity_id: string;
   year: number;
   month: number;
   goal_amount: number;
-  achieved_amount?: number; // O valor realizado pode vir de outra consulta
-  salesperson_name?: string;
 }
 
-export function useSalesData(entityId: string | null) {
-  // ... (código existente, se houver, permanece)
-  const [salesBySalesperson, setSalesBySalesperson] = useState<any[]>([]);
-  const [loadingSalesperson, setLoadingSalesperson] = useState(false);
+// Estrutura de dados que os componentes irão usar
+export interface YearlyComparisonData {
+  month: number;
+  monthName: string;
+  years: { [year: number]: number | string };
+}
 
-  const fetchSalesBySalesperson = useCallback(async () => {
-    // ... (código existente, se houver, permanece)
-  }, [entityId]);
+export interface SalespersonPanelData {
+  salesperson_id: string;
+  salesperson_name: string;
+  monthly_goals: { [month: number]: number | string };
+}
 
-  useEffect(() => {
-    if (entityId) {
-      // ... (chamadas existentes, se houver, permanecem)
-      fetchSalesBySalesperson();
-    }
-  }, [entityId, fetchSalesBySalesperson]);
+const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+export function useSalesData() {
+  const { primaryEntity } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  // --- NOVAS FUNÇÕES PARA PERSISTÊNCIA ---
+  // Estado para a tabela de Comparativo Anual
+  const [yearlyData, setYearlyData] = useState<YearlyComparisonData[]>([]);
+  
+  // Estado para o painel de Vendedoras
+  const [salespersonData, setSalespersonData] = useState<SalespersonPanelData[]>([]);
 
-  const fetchStoreMonthlySales = useCallback(async (year: number) => {
-    if (!entityId) return [];
+  const fetchAllData = useCallback(async () => {
+    if (!primaryEntity) {
+      setLoading(false);
+      return;
+    };
+    setLoading(true);
+
     try {
-      const { data, error } = await supabase
+      // --- Fetch para Comparativo Anual ---
+      const yearsToFetch = [currentYear, currentYear - 1, currentYear - 2];
+      const { data: yearlySales, error: yearlyError } = await supabase
         .from('store_monthly_sales')
         .select('*')
-        .eq('entity_id', entityId)
-        .eq('year', year);
+        .eq('entity_id', primaryEntity.id)
+        .in('year', yearsToFetch);
+      if (yearlyError) throw yearlyError;
 
-      if (error) throw error;
-      
-      // Preenche os meses que não têm dados
-      const monthlyData = Array.from({ length: 12 }, (_, i) => {
-        const month = i + 1;
-        const existing = data.find(d => d.month === month);
-        return existing || { entity_id: entityId, year, month, total_sales: 0 };
-      });
-      return monthlyData;
-
-    } catch (error) {
-      console.error('Error fetching store monthly sales:', error);
-      return [];
-    }
-  }, [entityId]);
-
-  const saveStoreMonthlySale = useCallback(async (sale: MonthlyStoreSale) => {
-    if (!entityId) return;
-    try {
-        const recordToUpsert = {
-            entity_id: sale.entity_id,
-            year: sale.year,
-            month: sale.month,
-            total_sales: sale.total_sales
+      const formattedYearlyData = months.map((monthName, index) => {
+        const month = index + 1;
+        const data: YearlyComparisonData = {
+          month,
+          monthName,
+          years: {},
         };
+        yearsToFetch.forEach(year => {
+          const sale = yearlySales.find(s => s.year === year && s.month === month);
+          data.years[year] = sale ? sale.total_sales : '';
+        });
+        return data;
+      });
+      setYearlyData(formattedYearlyData);
 
-      const { error } = await supabase
-        .from('store_monthly_sales')
-        .upsert(recordToUpsert, { onConflict: 'entity_id, year, month' });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error saving store monthly sale:', error);
-    }
-  }, [entityId]);
-
-  const fetchSalespersonGoals = useCallback(async (year: number) => {
-    if (!entityId) return [];
-    try {
-      // 1. Busca todos os vendedores (pessoas)
+      // --- Fetch para Metas das Vendedoras ---
       const { data: people, error: peopleError } = await supabase
         .from('pessoas')
         .select('id, nome_razao_social')
-        .eq('tipo_pessoa', 'Vendedor'); // ou qualquer que seja o seu filtro para vendedores
-
+        .eq('tipo_pessoa', 'Vendedor'); // Ajuste se o filtro for diferente
       if (peopleError) throw peopleError;
 
-      // 2. Busca as metas já existentes para o ano
       const { data: goals, error: goalsError } = await supabase
         .from('sales_goals')
         .select('*')
-        .eq('entity_id', entityId)
-        .eq('year', year);
-
+        .eq('entity_id', primaryEntity.id)
+        .eq('year', currentYear);
       if (goalsError) throw goalsError;
-      
-      // 3. Combina os dados
-      const combinedData = people.map(person => {
-        const monthlyGoals = Array.from({ length: 12 }, (_, i) => {
-          const month = i + 1;
-          const goalRecord = goals.find(g => g.salesperson_id === person.id && g.month === month);
-          return {
-            month,
-            goal_amount: goalRecord ? goalRecord.goal_amount : 0
-          };
-        });
 
-        return {
+      const formattedSalespersonData = people.map(person => {
+        const personGoals: SalespersonPanelData = {
           salesperson_id: person.id,
           salesperson_name: person.nome_razao_social,
-          year,
-          entity_id: entityId,
-          monthly_goals: monthlyGoals
+          monthly_goals: {},
         };
+        months.forEach((_, index) => {
+          const month = index + 1;
+          const goal = goals.find(g => g.salesperson_id === person.id && g.month === month);
+          personGoals.monthly_goals[month] = goal ? goal.goal_amount : '';
+        });
+        return personGoals;
+      });
+      setSalespersonData(formattedSalespersonData);
+
+    } catch (error) {
+      console.error('Error fetching sales data:', error);
+      toast({ title: "Erro ao buscar dados", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [primaryEntity, currentYear]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  // Funções para atualizar o estado localmente
+  const updateYearlySale = (month: number, year: number, value: string) => {
+    setYearlyData(prevData =>
+      prevData.map(row =>
+        row.month === month
+          ? { ...row, years: { ...row.years, [year]: value } }
+          : row
+      )
+    );
+  };
+
+  const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
+    setSalespersonData(prevData =>
+      prevData.map(person =>
+        person.salesperson_id === salesperson_id
+          ? { ...person, monthly_goals: { ...person.monthly_goals, [month]: value } }
+          : person
+      )
+    );
+  };
+
+  const saveAllData = async () => {
+    if (!primaryEntity) return;
+    setLoading(true);
+
+    try {
+      // --- Preparar e salvar dados do Comparativo Anual ---
+      const yearlySalesToUpsert: YearlySale[] = [];
+      yearlyData.forEach(row => {
+        Object.entries(row.years).forEach(([year, total_sales]) => {
+          if (total_sales !== '' && total_sales !== null && !isNaN(parseFloat(String(total_sales)))) {
+            yearlySalesToUpsert.push({
+              entity_id: primaryEntity.id,
+              year: parseInt(year),
+              month: row.month,
+              total_sales: parseFloat(String(total_sales)),
+            });
+          }
+        });
       });
 
-      return combinedData;
+      if (yearlySalesToUpsert.length > 0) {
+        const { error: yearlyError } = await supabase
+          .from('store_monthly_sales')
+          .upsert(yearlySalesToUpsert, { onConflict: 'entity_id, year, month' });
+        if (yearlyError) throw yearlyError;
+      }
 
+      // --- Preparar e salvar dados das Metas das Vendedoras ---
+      const salespersonGoalsToUpsert: SalespersonGoal[] = [];
+      salespersonData.forEach(person => {
+        Object.entries(person.monthly_goals).forEach(([month, goal_amount]) => {
+          if (goal_amount !== '' && goal_amount !== null && !isNaN(parseFloat(String(goal_amount)))) {
+            salespersonGoalsToUpsert.push({
+              entity_id: primaryEntity.id,
+              salesperson_id: person.salesperson_id,
+              year: currentYear,
+              month: parseInt(month),
+              goal_amount: parseFloat(String(goal_amount)),
+            });
+          }
+        });
+      });
+      
+      if (salespersonGoalsToUpsert.length > 0) {
+        const { error: goalsError } = await supabase
+          .from('sales_goals')
+          .upsert(salespersonGoalsToUpsert, { onConflict: 'salesperson_id, entity_id, year, month' });
+        if (goalsError) throw goalsError;
+      }
+
+      toast({ title: "Sucesso!", description: "Todos os dados de vendas foram salvos." });
+      
     } catch (error) {
-      console.error('Error fetching salesperson goals:', error);
-      return [];
+      console.error('Error saving all data:', error);
+      toast({ title: "Erro ao salvar", description: (error as Error).message, variant: "destructive" });
+    } finally {
+        setLoading(false);
     }
-  }, [entityId]);
-  
-  const saveSalespersonGoal = useCallback(async (goal: {entity_id: string, salesperson_id: string, year: number, month: number, goal_amount: number}) => {
-    if (!entityId) return;
-     try {
-        const recordToUpsert = {
-            entity_id: goal.entity_id,
-            salesperson_id: goal.salesperson_id,
-            year: goal.year,
-            month: goal.month,
-            goal_amount: goal.goal_amount
-        };
-
-      const { error } = await supabase
-        .from('sales_goals')
-        .upsert(recordToUpsert, { onConflict: 'salesperson_id, entity_id, year, month' });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error saving salesperson goal:', error);
-    }
-  }, [entityId]);
-
+  };
 
   return {
-    // ... retornos existentes ...
-    salesBySalesperson,
-    loadingSalesperson,
-    // --- NOVOS RETORNOS ---
-    fetchStoreMonthlySales,
-    saveStoreMonthlySale,
-    fetchSalespersonGoals,
-    saveSalespersonGoal
+    loading,
+    currentYear,
+    setCurrentYear,
+    yearlyData,
+    updateYearlySale,
+    salespersonData,
+    updateSalespersonGoal,
+    saveAllData,
   };
 }
 
