@@ -14,7 +14,11 @@ export default function SalesManagement() {
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
         <SalesHeader />
-        <Button onClick={() => console.log('Saving all data...')} size="lg" className="bg-green-600 hover:bg-green-700">
+        <Button onClick={() => {
+          // Trigger save in all components
+          window.dispatchEvent(new CustomEvent('saveAllSalesData'));
+          console.log('Saving all sales management data...');
+        }} size="lg" className="bg-green-600 hover:bg-green-700">
           <Save className="h-4 w-4 mr-2" />
           💾 SALVAR TODOS OS DADOS
         </Button>

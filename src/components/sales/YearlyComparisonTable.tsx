@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Minus, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { TrendingUp, TrendingDown, Minus, Save, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 interface YearlyData {
   year: number;
@@ -16,9 +19,11 @@ interface YearlyData {
 
 export function YearlyComparisonTable() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [newYear, setNewYear] = useState(new Date().getFullYear() + 1);
+  const [isAddYearOpen, setIsAddYearOpen] = useState(false);
   
-  // Mock data
-  const [yearlyData] = useState<YearlyData[]>([
+  // Editable data
+  const [yearlyData, setYearlyData] = useState<YearlyData[]>([
     {
       year: 2024,
       months: [45000, 52000, 48000, 55000, 60000, 58000, 62000, 59000, 61000, 65000, 68000, 70000],
@@ -38,6 +43,60 @@ export function YearlyComparisonTable() {
       growth: -2.1
     }
   ]);
+
+  // Calculate growth and totals
+  const calculateMetrics = (data: YearlyData[]) => {
+    return data.map((yearData, index) => {
+      const total = yearData.months.reduce((sum, month) => sum + month, 0);
+      let growth = 0;
+      
+      if (index < data.length - 1) {
+        const prevYear = data[index + 1];
+        const prevTotal = prevYear.months.reduce((sum, month) => sum + month, 0);
+        growth = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
+      }
+      
+      return { ...yearData, total, growth };
+    });
+  };
+
+  const updateMonthValue = (year: number, monthIndex: number, value: number) => {
+    setYearlyData(prev => {
+      const updated = prev.map(data => 
+        data.year === year 
+          ? { ...data, months: data.months.map((m, i) => i === monthIndex ? value : m) }
+          : data
+      );
+      return calculateMetrics(updated);
+    });
+  };
+
+  const addNewYear = () => {
+    if (yearlyData.some(data => data.year === newYear)) {
+      toast.error("Ano já existe!");
+      return;
+    }
+    
+    const newYearData: YearlyData = {
+      year: newYear,
+      months: Array(12).fill(0),
+      total: 0,
+      growth: 0
+    };
+    
+    setYearlyData(prev => {
+      const updated = [newYearData, ...prev].sort((a, b) => b.year - a.year);
+      return calculateMetrics(updated);
+    });
+    
+    setIsAddYearOpen(false);
+    toast.success(`Ano ${newYear} adicionado com sucesso!`);
+  };
+
+  const saveChanges = () => {
+    // Here you would save to database
+    toast.success("Alterações salvas com sucesso!");
+  };
 
   const months = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -77,20 +136,56 @@ export function YearlyComparisonTable() {
         <CardContent className="space-y-6">
           {/* Controls */}
           <div className="flex justify-between items-center">
-            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {yearlyData.map((data) => (
-                  <SelectItem key={data.year} value={data.year.toString()}>
-                    {data.year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearlyData.map((data) => (
+                    <SelectItem key={data.year} value={data.year.toString()}>
+                      {data.year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Dialog open={isAddYearOpen} onOpenChange={setIsAddYearOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Ano
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Novo Ano</DialogTitle>
+                    <DialogDescription>
+                      Adicione um novo ano para comparação de vendas
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="new-year">Ano</Label>
+                      <Input
+                        id="new-year"
+                        type="number"
+                        value={newYear}
+                        onChange={(e) => setNewYear(parseInt(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddYearOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={addNewYear}>Adicionar</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             
-            <Button size="sm">
+            <Button size="sm" onClick={saveChanges}>
               <Save className="w-4 h-4 mr-2" />
               Salvar Alterações
             </Button>
@@ -145,7 +240,8 @@ export function YearlyComparisonTable() {
                         <TableCell className="text-right">
                           <Input
                             type="number"
-                            defaultValue={value}
+                            value={value}
+                            onChange={(e) => updateMonthValue(selectedYear, index, parseInt(e.target.value) || 0)}
                             className="text-right w-32 ml-auto"
                           />
                         </TableCell>
