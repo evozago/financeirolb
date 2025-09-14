@@ -137,7 +137,7 @@ export default function SalespersonPerformance() {
       goalsData?.forEach(goal => {
         performanceByVendedora.set(goal.vendedora_id, {
           vendedora_id: goal.vendedora_id,
-          vendedora_nome: goal.vendedoras.nome,
+          vendedora_nome: (goal.vendedoras as any)?.nome || '',
           vendas_periodo: 0,
           meta_periodo: goal.meta_valor,
           percentual_meta: 0,
@@ -152,7 +152,7 @@ export default function SalespersonPerformance() {
       salesData?.forEach(sale => {
         const current = performanceByVendedora.get(sale.vendedora_id) || {
           vendedora_id: sale.vendedora_id,
-          vendedora_nome: sale.vendedoras.nome,
+          vendedora_nome: (sale.vendedoras as any)?.nome || '',
           vendas_periodo: 0,
           meta_periodo: 0,
           percentual_meta: 0,

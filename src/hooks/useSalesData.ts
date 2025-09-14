@@ -53,13 +53,14 @@ export function useSalesData(entityId: string | null) {
   const fetchStoreMonthlySales = useCallback(async (year: number) => {
     if (!entityId) return [];
     try {
-      // Mock data for demo - replace with real database query when tables exist
-      const monthlyData = Array.from({ length: 12 }, (_, i) => {
-        const month = i + 1;
-        return { entity_id: entityId, year, month, total_sales: Math.floor(Math.random() * 50000) + 10000 };
-      });
-      return monthlyData;
-
+      const { data, error } = await supabase
+        .from('store_monthly_sales')
+        .select('*')
+        .eq('entity_id', entityId)
+        .eq('year', year);
+      
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('Error fetching store monthly sales:', error);
       return [];
@@ -69,8 +70,16 @@ export function useSalesData(entityId: string | null) {
   const saveStoreMonthlySale = useCallback(async (sale: MonthlyStoreSale) => {
     if (!entityId) return;
     try {
-        // Mock save for demo - replace with real database save when tables exist
-        console.log('Saving store monthly sale:', sale);
+      const { error } = await supabase
+        .from('store_monthly_sales')
+        .upsert({
+          entity_id: sale.entity_id,
+          year: sale.year,
+          month: sale.month,
+          total_sales: sale.total_sales
+        });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Error saving store monthly sale:', error);
     }
@@ -114,8 +123,17 @@ export function useSalesData(entityId: string | null) {
   const saveSalespersonGoal = useCallback(async (goal: {entity_id: string, salesperson_id: string, year: number, month: number, goal_amount: number}) => {
     if (!entityId) return;
     try {
-        // Mock save for demo - replace with real database save when tables exist
-        console.log('Saving salesperson goal:', goal);
+      const { error } = await supabase
+        .from('sales_goals')
+        .upsert({
+          entity_id: goal.entity_id,
+          salesperson_id: goal.salesperson_id,
+          year: goal.year,
+          month: goal.month,
+          goal_amount: goal.goal_amount
+        });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Error saving salesperson goal:', error);
     }

@@ -60,8 +60,8 @@ export function ImportExportModal({ onImportSuccess }: ImportExportModalProps) {
         'Status': item.status,
         'Observações': item.observacoes || '',
         'Número Pedido': item.numero_pedido || '',
-        'Fornecedor': item.fornecedores?.nome || '',
-        'Marca': item.marcas?.nome || ''
+        'Fornecedor': (item.fornecedores as any)?.nome || '',
+        'Marca': (item.marcas as any)?.nome || ''
       })) || [];
 
       // Converter para CSV
