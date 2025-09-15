@@ -1,8 +1,3 @@
-# Create the requested SQL file as a complete, ready-to-run patch
-from pathlib import Path
-from textwrap import dedent
-
-sql = dedent("""\
 -- =====================================================
 -- patch_entidades_fornecedores.sql
 -- Patching canônico: garantir estrutura de ENTIDADES e
@@ -86,8 +81,3 @@ end$$;
 -- select * from public.entidades order by nome limit 50;
 -- select lower(email) as email, count(*) c from public.entidades where email is not null group by lower(email) having count(*)>1;
 -- select lower(cnpj_cpf) as doc, count(*) c from public.entidades where cnpj_cpf is not null group by lower(cnpj_cpf) having count(*)>1;
-""")
-
-path = Path("/mnt/data/patch_entidades_fornecedores.sql")
-path.write_text(sql, encoding="utf-8")
-print("Arquivo criado:", path)
