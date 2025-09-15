@@ -3499,40 +3499,16 @@ export type Database = {
       }
       vendedoras_view: {
         Row: {
-          ativo: boolean | null
-          comissao_padrao: number | null
-          comissao_supermeta: number | null
-          created_at: string | null
-          email: string | null
           id: string | null
-          meta_mensal: number | null
           nome: string | null
-          telefone: string | null
-          updated_at: string | null
         }
         Insert: {
-          ativo?: boolean | null
-          comissao_padrao?: never
-          comissao_supermeta?: never
-          created_at?: string | null
-          email?: string | null
           id?: string | null
-          meta_mensal?: never
           nome?: string | null
-          telefone?: string | null
-          updated_at?: string | null
         }
         Update: {
-          ativo?: boolean | null
-          comissao_padrao?: never
-          comissao_supermeta?: never
-          created_at?: string | null
-          email?: string | null
           id?: string | null
-          meta_mensal?: never
           nome?: string | null
-          telefone?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -3835,7 +3811,9 @@ export type Database = {
         Returns: Json
       }
       get_expenses_by_category: {
-        Args: Record<PropertyKey, never>
+        Args:
+          | Record<PropertyKey, never>
+          | { p_end_date?: string; p_start_date?: string }
         Returns: {
           categoria: string
           count_items: number
