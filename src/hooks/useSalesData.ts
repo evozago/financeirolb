@@ -1,10 +1,14 @@
-// ARQUIVO COMPLETO — substitua integralmente.
-// Fallback automático de entidade: se não houver primaryEntity no contexto
-// e existir exatamente 1 entidade corporativa, usa-a para ler/salvar.
-
+// src/hooks/useSalesData.ts
+// ARQUIVO COMPLETO — substitua integralmente o existente por este.
+// Objetivo:
+//  - Resolver o aviso "Selecione uma entidade" com fallback automático (quando só há 1 entidade).
+/*
+// Como funciona o fallback:
+//  - Se o contexto não tiver primaryEntity selecionada, o hook consulta 'entidades_corporativas'.
+//  - Se encontrar exatamente 1 entidade, usa essa como 'effectiveEntityId' para ler/salvar.
+//  - Se houver 0 ou mais de 1, mantém a exigência de seleção manual (UI deve mostrar aviso).
+*/
 import { useState, useEffect, useCallback, useMemo } from 'react';
-// ATENÇÃO: ajuste o import abaixo conforme seu projeto.
-// Se o seu caminho for "@/src/integrations/supabase/client", troque:
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from '@/components/ui/use-toast';
@@ -39,13 +43,16 @@ export type SalespersonPanelData = {
 const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
 async function getSingleDefaultEntityId(): Promise<string | null> {
-  // Tenta nas entidades_corporativas (usadas pela UI). Se não existir, tenta entidades.
-  const tryTables = ['entidades_corporativas', 'entidades'];
-  for (const tbl of tryTables) {
-    const { data, error } = await supabase.from(tbl).select('id').order('created_at', { ascending: true });
-    if (!error && data && data.length === 1) return (data[0] as any).id as string;
+  const { data, error } = await supabase
+    .from('entidades_corporativas')
+    .select('id')
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('Erro ao buscar entidades_corporativas:', error.message);
+    return null;
   }
-  return null;
+  if (!data || data.length !== 1) return null;
+  return data[0].id as string;
 }
 
 export function useSalesData() {
@@ -54,11 +61,13 @@ export function useSalesData() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [effectiveEntityId, setEffectiveEntityId] = useState<string | null>(null);
 
+  // Dados para as duas grades
   const [yearlyData, setYearlyData] = useState<YearlyComparisonData[]>([]);
   const [salespersonData, setSalespersonData] = useState<SalespersonPanelData[]>([]);
 
+  // Determina a entidade efetiva (contexto OU fallback automático)
   const computeEffectiveEntity = useCallback(async () => {
-    const ctxId = (primaryEntity as any)?.id ?? null;
+    const ctxId = primaryEntity?.id ?? null;
     if (ctxId) {
       setEffectiveEntityId(ctxId);
       return ctxId;
@@ -66,7 +75,7 @@ export function useSalesData() {
     const fallbackId = await getSingleDefaultEntityId();
     setEffectiveEntityId(fallbackId);
     return fallbackId;
-  }, [(primaryEntity as any)?.id]);
+  }, [primaryEntity?.id]);
 
   const hasEntity = useMemo(() => !!effectiveEntityId, [effectiveEntityId]);
 
@@ -84,7 +93,7 @@ export function useSalesData() {
         return;
       }
 
-      // 1) Comparativo Anual
+      // --- 1) Comparativo Anual (tabela esquerda) ---
       const yearsToFetch = [currentYear, currentYear - 1, currentYear - 2];
       const { data: yearlySales, error: yearlyErr } = await supabase
         .from('store_monthly_sales')
@@ -97,14 +106,14 @@ export function useSalesData() {
         const month = idx + 1;
         const row: YearlyComparisonData = { month, monthName: name, years: {} };
         yearsToFetch.forEach((y) => {
-          const hit = (yearlySales ?? []).find((s: any) => s.year === y && s.month === month);
+          const hit = yearlySales?.find((s) => s.year === y && s.month === month);
           row.years[y] = hit ? Number(hit.total_sales) : '';
         });
         return row;
       });
       setYearlyData(formattedYearly);
 
-      // 2) Painel de Vendedoras
+      // --- 2) Painel de Vendedoras (tabela direita) ---
       const { data: vendedoras, error: vendErr } = await supabase
         .from('vendedoras')
         .select('id, nome, ativo')
@@ -120,9 +129,9 @@ export function useSalesData() {
 
       const map = new Map<string, Record<number, number>>();
       for (const m of metas ?? []) {
-        const sid = (m as any).salesperson_id as string;
-        const mm = Number((m as any).month);
-        const val = Number((m as any).goal_amount ?? 0);
+        const sid = m.salesperson_id as string;
+        const mm = Number(m.month);
+        const val = Number(m.goal_amount ?? 0);
         const cur = map.get(sid) ?? {};
         cur[mm] = val;
         map.set(sid, cur);
@@ -142,20 +151,25 @@ export function useSalesData() {
     }
   }, [computeEffectiveEntity, currentYear]);
 
-  useEffect(() => { fetchAllData(); }, [fetchAllData]);
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
+  // Edição local (comparativo anual)
   const updateYearlySale = (month: number, year: number, value: string) => {
     setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value } }) : r));
   };
 
+  // Edição local (metas por vendedora)
   const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
-    setSalespersonData((prev) => prev.map((p) =>
-      p.salesperson_id === salesperson_id ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value } }) : p
-    ));
+    setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
+      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value } })
+      : p));
   };
 
+  // Persistência (UPERT idempotente)
   const saveAllData = async () => {
-    const eid = (primaryEntity as any)?.id ?? effectiveEntityId;
+    const eid = primaryEntity?.id ?? effectiveEntityId;
     if (!eid) {
       toast({ title: 'Selecione a Entidade', description: 'Escolha a entidade/filial e tente novamente.' });
       return;
@@ -183,7 +197,7 @@ export function useSalesData() {
         if (error) throw error;
       }
 
-      -- 2) Metas por vendedora
+      // 2) Metas por vendedora
       const toUpsertGoals: SalespersonGoal[] = [];
       salespersonData.forEach((p) => {
         Object.entries(p.monthly_goals).forEach(([mStr, val]) => {
@@ -220,6 +234,6 @@ export function useSalesData() {
     yearlyData, updateYearlySale,
     salespersonData, updateSalespersonGoal,
     saveAllData,
-    hasEntity,
+    hasEntity, // para a UI saber se temos entidade efetiva
   };
 }
