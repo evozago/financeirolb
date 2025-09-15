@@ -88,24 +88,48 @@ export function useSalesData(entityId: string | null) {
   const fetchSalespersonGoals = useCallback(async (year: number) => {
     if (!entityId) return [];
     try {
-      // Mock data for demo - replace with real database query when tables exist  
-      const mockPeople = [
-        { id: '1', nome_razao_social: 'Maria Silva' },
-        { id: '2', nome_razao_social: 'Ana Costa' },
-      ];
+      // Get real salesperson data from vendedoras_view
+      const { data: salespersonData, error: salespersonError } = await supabase
+        .from('vendedoras_view')
+        .select('id, nome');
+      
+      if (salespersonError) {
+        console.error('Error fetching salesperson data:', salespersonError);
+        return [];
+      }
 
-      const combinedData = mockPeople.map(person => {
+      if (!salespersonData || salespersonData.length === 0) {
+        return [];
+      }
+
+      // Get existing goals for this year and entity
+      const { data: existingGoals, error: goalsError } = await supabase
+        .from('sales_goals')
+        .select('salesperson_id, month, goal_amount')
+        .eq('entity_id', entityId)
+        .eq('year', year);
+
+      if (goalsError) {
+        console.error('Error fetching existing goals:', goalsError);
+      }
+
+      // Combine salesperson data with goals
+      const combinedData = salespersonData.map(person => {
         const monthlyGoals = Array.from({ length: 12 }, (_, i) => {
           const month = i + 1;
+          const existingGoal = existingGoals?.find(
+            g => g.salesperson_id === person.id && g.month === month
+          );
+          
           return {
             month,
-            goal_amount: Math.floor(Math.random() * 20000) + 10000
+            goal_amount: existingGoal?.goal_amount || 0
           };
         });
 
         return {
           salesperson_id: person.id,
-          salesperson_name: person.nome_razao_social,
+          salesperson_name: person.nome,
           year,
           entity_id: entityId,
           monthly_goals: monthlyGoals
