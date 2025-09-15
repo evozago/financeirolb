@@ -1,180 +1,209 @@
 // src/hooks/useSalesData.ts
-// Arquivo COMPLETO — substitua integralmente o existente por este
-// Objetivo: usar TABELAS REAIS do Supabase (store_monthly_sales, sales_goals, vendedoras)
-// e garantir que tudo fique SALVO no banco (nada se perde ao atualizar a página).
-
-import { useState, useEffect, useCallback } from 'react';
+// ARQUIVO COMPLETO — substitua integralmente o existente por este.
+// Objetivo:
+//  - Resolver o aviso "Selecione uma entidade" com fallback automático (quando só há 1 entidade).
+/*
+// Como funciona o fallback:
+//  - Se o contexto não tiver primaryEntity selecionada, o hook consulta 'entidades_corporativas'.
+//  - Se encontrar exatamente 1 entidade, usa essa como 'effectiveEntityId' para ler/salvar.
+//  - Se houver 0 ou mais de 1, mantém a exigência de seleção manual (UI deve mostrar aviso).
+*/
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from '@/components/ui/use-toast';
 
-// Tipos para as tabelas usadas
-export interface YearlySale {
+type YearlySale = {
   entity_id: string;
   year: number;
   month: number;
   total_sales: number;
-}
+};
 
-export interface SalespersonGoal {
+type SalespersonGoal = {
   salesperson_id: string;
   entity_id: string;
   year: number;
   month: number;
   goal_amount: number;
-}
+};
 
-// Estruturas para os componentes
-export interface YearlyComparisonData {
+export type YearlyComparisonData = {
   month: number;
   monthName: string;
-  years: { [year: number]: number | string };
-}
+  years: Record<number, number | ''>;
+};
 
-export interface SalespersonPanelData {
+export type SalespersonPanelData = {
   salesperson_id: string;
   salesperson_name: string;
-  monthly_goals: { [month: number]: number | string };
+  monthly_goals: Record<number, number | ''>;
+};
+
+const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+async function getSingleDefaultEntityId(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('entidades_corporativas')
+    .select('id')
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('Erro ao buscar entidades_corporativas:', error.message);
+    return null;
+  }
+  if (!data || data.length !== 1) return null;
+  return data[0].id as string;
 }
 
-const months = [
-  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
-];
-
 export function useSalesData() {
-  const { primaryEntity } = useAuth(); // entity selecionada no app
+  const { primaryEntity } = useAuth(); // pode estar vazio
   const [loading, setLoading] = useState(true);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [effectiveEntityId, setEffectiveEntityId] = useState<string | null>(null);
 
-  // Comparativo Anual (tabela da esquerda)
+  // Dados para as duas grades
   const [yearlyData, setYearlyData] = useState<YearlyComparisonData[]>([]);
-
-  // Painel de Vendedoras (tabela da direita)
   const [salespersonData, setSalespersonData] = useState<SalespersonPanelData[]>([]);
 
-  // Carrega TUDO do banco
-  const fetchAllData = useCallback(async () => {
-    if (!primaryEntity) {
-      setLoading(false);
-      return;
+  // Determina a entidade efetiva (contexto OU fallback automático)
+  const computeEffectiveEntity = useCallback(async () => {
+    const ctxId = primaryEntity?.id ?? null;
+    if (ctxId) {
+      setEffectiveEntityId(ctxId);
+      return ctxId;
     }
-    setLoading(true);
+    const fallbackId = await getSingleDefaultEntityId();
+    setEffectiveEntityId(fallbackId);
+    return fallbackId;
+  }, [primaryEntity?.id]);
 
+  const hasEntity = useMemo(() => !!effectiveEntityId, [effectiveEntityId]);
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
     try {
-      // 1) Comparativo anual: lê store_monthly_sales para (ano atual, -1, -2)
+      const eid = await computeEffectiveEntity();
+      if (!eid) {
+        setYearlyData([]);
+        setSalespersonData([]);
+        toast({
+          title: 'Selecione a Entidade',
+          description: 'Não foi possível determinar automaticamente. Selecione a entidade/filial no topo.',
+        });
+        return;
+      }
+
+      // --- 1) Comparativo Anual (tabela esquerda) ---
       const yearsToFetch = [currentYear, currentYear - 1, currentYear - 2];
-      const { data: yearlySales, error: yearlyError } = await supabase
+      const { data: yearlySales, error: yearlyErr } = await supabase
         .from('store_monthly_sales')
         .select('*')
-        .eq('entity_id', primaryEntity.id)
+        .eq('entity_id', eid)
         .in('year', yearsToFetch);
-      if (yearlyError) throw yearlyError;
+      if (yearlyErr) throw yearlyErr;
 
-      const formattedYearlyData: YearlyComparisonData[] = months.map((monthName, idx) => {
+      const formattedYearly: YearlyComparisonData[] = months.map((name, idx) => {
         const month = idx + 1;
-        const row: YearlyComparisonData = { month, monthName, years: {} };
+        const row: YearlyComparisonData = { month, monthName: name, years: {} };
         yearsToFetch.forEach((y) => {
           const hit = yearlySales?.find((s) => s.year === y && s.month === month);
           row.years[y] = hit ? Number(hit.total_sales) : '';
         });
         return row;
       });
-      setYearlyData(formattedYearlyData);
+      setYearlyData(formattedYearly);
 
-      // 2) Painel de vendedoras: ler vendedoras ATIVAS + metas já salvas no ano atual
-      const { data: people, error: peopleError } = await supabase
+      // --- 2) Painel de Vendedoras (tabela direita) ---
+      const { data: vendedoras, error: vendErr } = await supabase
         .from('vendedoras')
         .select('id, nome, ativo')
         .eq('ativo', true);
-      if (peopleError) throw peopleError;
+      if (vendErr) throw vendErr;
 
-      const { data: goals, error: goalsError } = await supabase
+      const { data: metas, error: metasErr } = await supabase
         .from('sales_goals')
-        .select('*')
-        .eq('entity_id', primaryEntity.id)
+        .select('salesperson_id, month, goal_amount')
+        .eq('entity_id', eid)
         .eq('year', currentYear);
-      if (goalsError) throw goalsError;
+      if (metasErr) throw metasErr;
 
-      const formattedSalesperson: SalespersonPanelData[] = (people ?? []).map((p) => {
-        const person: SalespersonPanelData = {
-          salesperson_id: p.id,
-          salesperson_name: p.nome,
-          monthly_goals: {}
-        };
-        for (let m = 1; m <= 12; m++) {
-          const g = (goals ?? []).find((gg) => gg.salesperson_id === p.id && gg.month === m);
-          person.monthly_goals[m] = g ? Number(g.goal_amount) : '';
-        }
-        return person;
-      });
-      setSalespersonData(formattedSalesperson);
+      const map = new Map<string, Record<number, number>>();
+      for (const m of metas ?? []) {
+        const sid = m.salesperson_id as string;
+        const mm = Number(m.month);
+        const val = Number(m.goal_amount ?? 0);
+        const cur = map.get(sid) ?? {};
+        cur[mm] = val;
+        map.set(sid, cur);
+      }
+
+      const formattedSales: SalespersonPanelData[] = (vendedoras ?? []).map((v: any) => ({
+        salesperson_id: v.id,
+        salesperson_name: v.nome,
+        monthly_goals: map.get(v.id) ?? {},
+      }));
+      setSalespersonData(formattedSales);
     } catch (err: any) {
-      console.error('Erro ao buscar dados de vendas:', err);
-      toast({ title: 'Erro ao buscar dados', description: err.message ?? String(err), variant: 'destructive' });
+      console.error('Erro ao buscar dados:', err);
+      toast({ title: 'Falha ao carregar', description: err.message ?? String(err), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [primaryEntity, currentYear]);
+  }, [computeEffectiveEntity, currentYear]);
 
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
 
-  // Atualiza valor em memória (tabela comparativo anual)
+  // Edição local (comparativo anual)
   const updateYearlySale = (month: number, year: number, value: string) => {
-    setYearlyData((prev) =>
-      prev.map((row) =>
-        row.month === month ? { ...row, years: { ...row.years, [year]: value } } : row
-      )
-    );
+    setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value } }) : r));
   };
 
-  // Atualiza valor em memória (tabela metas por vendedora)
+  // Edição local (metas por vendedora)
   const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
-    setSalespersonData((prev) =>
-      prev.map((p) =>
-        p.salesperson_id === salesperson_id
-          ? { ...p, monthly_goals: { ...p.monthly_goals, [month]: value } }
-          : p
-      )
-    );
+    setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
+      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value } })
+      : p));
   };
 
-  // SALVAR TUDO no banco (upsert — não duplica)
+  // Persistência (UPERT idempotente)
   const saveAllData = async () => {
-    if (!primaryEntity) return;
+    const eid = primaryEntity?.id ?? effectiveEntityId;
+    if (!eid) {
+      toast({ title: 'Selecione a Entidade', description: 'Escolha a entidade/filial e tente novamente.' });
+      return;
+    }
     setLoading(true);
-
     try {
-      // 1) store_monthly_sales
-      const toUpsertYearly: YearlySale[] = [];
+      // 1) Totais mensais
+      const toUpsertTotals: YearlySale[] = [];
       yearlyData.forEach((row) => {
-        Object.entries(row.years).forEach(([yStr, val]) => {
+        Object.entries(row.years).forEach(([yearStr, val]) => {
           if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
-            toUpsertYearly.push({
-              entity_id: primaryEntity.id,
-              year: Number(yStr),
+            toUpsertTotals.push({
+              entity_id: eid,
+              year: Number(yearStr),
               month: row.month,
               total_sales: Number(val),
             });
           }
         });
       });
-      if (toUpsertYearly.length > 0) {
+      if (toUpsertTotals.length) {
         const { error } = await supabase
           .from('store_monthly_sales')
-          .upsert(toUpsertYearly, { onConflict: 'entity_id, year, month' });
+          .upsert(toUpsertTotals, { onConflict: 'entity_id, year, month' });
         if (error) throw error;
       }
 
-      // 2) sales_goals
+      // 2) Metas por vendedora
       const toUpsertGoals: SalespersonGoal[] = [];
       salespersonData.forEach((p) => {
         Object.entries(p.monthly_goals).forEach(([mStr, val]) => {
           if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
             toUpsertGoals.push({
-              entity_id: primaryEntity.id,
+              entity_id: eid,
               salesperson_id: p.salesperson_id,
               year: currentYear,
               month: Number(mStr),
@@ -183,17 +212,17 @@ export function useSalesData() {
           }
         });
       });
-      if (toUpsertGoals.length > 0) {
+      if (toUpsertGoals.length) {
         const { error } = await supabase
           .from('sales_goals')
           .upsert(toUpsertGoals, { onConflict: 'salesperson_id, entity_id, year, month' });
         if (error) throw error;
       }
 
-      toast({ title: 'Sucesso!', description: 'Dados de vendas e metas salvos no Supabase.' });
+      toast({ title: 'Salvo!', description: 'Vendas e metas persistidas no Supabase.' });
     } catch (err: any) {
-      console.error('Erro ao salvar dados:', err);
-      toast({ title: 'Erro ao salvar', description: err.message ?? String(err), variant: 'destructive' });
+      console.error('Erro ao salvar:', err);
+      toast({ title: 'Falha ao salvar', description: err.message ?? String(err), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -201,12 +230,10 @@ export function useSalesData() {
 
   return {
     loading,
-    currentYear,
-    setCurrentYear,
-    yearlyData,
-    updateYearlySale,
-    salespersonData,
-    updateSalespersonGoal,
+    currentYear, setCurrentYear,
+    yearlyData, updateYearlySale,
+    salespersonData, updateSalespersonGoal,
     saveAllData,
+    hasEntity, // para a UI saber se temos entidade efetiva
   };
 }
