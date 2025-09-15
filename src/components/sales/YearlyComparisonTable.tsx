@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, Minus, Save, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+// Add selectedEntity to window type
+declare global {
+  interface Window {
+    selectedEntity?: string;
+  }
+}
 
 interface YearlyData {
   year: number;
@@ -93,10 +102,39 @@ export function YearlyComparisonTable() {
     toast.success(`Ano ${newYear} adicionado com sucesso!`);
   };
 
-  const saveChanges = () => {
-    // Here you would save to database
-    toast.success("Alterações salvas com sucesso!");
+  const saveChanges = async () => {
+    if (!window.selectedEntity) {
+      toast.error("Selecione uma entidade antes de salvar");
+      return;
+    }
+
+    try {
+      const entityId = window.selectedEntity;
+      
+      // Save each month's data for the selected year
+      const promises = yearlyData.find(d => d.year === selectedYear)?.months.map((value, monthIndex) => 
+        supabase.from('store_monthly_sales').upsert({
+          entity_id: entityId,
+          year: selectedYear,
+          month: monthIndex + 1,
+          total_sales: value
+        }, { onConflict: 'entity_id,year,month' })
+      ) || [];
+
+      await Promise.all(promises);
+      toast.success("Alterações salvas com sucesso!");
+    } catch (error) {
+      console.error('Error saving data:', error);
+      toast.error("Erro ao salvar alterações");
+    }
   };
+
+  // Listen for save event from main page
+  React.useEffect(() => {
+    const handleSave = () => saveChanges();
+    window.addEventListener('saveAllSalesData', handleSave);
+    return () => window.removeEventListener('saveAllSalesData', handleSave);
+  }, []);
 
   const months = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",

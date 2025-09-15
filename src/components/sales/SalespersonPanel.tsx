@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Plus, Download, Upload, Save, Target, Edit, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+// Add selectedEntity to window type
+declare global {
+  interface Window {
+    selectedEntity?: string;
+  }
+}
 
 interface Salesperson {
   id: string;
@@ -149,10 +158,41 @@ export function SalespersonPanel() {
     }));
   };
 
-  const saveAllData = () => {
-    // Here you would save to database
-    toast.success("Dados salvos com sucesso!");
+  const saveAllData = async () => {
+    if (!window.selectedEntity) {
+      toast.error("Selecione uma entidade antes de salvar");
+      return;
+    }
+
+    try {
+      const entityId = window.selectedEntity;
+      
+      // Save sales goals for all salespeople
+      const goalPromises = salespeople.map(person => {
+        const personData = salesData[person.id] || { sales: 0, goal: person.metaBase };
+        return supabase.from('sales_goals').upsert({
+          entity_id: entityId,
+          salesperson_id: person.id,
+          year: selectedYear,
+          month: selectedMonth,
+          goal_amount: personData.goal
+        }, { onConflict: 'salesperson_id,entity_id,year,month' });
+      });
+
+      await Promise.all(goalPromises);
+      toast.success("Dados salvos com sucesso!");
+    } catch (error) {
+      console.error('Error saving data:', error);
+      toast.error("Erro ao salvar dados");
+    }
   };
+
+  // Listen for save event from main page
+  React.useEffect(() => {
+    const handleSave = () => saveAllData();
+    window.addEventListener('saveAllSalesData', handleSave);
+    return () => window.removeEventListener('saveAllSalesData', handleSave);
+  }, []);
 
   const months = [
     { value: 1, label: "Janeiro" },

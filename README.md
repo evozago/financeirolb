@@ -1,221 +1,179 @@
-# Sistema de Gestão de Contas a Pagar
+# Sistema de Gestão Financeira - LB Finance
 
-Um sistema completo para gestão de contas a pagar com funcionalidades avançadas de importação, controle de parcelas e navegação drill-down.
+Sistema web para gestão financeira empresarial com foco em contas a pagar, vendas e relatórios.
 
-## 🚀 Tecnologias Utilizadas
+## Tecnologias
 
-### Frontend
-- **React 18** com TypeScript
-- **Tailwind CSS** para estilização
-- **Recharts** para gráficos e visualizações
-- **TanStack Query** para gerenciamento de estado do servidor
-- **React Router** para navegação
-- **react-dropzone** para upload de arquivos
-- **shadcn/ui** para componentes de interface
+- React + TypeScript + Vite
+- Tailwind CSS (design system)
+- Supabase (backend completo)
+- GitHub Pages (deploy automático)
 
-### Funcionalidades Principais
+## 🚀 Operação 100% pelo Navegador (Sem Terminal Local)
 
-#### 📊 Dashboard Interativo
-- KPIs clicáveis que direcionam para listagens filtradas
-- Gráficos de evolução das despesas
-- Resumo financeiro em tempo real
-- Navegação por contexto (drill-down)
+### Pré-requisitos
+- Conta GitHub
+- Conta Supabase
+- Navegador moderno
 
-#### 📋 Gestão de Contas a Pagar
-- Listagem avançada com filtros personalizáveis
-- Controle de parcelas individual
-- Status automático (Pendente, Pago, Vencido)
-- Ações em massa (marcar como pago, excluir)
-- Seleção múltipla com checkboxes
+### 1. Configuração do Supabase
 
-#### 📥 Importação de Dados
-- **Importação XML**: Suporte a múltiplos arquivos XML de notas fiscais
-- **Importação Excel**: Upload de planilhas com modelo padronizado
-- **Download de Template**: Modelo pré-formatado para importação
-- Validação e relatório de erros/avisos
+#### 1.1 Executar Scripts SQL
+Acesse o [SQL Editor do Supabase](https://supabase.com/dashboard/project/mnxemxgcucfuoedqkygw/sql/new) e execute na ordem:
 
-#### 🏢 Gestão de Fornecedores
-- Cadastro completo com CNPJ e razão social
-- Vinculação com marcas/brands
-- Histórico de contas por fornecedor
+1. **Primeiro:** `supabase/sql/lb_sales_schema_and_policies.sql`
+   - Cria tabelas de vendas e metas
+   - Configura índices únicos e triggers
+   - Define políticas RLS para usuários autenticados
 
-#### 📊 Relatórios e Exportação
-- Exportação para Excel com filtros aplicados
-- Relatórios de vencimentos
-- Análise de tendências
+2. **Segundo:** `supabase/sql/000_all_in_one.sql`  
+   - Unifica entidades duplicadas (não-destrutivo)
+   - Cria modelo canônico com views de diagnóstico
+   - Mapeia relacionamentos entre tabelas legadas
 
-## 🏗️ Arquitetura do Sistema
+3. **Terceiro:** `supabase/sql/verify_checks.sql`
+   - Verifica se tudo foi aplicado corretamente
+   - Mostra estatísticas de unificação
+   - Lista duplicidades encontradas
 
-### Filosofia de Navegação (Drill-Down)
-O sistema utiliza uma navegação hierárquica sem menu tradicional:
+#### 1.2 Configurar Autenticação
+No [painel de Auth](https://supabase.com/dashboard/project/mnxemxgcucfuoedqkygw/auth/providers):
 
-1. **Nível 1 - Dashboard**: KPIs clicáveis e visão geral
-2. **Nível 2 - Listagens**: Tabelas filtradas de contas a pagar
-3. **Nível 3 - Detalhes**: Informações completas de uma conta específica
-4. **Nível 4 - Sub-detalhes**: Detalhes de fornecedores e marcas
+**URL Configuration:**
+- Site URL: `https://evozago.github.io/financeirolb`
+- Redirect URLs: `https://evozago.github.io/financeirolb/*`
 
-### Estrutura de Componentes
+**Criar Usuário de Teste:**
+Acesse [Auth > Users](https://supabase.com/dashboard/project/mnxemxgcucfuoedqkygw/auth/users) → Add User:
+- Email: `teste@empresa.com`
+- Password: `123456789`
+- Email Confirm: ✅ (marcar como confirmado)
+
+### 2. Configuração do GitHub Pages
+
+Acesse as configurações do repositório no GitHub:
+- Settings → Pages
+- Source: Deploy from branch
+- Branch: `main` (ou `master`)
+- Folder: `/` (root)
+
+O deploy é automático a cada push na branch principal.
+
+### 3. Teste de Funcionamento
+
+1. **Acesso:** https://evozago.github.io/financeirolb
+2. **Login:** Use o usuário de teste criado
+3. **Navegação:** Acesse "Vendas / Gestão de Vendas"
+4. **Teste de Persistência:**
+   - Selecione uma entidade (obrigatório)
+   - Edite valores nas abas "Comparativo Anual" e "Vendedoras"
+   - Clique em "💾 SALVAR TODOS OS DADOS"
+   - Atualize a página (F5)
+   - Verifique se os dados persistiram
+
+### 4. Estrutura do Projeto
 
 ```
 src/
+├── integrations/supabase/
+│   └── client.ts              # Cliente Supabase (configurado)
+├── hooks/
+│   ├── useSalesData.ts        # Persistência de vendas
+│   ├── useParcelas.ts         # Sistema corporativo
+│   └── useEntidadesCorporativas.ts
 ├── components/
-│   ├── ui/                     # Componentes base (shadcn/ui)
-│   │   └── data-table.tsx      # Tabela genérica com funcionalidades avançadas
-│   └── features/               # Componentes específicos do domínio
-│       ├── dashboard/
-│       │   └── PayablesSummaryCard.tsx
-│       └── payables/
-│           ├── PayablesTable.tsx       # Tabela especializada
-│           ├── PayableFilters.tsx      # Filtros avançados
-│           └── ImportModal.tsx         # Modal de importação
-├── pages/
-│   ├── DashboardPayables.tsx   # Dashboard principal
-│   ├── AccountsPayable.tsx     # Listagem de contas
-│   └── BillDetail.tsx          # Detalhes da conta
-├── types/
-│   └── payables.ts             # Definições de tipos TypeScript
-└── assets/
-    └── dashboard-hero.jpg      # Imagem do dashboard
+│   ├── sales/                 # Gestão de vendas
+│   └── features/payables/     # Contas a pagar corporativas
+└── pages/
+    ├── SalesManagement.tsx    # Dashboard de vendas
+    └── AccountsPayable.tsx    # Contas a pagar
+
+supabase/sql/
+├── lb_sales_schema_and_policies.sql  # Schema de vendas
+├── 000_all_in_one.sql               # Unificação de entidades
+└── verify_checks.sql                # Verificações
 ```
 
-## 🎨 Design System
+## 🔧 Funcionalidades Implementadas
 
-O sistema utiliza um design system consistente baseado em:
+### ✅ Persistência de Vendas
+- Metas mensais por vendedora com índices únicos
+- Totais de vendas por mês/entidade
+- Triggers automáticos de `updated_at`
+- RLS configurado para usuários autenticados
+- Upsert automático (sem duplicatas)
 
-- **Cores semânticas**: Tokens CSS para cores de status (pago, pendente, vencido)
-- **Gradientes**: Gradientes profissionais para elementos visuais
-- **Tipografia**: Sistema de fontes hierárquico
-- **Espaçamento**: Grid system responsivo
-- **Estados**: Hover, focus e active states consistentes
+### ✅ Unificação de Entidades (Não-Destrutiva)
+- Modelo canônico `entidades_unicas`
+- Mapeamento `entidade_map` preserva dados originais
+- Views de diagnóstico para duplicidades:
+  - `vw_entidades_dup_cpf_cnpj`
+  - `vw_entidades_dup_email` 
+  - `vw_entidades_dup_phone`
+- Views canônicas para consumo:
+  - `vw_vendedoras_canon`
+  - `vw_fornecedores_canon`
+  - `vw_pessoas_canon`
 
-### Cores Principais
-- **Primary**: Azul corporativo (#3b82f6)
-- **Success**: Verde para status "Pago" (#16a34a)
-- **Warning**: Amarelo para status "Pendente" (#eab308)
-- **Destructive**: Vermelho para status "Vencido" (#dc2626)
+### ✅ Sistema Corporativo
+- Migração completa de `ap_installments` → modelo corporativo
+- API REST via Edge Functions
+- Gestão de parcelas com pagamentos
+- Entidades com múltiplos papéis (cliente, fornecedor, vendedor)
 
-## 📱 Responsividade
+## 🛡️ Segurança
 
-O sistema é totalmente responsivo com:
-- Layout adaptativo para desktop, tablet e mobile
-- Tabelas com scroll horizontal em telas menores
-- Navegação otimizada para touch
-- Cards empilháveis em dispositivos móveis
+- **Frontend:** Apenas `anon_key` (seguro para exposição)
+- **RLS:** Políticas restritivas por usuário autenticado
+- **Triggers:** Validações automáticas no banco
+- **Edge Functions:** Processamento server-side quando necessário
 
-## 🔧 Instalação e Desenvolvimento
+## 📊 Monitoramento
 
-### Pré-requisitos
-- Node.js 18+ 
-- npm ou yarn
+### Verificar Saúde do Sistema
+Execute no SQL Editor:
+```sql
+-- Verificar duplicidades
+SELECT * FROM vw_entidades_dup_cpf_cnpj;
+SELECT * FROM vw_entidades_dup_email;
 
-### Instalação
-```bash
-# Clone o repositório
-git clone <URL_DO_REPOSITORIO>
-cd contas-a-pagar
+-- Status das vendas
+SELECT COUNT(*) as metas FROM sales_goals;
+SELECT COUNT(*) as vendas FROM store_monthly_sales;
 
-# Instale as dependências
-npm install
-
-# Inicie o servidor de desenvolvimento
-npm run dev
+-- Últimas atualizações
+SELECT table_name, MAX(updated_at) as ultima_atualizacao
+FROM (
+  SELECT 'sales_goals' as table_name, updated_at FROM sales_goals
+  UNION ALL
+  SELECT 'store_monthly_sales', updated_at FROM store_monthly_sales
+) t GROUP BY table_name;
 ```
 
-### Scripts Disponíveis
-```bash
-npm run dev          # Servidor de desenvolvimento
-npm run build        # Build para produção
-npm run preview      # Preview do build
-npm run lint         # Verificação de lint
-npm run type-check   # Verificação de tipos
-```
+## 🚨 Troubleshooting
 
-## 📊 Formato da Planilha de Importação
+### Problema: Dados não persistem após salvar
+**Solução:**
+1. Verificar se usuário está logado
+2. Confirmar se entidade foi selecionada
+3. Verificar console do navegador para erros
+4. Testar políticas RLS no SQL Editor
 
-Para importar dados via planilha Excel, utilize o seguinte formato:
+### Problema: Erro de "row violates RLS policy"  
+**Solução:**
+1. Confirmar que o usuário está autenticado (`auth.uid() IS NOT NULL`)
+2. Verificar se as políticas permitem INSERT/UPDATE para authenticated
+3. Revisar se `entity_id` está sendo passado corretamente
 
-| Coluna | Tipo | Descrição | Exemplo |
-|--------|------|-----------|---------|
-| Fornecedor_CNPJ | Texto | CNPJ do fornecedor | 12.345.678/0001-90 |
-| Fornecedor_Nome | Texto | Nome do fornecedor | EMPRESA LTDA |
-| Descricao | Texto | Descrição da conta | NFe 123456 |
-| Valor_Total | Número | Valor total da conta | 1000.50 |
-| Total_Parcelas | Número | Número de parcelas | 3 |
-| Numero_Parcela | Número | Número da parcela atual | 1 |
-| Valor_Parcela | Número | Valor da parcela | 333.50 |
-| Vencimento | Data | Data de vencimento | 2024-12-31 |
-| Status | Texto | Status da parcela | Pendente |
+### Problema: Componentes não carregam vendedoras
+**Solução:**
+1. Verificar se a view `vendedoras_view` foi criada
+2. Confirmar dados na tabela `pessoas` com `tipo_pessoa = 'Vendedor'`
+3. Testar query manualmente no SQL Editor
 
-### Regras de Importação
-- Uma linha por parcela
-- CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX
-- Datas no formato YYYY-MM-DD
-- Status aceitos: "Pendente", "Pago", "Vencido"
-- Valores numéricos com ponto como separador decimal
-
-## 🔍 Funcionalidades da Tabela
-
-### Ordenação
-- Clique nos cabeçalhos para ordenar crescente/decrescente
-- Indicadores visuais de direção da ordenação
-- Múltiplas colunas ordenáveis
-
-### Personalização de Colunas
-- Menu dropdown para mostrar/ocultar colunas
-- Estado salvo no localStorage
-- Colunas reordenáveis (futura implementação)
-
-### Seleção Múltipla
-- Checkbox para seleção individual
-- Checkbox master para seleção total
-- Estado indeterminado quando parcialmente selecionado
-- Ações em massa disponíveis para itens selecionados
-
-### Filtros Avançados
-- Busca textual global
-- Filtros por status, fornecedor, período e valor
-- Filtros aplicados mostrados como badges removíveis
-- Estado dos filtros preservado na URL
-
-## 🎯 Roadmap de Funcionalidades
-
-### Versão Atual (v1.0)
-- ✅ Dashboard com KPIs clicáveis
-- ✅ Listagem de contas com filtros
-- ✅ Detalhes de contas e parcelas
-- ✅ Importação XML e Excel
-- ✅ Navegação drill-down
-- ✅ Design system consistente
-
-### Próximas Versões
-- 🔄 **Backend Integration**: API real com Prisma + PostgreSQL
-- 🔄 **Autenticação**: Sistema de login com JWT
-- 🔄 **Notificações**: Alertas de vencimento
-- 🔄 **Dashboard Avançado**: Mais gráficos e métricas
-- 🔄 **Mobile App**: Aplicativo nativo
-- 🔄 **Relatórios PDF**: Geração de relatórios
-- 🔄 **Auditoria**: Log de alterações
-- 🔄 **Multi-empresa**: Suporte a múltiplas empresas
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-## 🆘 Suporte
-
-Para suporte e dúvidas:
-- Abra uma issue no GitHub
-- Entre em contato com a equipe de desenvolvimento
-- Consulte a documentação técnica
-
----
-
-Desenvolvido com ❤️ para gestão financeira eficiente
+### Links Úteis
+- [Dashboard Supabase](https://supabase.com/dashboard/project/mnxemxgcucfuoedqkygw)
+- [SQL Editor](https://supabase.com/dashboard/project/mnxemxgcucfuoedqkygw/sql/new)
+- [Logs Auth](https://supabase.com/dashboard/project/mnxemxgcucfuoedqkygw/auth/users)
+- [GitHub Pages](https://evozago.github.io/financeirolb)
+- [Repositório](https://github.com/evozago/financeirolb)
