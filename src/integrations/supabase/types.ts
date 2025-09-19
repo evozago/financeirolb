@@ -4040,6 +4040,10 @@ export type Database = {
         Args: { input_text: string }
         Returns: string
       }
+      normalize_cpf_cnpj: {
+        Args: { doc: string }
+        Returns: string
+      }
       normalize_installment_info: {
         Args: { numero_parcela: number; total_parcelas: number; valor: number }
         Returns: string
