@@ -8,7 +8,7 @@ import { useSalesData } from "@/hooks/useSalesData";
 import { Save } from "lucide-react";
 
 export default function SalesManagement() {
-  const { salesBySalesperson, loadingSalesperson } = useSalesData('1'); // Mock entity ID
+  const { loading } = useSalesData();
 
   return (
     <div className="container mx-auto p-6 space-y-8">

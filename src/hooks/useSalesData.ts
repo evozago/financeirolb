@@ -56,7 +56,7 @@ async function getSingleDefaultEntityId(): Promise<string | null> {
 }
 
 export function useSalesData() {
-  const { primaryEntity } = useAuth(); // pode estar vazio
+  const { user } = useAuth(); // pode estar vazio
   const [loading, setLoading] = useState(true);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [effectiveEntityId, setEffectiveEntityId] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function useSalesData() {
 
   // Determina a entidade efetiva (contexto OU fallback automático)
   const computeEffectiveEntity = useCallback(async () => {
-    const ctxId = primaryEntity?.id ?? null;
+    const ctxId = null; // sem contexto de entidade por enquanto
     if (ctxId) {
       setEffectiveEntityId(ctxId);
       return ctxId;
@@ -75,7 +75,7 @@ export function useSalesData() {
     const fallbackId = await getSingleDefaultEntityId();
     setEffectiveEntityId(fallbackId);
     return fallbackId;
-  }, [primaryEntity?.id]);
+  }, [user?.id]);
 
   const hasEntity = useMemo(() => !!effectiveEntityId, [effectiveEntityId]);
 
@@ -157,19 +157,19 @@ export function useSalesData() {
 
   // Edição local (comparativo anual)
   const updateYearlySale = (month: number, year: number, value: string) => {
-    setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value } }) : r));
+    setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value === '' ? '' : Number(value) } }) : r));
   };
 
   // Edição local (metas por vendedora)
   const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
     setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
-      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value } })
+      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value === '' ? '' : Number(value) } })
       : p));
   };
 
   // Persistência (UPERT idempotente)
   const saveAllData = async () => {
-    const eid = primaryEntity?.id ?? effectiveEntityId;
+    const eid = effectiveEntityId;
     if (!eid) {
       toast({ title: 'Selecione a Entidade', description: 'Escolha a entidade/filial e tente novamente.' });
       return;

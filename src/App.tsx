@@ -84,8 +84,8 @@ function AppContent() {
             <Route path="/dashboard/financial" element={<DashboardFinancial />} />
             
             <Route path="/dashboard/sales" element={<DashboardSales />} />
-            <Route path="/sales/performance" element={<SalespersonPerformance />} />
-            <Route path="/sales/management" element={<SalesManagement />} />
+            <Route path="/salesperson-performance" element={<SalespersonPerformance />} />
+            <Route path="/sales-management" element={<SalesManagement />} />
             <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
             <Route path="/accounts-payable" element={<AccountsPayable />} />
             <Route path="/accounts-payable/new" element={<NewBill />} />

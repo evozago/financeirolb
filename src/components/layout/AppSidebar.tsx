@@ -47,44 +47,27 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       {
         href: '/',
-        label: 'Dashboard Principal',
+        label: 'Visão Geral',
         icon: Home,
-        description: 'Visão geral do sistema'
+        description: 'Dashboard principal'
       },
       {
         href: '/dashboard/financial',
         label: 'Financeiro',
         icon: DollarSign,
-        description: 'Visão geral das finanças'
+        description: 'Gestão financeira'
       },
       {
         href: '/dashboard/sales',
         label: 'Vendas',
         icon: TrendingUp,
-        description: 'Desempenho de vendas'
+        description: 'Performance vendas'
       },
       {
-        href: '/sales/management',
+        href: '/sales-management',
         label: 'Gestão de Vendas',
         icon: Target,
-        description: 'Sistema interativo de vendas'
-      },
-      {
-        href: '/dashboard/purchases',
-        label: 'Compras',
-        icon: Package,
-        description: 'Gestão de compras'
-      },
-    ]
-  },
-  {
-    label: 'Sistema Corporativo',
-    items: [
-      {
-        href: '/entidades-corporativas',
-        label: 'Entidades Corporativas',
-        icon: Building2,
-        description: 'Sistema unificado de pessoas físicas e jurídicas'
+        description: 'Sistema interativo'
       },
     ]
   },
@@ -95,19 +78,19 @@ const navigationGroups: NavigationGroup[] = [
         href: '/accounts-payable',
         label: 'Contas a Pagar',
         icon: CreditCard,
-        description: 'Gestão de contas a pagar'
+        description: 'Gestão de pagamentos'
       },
       {
         href: '/recurring-bills',
         label: 'Contas Recorrentes',
         icon: Calendar,
-        description: 'Contas que se repetem mensalmente'
+        description: 'Contas mensais'
       },
       {
         href: '/bank-accounts',
         label: 'Contas Bancárias',
         icon: Briefcase,
-        description: 'Contas bancárias da empresa'
+        description: 'Contas da empresa'
       },
     ]
   },
@@ -124,7 +107,7 @@ const navigationGroups: NavigationGroup[] = [
         href: '/suppliers',
         label: 'Fornecedores',
         icon: Building2,
-        description: 'Cadastro de fornecedores'
+        description: 'Cadastro fornecedores'
       },
     ]
   },
@@ -136,6 +119,12 @@ const navigationGroups: NavigationGroup[] = [
         label: 'Pessoas',
         icon: Users,
         description: 'Cadastro de pessoas'
+      },
+      {
+        href: '/entidades-corporativas',
+        label: 'Entidades',
+        icon: Building2,
+        description: 'Pessoas físicas/jurídicas'
       },
     ]
   },
@@ -152,7 +141,7 @@ const navigationGroups: NavigationGroup[] = [
         href: '/settings',
         label: 'Configurações',
         icon: Settings,
-        description: 'Configurações do sistema'
+        description: 'Configurações sistema'
       },
     ]
   },
@@ -185,7 +174,7 @@ export function AppSidebar() {
       <SidebarContent>
         {navigationGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2 py-1">
               {!collapsed && group.label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -206,9 +195,9 @@ export function AppSidebar() {
                           <Icon className="h-4 w-4 flex-shrink-0" />
                           {!collapsed && (
                             <div className="flex-1 min-w-0">
-                              <div className="truncate">{item.label}</div>
+                              <div className="text-sm font-medium truncate">{item.label}</div>
                               {item.description && !active && (
-                                <div className="text-xs opacity-70 truncate">
+                                <div className="text-xs opacity-60 truncate">
                                   {item.description}
                                 </div>
                               )}
