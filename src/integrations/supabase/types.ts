@@ -2088,6 +2088,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          papel_pai_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2096,6 +2097,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          papel_pai_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2104,9 +2106,18 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          papel_pai_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "papeis_papel_pai_id_fkey"
+            columns: ["papel_pai_id"]
+            isOneToOne: false
+            referencedRelation: "papeis"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parcelas_conta_pagar: {
         Row: {
@@ -3872,6 +3883,18 @@ export type Database = {
           contas_vencendo_hoje_count: number
           contas_vencidas: number
           contas_vencidas_count: number
+        }[]
+      }
+      get_papeis_hierarquicos: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          ativo: boolean
+          descricao: string
+          id: string
+          nivel: number
+          nome: string
+          papel_pai_id: string
+          papel_pai_nome: string
         }[]
       }
       get_sales_kpi_data: {
