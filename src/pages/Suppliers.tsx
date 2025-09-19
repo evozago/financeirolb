@@ -90,19 +90,22 @@ export default function Suppliers() {
 
   const handleDelete = async (supplier: SupplierData) => {
     try {
-      const { error } = await supabase
+      // Primeiro tenta excluir de entidades_corporativas
+      let { error } = await supabase
         .from('entidades_corporativas')
         .delete()
         .eq('id', supplier.id);
 
-      if (error) {
-        console.error('Error deleting supplier:', error);
-        toast({
-          title: "Erro",
-          description: "Falha ao excluir fornecedor",
-          variant: "destructive",
-        });
-        return;
+      // Se não encontrou lá, tenta em fornecedores (dados legados)
+      if (error && error.code === 'PGRST116') {
+        const { error: fornError } = await supabase
+          .from('fornecedores')
+          .delete()
+          .eq('id', supplier.id);
+        
+        if (fornError) throw fornError;
+      } else if (error) {
+        throw error;
       }
 
       toast({

@@ -183,12 +183,24 @@ export default function Pessoas() {
   const handleDelete = async (pessoa: PessoaData) => {
     try {
       setLoading(true);
-      const { error } = await supabase
+      
+      // Primeiro tenta excluir de entidades_corporativas
+      let { error } = await supabase
         .from('entidades_corporativas')
         .delete()
         .eq('id', pessoa.id);
-      
-      if (error) throw error;
+
+      // Se não encontrou lá, tenta em fornecedores (dados legados)
+      if (error && error.code === 'PGRST116') {
+        const { error: fornError } = await supabase
+          .from('fornecedores')
+          .delete()
+          .eq('id', pessoa.id);
+        
+        if (fornError) throw fornError;
+      } else if (error) {
+        throw error;
+      }
       
       toast({ 
         title: 'Pessoa excluída definitivamente', 
