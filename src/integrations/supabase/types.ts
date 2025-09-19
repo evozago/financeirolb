@@ -1170,19 +1170,31 @@ export type Database = {
           categoria_id: string | null
           cnpj_cpf: string | null
           contato_representante: string | null
+          cpf: string | null
           created_at: string
           data_cadastro: string | null
+          data_fundacao: string | null
+          data_nascimento: string | null
           email: string | null
           email_representante: string | null
           endereco: string | null
+          estado_civil: string | null
           filial_id: string | null
+          genero: string | null
           id: string
+          inscricao_estadual: string | null
+          nacionalidade: string | null
           nome: string
+          nome_fantasia: string | null
+          observacoes: string | null
+          profissao: string | null
           representante_email: string | null
           representante_nome: string | null
           representante_telefone: string | null
+          rg: string | null
           telefone: string | null
           telefone_representante: string | null
+          tipo_pessoa: string | null
           updated_at: string
         }
         Insert: {
@@ -1190,19 +1202,31 @@ export type Database = {
           categoria_id?: string | null
           cnpj_cpf?: string | null
           contato_representante?: string | null
+          cpf?: string | null
           created_at?: string
           data_cadastro?: string | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
           email?: string | null
           email_representante?: string | null
           endereco?: string | null
+          estado_civil?: string | null
           filial_id?: string | null
+          genero?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          nacionalidade?: string | null
           nome: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          profissao?: string | null
           representante_email?: string | null
           representante_nome?: string | null
           representante_telefone?: string | null
+          rg?: string | null
           telefone?: string | null
           telefone_representante?: string | null
+          tipo_pessoa?: string | null
           updated_at?: string
         }
         Update: {
@@ -1210,19 +1234,31 @@ export type Database = {
           categoria_id?: string | null
           cnpj_cpf?: string | null
           contato_representante?: string | null
+          cpf?: string | null
           created_at?: string
           data_cadastro?: string | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
           email?: string | null
           email_representante?: string | null
           endereco?: string | null
+          estado_civil?: string | null
           filial_id?: string | null
+          genero?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          nacionalidade?: string | null
           nome?: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          profissao?: string | null
           representante_email?: string | null
           representante_nome?: string | null
           representante_telefone?: string | null
+          rg?: string | null
           telefone?: string | null
           telefone_representante?: string | null
+          tipo_pessoa?: string | null
           updated_at?: string
         }
         Relationships: [
