@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +24,9 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     placeholder = "",
     ...props 
   }, ref) => {
-    
+    const [isFocused, setIsFocused] = useState(false);
+    const [inputStr, setInputStr] = useState<string>('');
+
     const formatNumber = (num: number): string => {
       if (decimals > 0) {
         return num.toFixed(decimals).replace('.', ',');
@@ -32,41 +34,73 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       return num.toString();
     };
 
-    const parseNumber = (text: string): number => {
-      if (!text) return 0;
-      
-      // Substitui vírgula por ponto para parsing
+    const parseNumber = (text: string): number | undefined => {
+      if (!text) return undefined;
       const normalizedText = text.replace(',', '.');
       const parsed = parseFloat(normalizedText);
-      
-      return isNaN(parsed) ? 0 : parsed;
+      return isNaN(parsed) ? undefined : parsed;
+    };
+
+    const clamp = (num: number): number => {
+      let final = num;
+      if (min !== undefined && final < min) final = min;
+      if (max !== undefined && final > max) final = max;
+      return final;
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const inputValue = e.target.value;
-      
-      // Se o campo está sendo limpo
-      if (!inputValue) {
+      const raw = e.target.value;
+      if (raw === '') {
+        setInputStr('');
         onValueChange?.(undefined);
         return;
       }
-
-      // Validar formato numérico
       const numericRegex = decimals > 0 ? /^-?\d*[,.]?\d*$/ : /^-?\d*$/;
-      
-      if (numericRegex.test(inputValue)) {
-        const numericValue = parseNumber(inputValue);
-        
-        // Aplicar limites se especificados
-        let finalValue = numericValue;
-        if (min !== undefined && finalValue < min) finalValue = min;
-        if (max !== undefined && finalValue > max) finalValue = max;
-        
-        onValueChange?.(finalValue);
+      if (!numericRegex.test(raw)) return;
+
+      setInputStr(raw);
+      const parsed = parseNumber(raw);
+      if (parsed === undefined) {
+        onValueChange?.(undefined);
+      } else {
+        onValueChange?.(parsed);
       }
     };
 
-    const displayValue = value !== undefined ? formatNumber(value) : '';
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      setIsFocused(true);
+      if (!inputStr) {
+        const initial = value !== undefined ? formatNumber(value) : '';
+        setInputStr(initial.replace(/\./g, ','));
+      }
+      props.onFocus?.(e);
+    };
+
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      setIsFocused(false);
+      const parsed = parseNumber(inputStr);
+      if (parsed === undefined) {
+        setInputStr('');
+        onValueChange?.(undefined);
+      } else {
+        const clamped = clamp(parsed);
+        onValueChange?.(clamped);
+        setInputStr('');
+      }
+      props.onBlur?.(e);
+    };
+
+    React.useEffect(() => {
+      if (!isFocused) {
+        setInputStr('');
+      }
+    }, [isFocused]);
+
+    const displayValue = isFocused
+      ? inputStr
+      : value !== undefined
+        ? formatNumber(clamp(value))
+        : '';
 
     return (
       <Input
@@ -75,6 +109,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         inputMode={decimals > 0 ? "decimal" : "numeric"}
         value={displayValue}
         onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder={placeholder}
         min={min}
         max={max}

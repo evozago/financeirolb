@@ -11,8 +11,9 @@ interface CurrencyInputProps extends Omit<React.ComponentProps<"input">, 'value'
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
   ({ value, onValueChange, className, placeholder = "R$ 0,00", ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState(() => 
-      value ? formatCurrency(value) : ''
+      value !== undefined ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value) : ''
     );
+    const [isFocused, setIsFocused] = useState(false);
 
     const formatCurrency = (amount: number): string => {
       return new Intl.NumberFormat('pt-BR', {
@@ -24,71 +25,60 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     };
 
     const parseCurrency = (text: string): number => {
-      // Remove tudo exceto números, vírgula e ponto
       const cleanText = text.replace(/[^\d,.-]/g, '');
-      
-      // Substitui vírgula por ponto para parsing
       const normalizedText = cleanText.replace(',', '.');
-      
-      // Parse para float
       const parsed = parseFloat(normalizedText);
-      
       return isNaN(parsed) ? 0 : parsed;
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const inputValue = e.target.value;
-      
-      // Se o campo está sendo limpo
-      if (!inputValue) {
+      const raw = e.target.value;
+      if (!raw) {
         setDisplayValue('');
         onValueChange?.(undefined);
         return;
       }
+      const valid = /^-?\d*[,.]?\d*$/.test(raw);
+      if (!valid) return;
 
-      // Parse do valor inserido
-      const numericValue = parseCurrency(inputValue);
-      
-      // Formatar para exibição
-      const formatted = formatCurrency(numericValue);
-      setDisplayValue(formatted);
-      
-      // Callback com valor numérico
+      setDisplayValue(raw);
+      const numericValue = parseCurrency(raw);
       onValueChange?.(numericValue);
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Ao focar, remove formatação para facilitar edição
+      setIsFocused(true);
       if (displayValue) {
         const numericValue = parseCurrency(displayValue);
-        if (numericValue > 0) {
-          setDisplayValue(numericValue.toString().replace('.', ','));
-        }
+        setDisplayValue(numericValue > 0 ? numericValue.toString().replace('.', ',') : '');
       }
       props.onFocus?.(e);
     };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Ao sair do foco, aplica formatação completa
+      setIsFocused(false);
       if (displayValue) {
         const numericValue = parseCurrency(displayValue);
-        if (numericValue > 0) {
-          setDisplayValue(formatCurrency(numericValue));
-        } else {
-          setDisplayValue('');
-        }
+        setDisplayValue(numericValue > 0 ? formatCurrency(numericValue) : '');
       }
       props.onBlur?.(e);
     };
 
-    // Sincronizar quando valor externo muda
     React.useEffect(() => {
-      if (value !== undefined && value > 0) {
-        setDisplayValue(formatCurrency(value));
+      if (isFocused) {
+        if (value !== undefined) {
+          setDisplayValue(value.toString().replace('.', ','));
+        } else {
+          setDisplayValue('');
+        }
       } else {
-        setDisplayValue('');
+        if (value !== undefined) {
+          setDisplayValue(formatCurrency(value));
+        } else {
+          setDisplayValue('');
+        }
       }
-    }, [value]);
+    }, [value, isFocused]);
 
     return (
       <Input
