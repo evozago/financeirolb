@@ -4102,6 +4102,37 @@ export type Database = {
           tipo_pessoa: string
         }[]
       }
+      search_entidades_fornecedores: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          ativo: boolean
+          cpf_cnpj: string
+          created_at: string
+          email: string
+          id: string
+          nome_fantasia: string
+          nome_razao_social: string
+          telefone: string
+          tipo_pessoa: string
+          updated_at: string
+        }[]
+      }
+      search_entidades_pessoas: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          ativo: boolean
+          cpf_cnpj: string
+          created_at: string
+          email: string
+          id: string
+          nome_fantasia: string
+          nome_razao_social: string
+          papeis: string[]
+          telefone: string
+          tipo_pessoa: string
+          updated_at: string
+        }[]
+      }
       update_ap_installments_relationships: {
         Args: Record<PropertyKey, never>
         Returns: number

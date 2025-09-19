@@ -27,12 +27,15 @@ import {
 
 interface SupplierData {
   id: string;
-  nome: string;
-  cnpj_cpf: string | null;
+  nome_razao_social: string;
+  nome_fantasia?: string;
+  cpf_cnpj?: string;
+  email?: string;
+  telefone?: string;
+  tipo_pessoa: string;
   ativo: boolean;
-  contato_representante: string;
-  telefone_representante: string;
-  email_representante: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function Suppliers() {
@@ -42,14 +45,16 @@ export default function Suppliers() {
   const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load suppliers from database
+  // Load suppliers from database using unified search
   const loadSuppliers = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cnpj_cpf, ativo, contato_representante, telefone_representante, email_representante')
-        .order('nome', { ascending: true });
+        .rpc('search_entidades_fornecedores', {
+          p_search: search || null,
+          p_limit: 1000,
+          p_offset: 0
+        });
 
       if (error) {
         console.error('Error loading suppliers:', error);
@@ -71,18 +76,12 @@ export default function Suppliers() {
 
   useEffect(() => {
     loadSuppliers();
-  }, []);
+  }, [search]);
 
-  // Filtrar fornecedores baseado na busca
+  // Search is already handled by RPC function
   const filteredSuppliers = useMemo(() => {
-    if (!search) return suppliers;
-    
-    const searchLower = search.toLowerCase();
-    return suppliers.filter(supplier =>
-      supplier.nome.toLowerCase().includes(searchLower) ||
-      (supplier.cnpj_cpf && supplier.cnpj_cpf.includes(search))
-    );
-  }, [search, suppliers]);
+    return suppliers;
+  }, [suppliers]);
 
   const handleRowClick = (supplier: SupplierData) => {
     // Navegação drill-down para detalhes do fornecedor (Nível 3)
@@ -92,7 +91,7 @@ export default function Suppliers() {
   const handleDelete = async (supplier: SupplierData) => {
     try {
       const { error } = await supabase
-        .from('fornecedores')
+        .from('entidades_corporativas')
         .delete()
         .eq('id', supplier.id);
 
@@ -122,11 +121,16 @@ export default function Suppliers() {
     }
   };
 
-  const formatCNPJ = (cnpj: string | null) => {
+  const formatCNPJ = (cnpj: string | undefined) => {
     // Formatar CNPJ: 00.000.000/0000-00
     if (!cnpj) return '-';
     const clean = cnpj.replace(/\D/g, '');
-    return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    if (clean.length === 14) {
+      return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    } else if (clean.length === 11) {
+      return clean.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+    }
+    return cnpj;
   };
 
   return (
@@ -194,10 +198,10 @@ export default function Suppliers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome Fantasia</TableHead>
                       <TableHead>Razão Social</TableHead>
-                      <TableHead>CNPJ</TableHead>
-                      <TableHead>Representante</TableHead>
+                      <TableHead>Nome Fantasia</TableHead>
+                      <TableHead>CPF/CNPJ</TableHead>
+                      <TableHead>Tipo</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -228,20 +232,13 @@ export default function Suppliers() {
                           className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleRowClick(supplier)}
                         >
-                          <TableCell className="font-medium">{supplier.nome}</TableCell>
-                          <TableCell>{supplier.nome}</TableCell>
-                          <TableCell className="font-mono text-sm">{formatCNPJ(supplier.cnpj_cpf)}</TableCell>
+                          <TableCell className="font-medium">{supplier.nome_razao_social}</TableCell>
+                          <TableCell>{supplier.nome_fantasia || '-'}</TableCell>
+                          <TableCell className="font-mono text-sm">{formatCNPJ(supplier.cpf_cnpj)}</TableCell>
                           <TableCell>
-                            {supplier.contato_representante ? (
-                              <div className="text-sm">
-                                <div className="font-medium">{supplier.contato_representante}</div>
-                                {supplier.telefone_representante && (
-                                  <div className="text-muted-foreground">{supplier.telefone_representante}</div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                            <Badge variant={supplier.tipo_pessoa === 'pessoa_fisica' ? 'default' : 'secondary'}>
+                              {supplier.tipo_pessoa === 'pessoa_fisica' ? 'PF' : 'PJ'}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge variant={supplier.ativo ? "default" : "secondary"}>
@@ -284,7 +281,7 @@ export default function Suppliers() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Tem certeza que deseja excluir definitivamente o fornecedor "{supplier.nome}"? 
+                                      Tem certeza que deseja excluir definitivamente o fornecedor "{supplier.nome_razao_social}"? 
                                       Esta ação não pode ser desfeita e removerá todos os dados relacionados.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
