@@ -1167,14 +1167,25 @@ export type Database = {
       fornecedores: {
         Row: {
           ativo: boolean
+          cargo_id: string | null
           categoria_id: string | null
+          chave_pix: string | null
           cnpj_cpf: string | null
+          comissao_padrao: number | null
+          comissao_supermeta: number | null
           contato_representante: string | null
           cpf: string | null
+          cpf_cnpj_normalizado: string | null
           created_at: string
+          data_admissao: string | null
           data_cadastro: string | null
+          data_demissao: string | null
           data_fundacao: string | null
           data_nascimento: string | null
+          dias_uteis_mes: number | null
+          eh_fornecedor: boolean | null
+          eh_funcionario: boolean | null
+          eh_vendedora: boolean | null
           email: string | null
           email_representante: string | null
           endereco: string | null
@@ -1183,6 +1194,7 @@ export type Database = {
           genero: string | null
           id: string
           inscricao_estadual: string | null
+          meta_mensal: number | null
           nacionalidade: string | null
           nome: string
           nome_fantasia: string | null
@@ -1192,21 +1204,38 @@ export type Database = {
           representante_nome: string | null
           representante_telefone: string | null
           rg: string | null
+          salario: number | null
+          setor_id: string | null
+          status_funcionario: string | null
           telefone: string | null
           telefone_representante: string | null
+          tipo_chave_pix: string | null
           tipo_pessoa: string | null
           updated_at: string
+          valor_transporte_dia: number | null
+          valor_transporte_total: number | null
         }
         Insert: {
           ativo?: boolean
+          cargo_id?: string | null
           categoria_id?: string | null
+          chave_pix?: string | null
           cnpj_cpf?: string | null
+          comissao_padrao?: number | null
+          comissao_supermeta?: number | null
           contato_representante?: string | null
           cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
+          data_admissao?: string | null
           data_cadastro?: string | null
+          data_demissao?: string | null
           data_fundacao?: string | null
           data_nascimento?: string | null
+          dias_uteis_mes?: number | null
+          eh_fornecedor?: boolean | null
+          eh_funcionario?: boolean | null
+          eh_vendedora?: boolean | null
           email?: string | null
           email_representante?: string | null
           endereco?: string | null
@@ -1215,6 +1244,7 @@ export type Database = {
           genero?: string | null
           id?: string
           inscricao_estadual?: string | null
+          meta_mensal?: number | null
           nacionalidade?: string | null
           nome: string
           nome_fantasia?: string | null
@@ -1224,21 +1254,38 @@ export type Database = {
           representante_nome?: string | null
           representante_telefone?: string | null
           rg?: string | null
+          salario?: number | null
+          setor_id?: string | null
+          status_funcionario?: string | null
           telefone?: string | null
           telefone_representante?: string | null
+          tipo_chave_pix?: string | null
           tipo_pessoa?: string | null
           updated_at?: string
+          valor_transporte_dia?: number | null
+          valor_transporte_total?: number | null
         }
         Update: {
           ativo?: boolean
+          cargo_id?: string | null
           categoria_id?: string | null
+          chave_pix?: string | null
           cnpj_cpf?: string | null
+          comissao_padrao?: number | null
+          comissao_supermeta?: number | null
           contato_representante?: string | null
           cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
+          data_admissao?: string | null
           data_cadastro?: string | null
+          data_demissao?: string | null
           data_fundacao?: string | null
           data_nascimento?: string | null
+          dias_uteis_mes?: number | null
+          eh_fornecedor?: boolean | null
+          eh_funcionario?: boolean | null
+          eh_vendedora?: boolean | null
           email?: string | null
           email_representante?: string | null
           endereco?: string | null
@@ -1247,6 +1294,7 @@ export type Database = {
           genero?: string | null
           id?: string
           inscricao_estadual?: string | null
+          meta_mensal?: number | null
           nacionalidade?: string | null
           nome?: string
           nome_fantasia?: string | null
@@ -1256,10 +1304,16 @@ export type Database = {
           representante_nome?: string | null
           representante_telefone?: string | null
           rg?: string | null
+          salario?: number | null
+          setor_id?: string | null
+          status_funcionario?: string | null
           telefone?: string | null
           telefone_representante?: string | null
+          tipo_chave_pix?: string | null
           tipo_pessoa?: string | null
           updated_at?: string
+          valor_transporte_dia?: number | null
+          valor_transporte_total?: number | null
         }
         Relationships: [
           {
