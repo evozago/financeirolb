@@ -7,7 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Search, Plus, Eye, Edit2, Users, Phone, Mail } from 'lucide-react';
+import { Building2, Search, Plus, Eye, Edit2, Users, Phone, Mail, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface Entidade {
   id: string;
@@ -73,6 +84,27 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
       toast.error('Erro ao carregar entidades');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (entidade: Entidade) => {
+    try {
+      const { error } = await supabase
+        .from('entidades_corporativas')
+        .delete()
+        .eq('id', entidade.id);
+
+      if (error) {
+        console.error('Erro ao excluir entidade:', error);
+        toast.error('Erro ao excluir entidade');
+        return;
+      }
+
+      toast.success('Entidade excluída definitivamente');
+      loadEntidades();
+    } catch (error) {
+      console.error('Erro ao excluir entidade:', error);
+      toast.error('Erro ao excluir entidade');
     }
   };
 
@@ -228,6 +260,35 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Excluir entidade"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir definitivamente a entidade "{entidade.nome_razao_social}"? 
+                                Esta ação não pode ser desfeita e removerá todos os dados relacionados.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDelete(entidade)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir Definitivamente
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>

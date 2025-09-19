@@ -303,16 +303,19 @@ export default function PositionsManagement() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Remover Cargo</AlertDialogTitle>
+                          <AlertDialogTitle>Excluir Cargo</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja remover o cargo "{position.nome}"?
-                            Esta ação não pode ser desfeita.
+                            Tem certeza que deseja excluir definitivamente o cargo "{position.nome}"?
+                            Esta ação não pode ser desfeita e removerá todos os dados relacionados.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(position)}>
-                            Remover
+                          <AlertDialogAction 
+                            onClick={() => handleDelete(position)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir Definitivamente
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

@@ -679,8 +679,8 @@ export default function Pessoas() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a pessoa <strong>{deletingPessoa?.nome}</strong>? 
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir definitivamente a pessoa <strong>{deletingPessoa?.nome}</strong>? 
+              Esta ação não pode ser desfeita e removerá todos os dados relacionados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -688,8 +688,9 @@ export default function Pessoas() {
             <AlertDialogAction
               onClick={() => deletingPessoa && handleDelete(deletingPessoa)}
               disabled={loading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              {loading ? 'Excluindo...' : 'Excluir Definitivamente'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

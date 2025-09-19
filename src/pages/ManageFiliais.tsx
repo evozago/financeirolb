@@ -14,6 +14,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface Filial {
   id: string;
@@ -128,19 +139,17 @@ export default function ManageFiliais() {
   };
 
   const handleDelete = async (filial: Filial) => {
-    if (!confirm('Tem certeza que deseja excluir esta filial?')) return;
-
     try {
       const { error } = await supabase
         .from('filiais')
-        .update({ ativo: false })
+        .delete()
         .eq('id', filial.id);
 
       if (error) throw error;
 
       toast({
         title: "Sucesso",
-        description: "Filial desativada com sucesso",
+        description: "Filial excluída definitivamente",
       });
 
       loadFiliais();
@@ -148,7 +157,7 @@ export default function ManageFiliais() {
       console.error('Error deleting filial:', error);
       toast({
         title: "Erro",
-        description: "Falha ao desativar filial",
+        description: "Falha ao excluir filial",
         variant: "destructive",
       });
     }
@@ -196,14 +205,34 @@ export default function ManageFiliais() {
           >
             <Edit className="h-4 w-4" />
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleDelete(item)}
-            disabled={!item.ativo}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir definitivamente a filial "{item.nome}"? 
+                  Esta ação não pode ser desfeita e removerá todos os dados relacionados.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => handleDelete(item)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Excluir Definitivamente
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ),
       className: 'w-24',

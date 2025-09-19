@@ -233,16 +233,19 @@ export default function DepartmentsManagement() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Remover Setor</AlertDialogTitle>
+                          <AlertDialogTitle>Excluir Setor</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja remover o setor "{department.nome}"?
-                            Esta ação não pode ser desfeita.
+                            Tem certeza que deseja excluir definitivamente o setor "{department.nome}"?
+                            Esta ação não pode ser desfeita e removerá todos os dados relacionados.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(department)}>
-                            Remover
+                          <AlertDialogAction 
+                            onClick={() => handleDelete(department)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir Definitivamente
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

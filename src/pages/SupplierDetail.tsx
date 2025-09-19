@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, FileText, Calendar, DollarSign, MapPin, Phone, Mail, Edit } from 'lucide-react';
+import { ArrowLeft, Building2, FileText, Calendar, DollarSign, MapPin, Phone, Mail, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,18 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface SupplierData {
   id: string;
@@ -37,6 +49,7 @@ interface SupplierBill {
 export default function SupplierDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
   const [supplier, setSupplier] = useState<SupplierData | null>(null);
   const [supplierBills, setSupplierBills] = useState<SupplierBill[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +124,41 @@ export default function SupplierDetail() {
       console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!supplier) return;
+    
+    try {
+      const { error } = await supabase
+        .from('fornecedores')
+        .delete()
+        .eq('id', supplier.id);
+
+      if (error) {
+        console.error('Error deleting supplier:', error);
+        toast({
+          title: "Erro",
+          description: "Falha ao excluir fornecedor",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Fornecedor excluído definitivamente",
+      });
+      
+      navigate('/suppliers');
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao excluir fornecedor",
+        variant: "destructive",
+      });
     }
   };
 
@@ -229,6 +277,32 @@ export default function SupplierDetail() {
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja excluir definitivamente o fornecedor "{supplier.nome}"? 
+                      Esta ação não pode ser desfeita e removerá todos os dados relacionados.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Excluir Definitivamente
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </div>
