@@ -190,11 +190,6 @@ export function SalespersonPanel() {
 
   const deleteSalesperson = (id: string) => {
     setSalespeople(prev => prev.filter(p => p.id !== id));
-    setSalesData(prev => {
-      const updated = { ...prev };
-      delete updated[id];
-      return updated;
-    });
     toast.success("Vendedora removida com sucesso!");
   };
 

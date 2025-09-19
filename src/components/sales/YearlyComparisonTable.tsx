@@ -10,15 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, Minus, Save, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useSalesData } from "@/hooks/useSalesData";
-
-interface YearlyData {
-  year: number;
-  months: number[];
-  total: number;
-  growth: number;
-}
 
 export function YearlyComparisonTable() {
   const { 
@@ -33,76 +25,14 @@ export function YearlyComparisonTable() {
 
   const [newYear, setNewYear] = useState(new Date().getFullYear() + 1);
   const [isAddYearOpen, setIsAddYearOpen] = useState(false);
-  
-  // Editable data
-  const [yearlyData, setYearlyData] = useState<YearlyData[]>([
-    {
-      year: 2024,
-      months: [45000, 52000, 48000, 55000, 60000, 58000, 62000, 59000, 61000, 65000, 68000, 70000],
-      total: 703000,
-      growth: 8.5
-    },
-    {
-      year: 2023,
-      months: [42000, 48000, 44000, 51000, 55000, 53000, 57000, 54000, 56000, 60000, 62000, 65000],
-      total: 647000,
-      growth: 12.3
-    },
-    {
-      year: 2022,
-      months: [38000, 43000, 40000, 46000, 50000, 48000, 51000, 49000, 51000, 54000, 56000, 58000],
-      total: 584000,
-      growth: -2.1
-    }
-  ]);
 
-  // Calculate growth and totals
-  const calculateMetrics = (data: YearlyData[]) => {
-    return data.map((yearData, index) => {
-      const total = yearData.months.reduce((sum, month) => sum + month, 0);
-      let growth = 0;
-      
-      if (index < data.length - 1) {
-        const prevYear = data[index + 1];
-        const prevTotal = prevYear.months.reduce((sum, month) => sum + month, 0);
-        growth = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
-      }
-      
-      return { ...yearData, total, growth };
-    });
-  };
-
-  const updateMonthValue = (year: number, monthIndex: number, value: number) => {
-    setYearlyData(prev => {
-      const updated = prev.map(data => 
-        data.year === year 
-          ? { ...data, months: data.months.map((m, i) => i === monthIndex ? value : m) }
-          : data
-      );
-      return calculateMetrics(updated);
-    });
-  };
 
   const addNewYear = () => {
-    if (yearlyData.some(data => data.year === newYear)) {
-      toast.error("Ano já existe!");
-      return;
-    }
-    
-    const newYearData: YearlyData = {
-      year: newYear,
-      months: Array(12).fill(0),
-      total: 0,
-      growth: 0
-    };
-    
-    setYearlyData(prev => {
-      const updated = [newYearData, ...prev].sort((a, b) => b.year - a.year);
-      return calculateMetrics(updated);
-    });
-    
+    // For now, just change the current year to view it
+    // Adding new years would require backend implementation
+    setCurrentYear(newYear);
     setIsAddYearOpen(false);
-    toast.success(`Ano ${newYear} adicionado com sucesso!`);
+    toast.success(`Ano ${newYear} selecionado para visualização!`);
   };
 
   const handleSaveAll = () => {
