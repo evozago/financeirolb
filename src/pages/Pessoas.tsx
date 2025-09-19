@@ -101,28 +101,55 @@ export default function Pessoas() {
 
   const loadData = async () => {
     try {
-      const [pessoasRes, cargosRes, setoresRes, filiaisRes] = await Promise.all([
-        supabase.from('pessoas').select('*').order('nome'),
+      const [fornRes, cargosRes, setoresRes, filiaisRes] = await Promise.all([
+        supabase
+          .from('fornecedores')
+          .select('id, nome, email, telefone, endereco, tipo_pessoa, cpf, cnpj_cpf, cargo_id, setor_id, filial_id, ativo, salario, data_admissao, meta_mensal, comissao_padrao, comissao_supermeta, categoria_id, eh_funcionario, eh_vendedora, eh_fornecedor')
+          .order('nome'),
         supabase.from('hr_cargos').select('*').eq('ativo', true).order('nome'),
         supabase.from('hr_setores').select('*').eq('ativo', true).order('nome'),
         supabase.from('filiais').select('*').eq('ativo', true).order('nome'),
       ]);
 
-      if (pessoasRes.error) throw pessoasRes.error;
+      if (fornRes.error) throw fornRes.error;
       if (cargosRes.error) throw cargosRes.error;
       if (setoresRes.error) throw setoresRes.error;
       if (filiaisRes.error) throw filiaisRes.error;
 
-      setPessoas(pessoasRes.data || []);
+      // Mapear fornecedores -> pessoas unificadas
+      const mapped = (fornRes.data || []).map((f: any) => ({
+        id: f.id,
+        nome: f.nome,
+        email: f.email,
+        telefone: f.telefone,
+        endereco: f.endereco,
+        tipo_pessoa: f.tipo_pessoa,
+        categorias: [
+          ...(f.eh_funcionario ? ['funcionario'] : []),
+          ...(f.eh_vendedora ? ['vendedora'] : []),
+          ...(f.eh_fornecedor ? ['fornecedor'] : []),
+        ],
+        cpf: f.cpf,
+        cnpj: f.cnpj_cpf,
+        cargo_id: f.cargo_id,
+        setor_id: f.setor_id,
+        filial_id: f.filial_id,
+        ativo: f.ativo,
+        dados_funcionario: { salario: f.salario, data_admissao: f.data_admissao },
+        dados_vendedora: { meta_mensal: f.meta_mensal, comissao_padrao: f.comissao_padrao, comissao_supermeta: f.comissao_supermeta },
+        dados_fornecedor: { categoria_id: f.categoria_id },
+      })) as Pessoa[];
+
+      setPessoas(mapped);
       setCargos(cargosRes.data || []);
       setSetores(setoresRes.data || []);
       setFiliais(filiaisRes.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
-        title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os dados.",
-        variant: "destructive",
+        title: 'Erro ao carregar dados',
+        description: 'Não foi possível carregar os dados.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -134,61 +161,64 @@ export default function Pessoas() {
     setLoading(true);
 
     try {
-      const dados_funcionario = formData.categorias.includes('funcionario') ? {
-        salario: parseFloat(formData.salario) || 0,
-        data_admissao: formData.data_admissao || null,
-        status_funcionario: 'ativo',
-        valor_transporte_dia: 8.6,
-        valor_transporte_total: 0,
-        dias_uteis_mes: 22
-      } : {};
-
-      const dados_vendedora = formData.categorias.includes('vendedora') ? {
-        meta_mensal: parseFloat(formData.meta_mensal) || 0,
-        comissao_padrao: parseFloat(formData.comissao_padrao) || 3.0,
-        comissao_supermeta: parseFloat(formData.comissao_supermeta) || 5.0
-      } : {};
-
-      const dados_fornecedor = formData.categorias.includes('fornecedor') ? {
-        categoria_id: formData.categoria_id || null,
-        data_cadastro: new Date().toISOString()
-      } : {};
-
-      const pessoaData = {
+      const pessoaData: any = {
         nome: formData.nome,
         email: formData.email || null,
         telefone: formData.telefone || null,
         endereco: formData.endereco || null,
         tipo_pessoa: formData.tipo_pessoa,
-        categorias: formData.categorias,
         cpf: formData.tipo_pessoa === 'pessoa_fisica' ? formData.cpf || null : null,
-        cnpj: formData.tipo_pessoa === 'pessoa_juridica' ? formData.cnpj || null : null,
+        cnpj_cpf: formData.tipo_pessoa === 'pessoa_juridica' ? formData.cnpj || null : null,
         cargo_id: formData.cargo_id || null,
         filial_id: formData.filial_id || null,
-        dados_funcionario,
-        dados_vendedora,
-        dados_fornecedor,
+        // Flags de categoria
+        eh_funcionario: formData.categorias.includes('funcionario'),
+        eh_vendedora: formData.categorias.includes('vendedora'),
+        eh_fornecedor: formData.categorias.includes('fornecedor'),
       };
+
+      // Campos específicos
+      if (formData.categorias.includes('funcionario')) {
+        pessoaData.salario = parseFloat(formData.salario) || 0;
+        pessoaData.data_admissao = formData.data_admissao || null;
+      } else {
+        pessoaData.salario = null;
+        pessoaData.data_admissao = null;
+      }
+
+      if (formData.categorias.includes('vendedora')) {
+        pessoaData.meta_mensal = parseFloat(formData.meta_mensal) || 0;
+        pessoaData.comissao_padrao = parseFloat(formData.comissao_padrao) || 3.0;
+        pessoaData.comissao_supermeta = parseFloat(formData.comissao_supermeta) || 5.0;
+      } else {
+        pessoaData.meta_mensal = null;
+        pessoaData.comissao_padrao = null;
+        pessoaData.comissao_supermeta = null;
+      }
+
+      if (formData.categorias.includes('fornecedor')) {
+        pessoaData.categoria_id = formData.categoria_id || null;
+      } else {
+        pessoaData.categoria_id = null;
+      }
 
       let result;
       if (editingPessoa) {
         result = await supabase
-          .from('pessoas')
+          .from('fornecedores')
           .update(pessoaData)
           .eq('id', editingPessoa.id);
       } else {
         result = await supabase
-          .from('pessoas')
+          .from('fornecedores')
           .insert([pessoaData]);
       }
 
       if (result.error) throw result.error;
 
       toast({
-        title: editingPessoa ? "Pessoa atualizada" : "Pessoa criada",
-        description: editingPessoa ? 
-          "A pessoa foi atualizada com sucesso." : 
-          "A nova pessoa foi criada com sucesso.",
+        title: editingPessoa ? 'Pessoa atualizada' : 'Pessoa criada',
+        description: editingPessoa ? 'A pessoa foi atualizada com sucesso.' : 'A nova pessoa foi criada com sucesso.',
       });
 
       setDialogOpen(false);
@@ -198,9 +228,9 @@ export default function Pessoas() {
     } catch (error) {
       console.error('Error saving pessoa:', error);
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar a pessoa.",
-        variant: "destructive",
+        title: 'Erro ao salvar',
+        description: 'Não foi possível salvar a pessoa.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -232,28 +262,17 @@ export default function Pessoas() {
   const handleDelete = async (pessoa: Pessoa) => {
     try {
       setLoading(true);
-      
       const { error } = await supabase
-        .from('pessoas')
+        .from('fornecedores')
         .delete()
         .eq('id', pessoa.id);
-      
       if (error) throw error;
-      
-      toast({
-        title: "Pessoa excluída",
-        description: "A pessoa foi removida com sucesso.",
-      });
-      
+      toast({ title: 'Pessoa excluída', description: 'A pessoa foi removida com sucesso.' });
       setDeletingPessoa(null);
       loadData();
     } catch (error) {
       console.error('Error deleting pessoa:', error);
-      toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir a pessoa.",
-        variant: "destructive",
-      });
+      toast({ title: 'Erro ao excluir', description: 'Não foi possível excluir a pessoa.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
