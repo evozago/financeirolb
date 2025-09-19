@@ -643,13 +643,6 @@ export type Database = {
             referencedRelation: "pessoas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_contatos_pessoa"
-            columns: ["pessoa_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       detalhes_produtos: {
@@ -921,13 +914,6 @@ export type Database = {
             referencedRelation: "pessoas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_enderecos_pessoa"
-            columns: ["pessoa_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       entidade_enderecos: {
@@ -1039,9 +1025,11 @@ export type Database = {
           ativo: boolean
           cnpj_cpf: string | null
           created_at: string
+          email: string | null
           id: string
           nome: string
           razao_social: string | null
+          telefone: string | null
           tipo: string
           updated_at: string
         }
@@ -1049,9 +1037,11 @@ export type Database = {
           ativo?: boolean
           cnpj_cpf?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           nome: string
           razao_social?: string | null
+          telefone?: string | null
           tipo: string
           updated_at?: string
         }
@@ -1059,9 +1049,11 @@ export type Database = {
           ativo?: boolean
           cnpj_cpf?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           nome?: string
           razao_social?: string | null
+          telefone?: string | null
           tipo?: string
           updated_at?: string
         }
@@ -2020,6 +2012,13 @@ export type Database = {
             referencedRelation: "vendedoras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "metas_mensais_vendedora_id_fkey"
+            columns: ["vendedora_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       nfe_data: {
@@ -2868,13 +2867,6 @@ export type Database = {
             referencedRelation: "pessoas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       store_monthly_sales: {
@@ -3010,6 +3002,13 @@ export type Database = {
             columns: ["vendedora_id"]
             isOneToOne: false
             referencedRelation: "vendedoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_vendedora_id_fkey"
+            columns: ["vendedora_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3495,20 +3494,42 @@ export type Database = {
             referencedRelation: "vendedoras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendas_vendedora_id_fkey"
+            columns: ["vendedora_id"]
+            isOneToOne: false
+            referencedRelation: "vendedoras_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vendedoras_view: {
         Row: {
+          ativo: boolean | null
+          created_at: string | null
+          email: string | null
           id: string | null
           nome: string | null
+          telefone: string | null
+          updated_at: string | null
         }
         Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
           nome?: string | null
+          telefone?: string | null
+          updated_at?: string | null
         }
         Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
           nome?: string | null
+          telefone?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -3560,6 +3581,15 @@ export type Database = {
           nome_razao_social?: string | null
           telefone?: string | null
           tipo_pessoa?: string | null
+        }
+        Relationships: []
+      }
+      vw_entidades_dup_cpf_cnpj: {
+        Row: {
+          cnpj_cpf: string | null
+          ids: string[] | null
+          nomes: string[] | null
+          qtd: number | null
         }
         Relationships: []
       }
@@ -3876,6 +3906,18 @@ export type Database = {
       migrate_funcionarios_to_pessoas: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      norm_doc: {
+        Args: { doc: string }
+        Returns: string
+      }
+      norm_email: {
+        Args: { e: string }
+        Returns: string
+      }
+      norm_phone: {
+        Args: { t: string }
+        Returns: string
       }
       normaliza_cpf_cnpj: {
         Args: { input_text: string }
