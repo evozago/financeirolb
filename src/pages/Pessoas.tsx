@@ -92,6 +92,14 @@ export default function Pessoas() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadData();
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
   const loadData = async () => {
@@ -280,8 +288,8 @@ export default function Pessoas() {
       cliente: "bg-orange-100 text-orange-800"
     };
 
-    return papeis?.map(papel => (
-      <Badge key={papel} className={colors[papel] || "bg-gray-100 text-gray-800"}>
+    return papeis?.filter(papel => papel).map((papel, index) => (
+      <Badge key={`${papel}-${index}`} className={colors[papel] || "bg-gray-100 text-gray-800"}>
         {papel}
       </Badge>
     ));
