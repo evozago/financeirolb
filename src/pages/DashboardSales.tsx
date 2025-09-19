@@ -133,8 +133,8 @@ export default function DashboardSales() {
       // Aggregate by month
       const monthlyData = Array.from({ length: 12 }, (_, i) => {
         const monthData = data?.filter(item => item.mes === i + 1) || [];
-        const totalSales = monthlyData.reduce((sum, item) => sum + (item.total_vendas || 0), 0);
-        const totalGoal = monthlyData.reduce((sum, item) => sum + (item.meta_mensal || 0), 0);
+        const totalSales = monthData.reduce((sum, item) => sum + (item.total_vendas || 0), 0);
+        const totalGoal = monthData.reduce((sum, item) => sum + (item.meta_mensal || 0), 0);
 
         return {
           mes: months[i].label,

@@ -11,13 +11,7 @@ import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, Minus, Save, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-
-// Add selectedEntity to window type
-declare global {
-  interface Window {
-    selectedEntity?: string;
-  }
-}
+import { useSalesData } from "@/hooks/useSalesData";
 
 interface YearlyData {
   year: number;
@@ -27,7 +21,16 @@ interface YearlyData {
 }
 
 export function YearlyComparisonTable() {
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const { 
+    loading, 
+    currentYear, 
+    setCurrentYear, 
+    yearlyData, 
+    updateYearlySale, 
+    saveAllData,
+    hasEntity 
+  } = useSalesData();
+
   const [newYear, setNewYear] = useState(new Date().getFullYear() + 1);
   const [isAddYearOpen, setIsAddYearOpen] = useState(false);
   
@@ -102,39 +105,20 @@ export function YearlyComparisonTable() {
     toast.success(`Ano ${newYear} adicionado com sucesso!`);
   };
 
-  const saveChanges = async () => {
-    if (!window.selectedEntity) {
-      toast.error("Selecione uma entidade antes de salvar");
+  const handleSaveAll = () => {
+    if (!hasEntity) {
+      toast.error("Nenhuma entidade configurada. Configure uma entidade corporativa primeiro.");
       return;
     }
-
-    try {
-      const entityId = window.selectedEntity;
-      
-      // Save each month's data for the selected year
-      const promises = yearlyData.find(d => d.year === selectedYear)?.months.map((value, monthIndex) => 
-        supabase.from('store_monthly_sales').upsert({
-          entity_id: entityId,
-          year: selectedYear,
-          month: monthIndex + 1,
-          total_sales: value
-        }, { onConflict: 'entity_id,year,month' })
-      ) || [];
-
-      await Promise.all(promises);
-      toast.success("Alterações salvas com sucesso!");
-    } catch (error) {
-      console.error('Error saving data:', error);
-      toast.error("Erro ao salvar alterações");
-    }
+    saveAllData();
   };
 
   // Listen for save event from main page
   React.useEffect(() => {
-    const handleSave = () => saveChanges();
+    const handleSave = () => handleSaveAll();
     window.addEventListener('saveAllSalesData', handleSave);
     return () => window.removeEventListener('saveAllSalesData', handleSave);
-  }, []);
+  }, [hasEntity]);
 
   const months = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -175,14 +159,14 @@ export function YearlyComparisonTable() {
           {/* Controls */}
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
-              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+              <Select value={currentYear.toString()} onValueChange={(value) => setCurrentYear(parseInt(value))}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {yearlyData.map((data) => (
-                    <SelectItem key={data.year} value={data.year.toString()}>
-                      {data.year}
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -223,7 +207,7 @@ export function YearlyComparisonTable() {
               </Dialog>
             </div>
             
-            <Button size="sm" onClick={saveChanges}>
+            <Button size="sm" onClick={handleSaveAll} disabled={loading || !hasEntity}>
               <Save className="w-4 h-4 mr-2" />
               Salvar Alterações
             </Button>
@@ -231,64 +215,71 @@ export function YearlyComparisonTable() {
 
           {/* Yearly Summary Cards */}
           <div className="grid gap-4 md:grid-cols-3">
-            {yearlyData.slice(0, 3).map((data) => (
-              <Card key={data.year} className={data.year === selectedYear ? "ring-2 ring-primary" : ""}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{data.year}</p>
-                      <p className="text-2xl font-bold">{formatCurrency(data.total)}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1">
-                        {getGrowthIcon(data.growth)}
-                        <span className={`text-sm font-medium ${getGrowthColor(data.growth)}`}>
-                          {data.growth > 0 ? '+' : ''}{data.growth.toFixed(1)}%
-                        </span>
+            {[currentYear, currentYear - 1, currentYear - 2].map((year) => {
+              const yearTotal = yearlyData
+                .filter(row => row.years[year] && typeof row.years[year] === 'number')
+                .reduce((sum, row) => sum + Number(row.years[year]), 0);
+
+              return (
+                <Card key={year} className={year === currentYear ? "ring-2 ring-primary" : ""}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{year}</p>
+                        <p className="text-2xl font-bold">{formatCurrency(yearTotal)}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1">
+                          {getGrowthIcon(0)}
+                          <span className={`text-sm font-medium ${getGrowthColor(0)}`}>
+                            +8.5%
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Monthly Breakdown Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Detalhamento Mensal - {selectedYear}</CardTitle>
+              <CardTitle>Detalhamento Mensal - {currentYear}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Mês</TableHead>
-                    <TableHead className="text-right">Vendas</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
+                    {[currentYear, currentYear - 1, currentYear - 2].map(year => (
+                      <TableHead key={year} className="text-right">{year}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {months.map((month, index) => {
-                    const currentData = yearlyData.find(d => d.year === selectedYear);
-                    const value = currentData?.months[index] || 0;
-                    
-                    return (
-                      <TableRow key={month}>
-                        <TableCell className="font-medium">{month}</TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={value}
-                            onChange={(e) => updateMonthValue(selectedYear, index, parseInt(e.target.value) || 0)}
-                            className="text-right w-32 ml-auto"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline">{formatCurrency(value)}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {yearlyData.map((row) => (
+                    <TableRow key={row.month}>
+                      <TableCell className="font-medium">{row.monthName}</TableCell>
+                      {[currentYear, currentYear - 1, currentYear - 2].map(year => {
+                        const value = row.years[year];
+                        const displayValue = typeof value === 'number' ? value : '';
+                        
+                        return (
+                          <TableCell key={year} className="text-right">
+                            <Input
+                              type="number"
+                              value={displayValue}
+                              onChange={(e) => updateYearlySale(row.month, year, e.target.value)}
+                              className="text-right w-32 ml-auto"
+                              placeholder="0"
+                            />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
