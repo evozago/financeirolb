@@ -445,8 +445,8 @@ export function SalespersonPanel() {
                       <SelectValue placeholder="Escolher do cadastro existente (opcional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {existingEmployees.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.id}>
+                      {existingEmployees.map((employee, idx) => (
+                        <SelectItem key={`${employee.id}-${idx}`} value={employee.id}>
                           {employee.nome} {employee.cpf ? `(${employee.cpf})` : ''}
                         </SelectItem>
                       ))}
