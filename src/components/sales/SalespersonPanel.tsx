@@ -70,40 +70,42 @@ export function SalespersonPanel() {
     supermetaRate: undefined as number | undefined
   });
 
-  // Load existing employees (funcionários and vendedoras)
+  // Load existing employees from fornecedores table
   const loadExistingEmployees = async () => {
     try {
-      // Get from funcionarios_unified view
-      const { data: funcionarios, error: funcError } = await supabase
-        .from('funcionarios_unified')
-        .select('id, nome, cpf, email, telefone, salario')
-        .eq('ativo', true);
+      // Get all people from fornecedores table (employees and suppliers)
+      const { data: fornecedores, error } = await supabase
+        .from('fornecedores')
+        .select('id, nome, cpf, cnpj_cpf, email, telefone, salario, tipo_pessoa')
+        .eq('ativo', true)
+        .order('nome');
 
-      // Get from vendedoras table
-      const { data: vendedoras, error: vendError } = await supabase
-        .from('vendedoras')
-        .select('id, nome')
-        .eq('ativo', true);
+      if (error) {
+        console.error('Error loading fornecedores:', error);
+        toast.error('Erro ao carregar funcionários/vendedoras');
+        return;
+      }
 
-      if (funcError) console.error('Error loading funcionarios:', funcError);
-      if (vendError) console.error('Error loading vendedoras:', vendError);
+      // Create unique list by name and document to avoid duplicates
+      const uniqueEmployees = new Map<string, ExistingEmployee>();
+      
+      fornecedores?.forEach(f => {
+        const cpfCnpj = f.tipo_pessoa === 'pessoa_fisica' ? f.cpf : f.cnpj_cpf;
+        const key = `${f.nome.trim().toUpperCase()}-${cpfCnpj || ''}`;
+        
+        if (!uniqueEmployees.has(key)) {
+          uniqueEmployees.set(key, {
+            id: f.id || '',
+            nome: f.nome || '',
+            cpf: cpfCnpj,
+            email: f.email,
+            telefone: f.telefone,
+            salario: f.salario ? Number(f.salario) : undefined
+          });
+        }
+      });
 
-      const combined: ExistingEmployee[] = [
-        ...(funcionarios || []).map(f => ({
-          id: f.id || '',
-          nome: f.nome || '',
-          cpf: f.cpf,
-          email: f.email,
-          telefone: f.telefone,
-          salario: f.salario ? Number(f.salario) : undefined
-        })),
-        ...(vendedoras || []).map(v => ({
-          id: v.id || '',
-          nome: v.nome || ''
-        }))
-      ];
-
-      setExistingEmployees(combined);
+      setExistingEmployees(Array.from(uniqueEmployees.values()));
     } catch (error) {
       console.error('Error loading existing employees:', error);
       toast.error('Erro ao carregar funcionários/vendedoras');
@@ -314,10 +316,29 @@ export function SalespersonPanel() {
                         </CardDescription>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => editSalesperson({
+                            id: person.salesperson_id,
+                            name: person.salesperson_name,
+                            baseSalary: 0,
+                            commissionRate: 0.03,
+                            metaBase: 0,
+                            supermetaRate: 0.05
+                          })}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Tem certeza que deseja remover ${person.salesperson_name}?`)) {
+                              deleteSalesperson(person.salesperson_id);
+                            }
+                          }}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

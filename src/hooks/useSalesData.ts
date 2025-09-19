@@ -115,9 +115,10 @@ export function useSalesData() {
 
       // --- 2) Painel de Vendedoras (tabela direita) ---
       const { data: vendedoras, error: vendErr } = await supabase
-        .from('vendedoras')
+        .from('fornecedores')
         .select('id, nome, ativo')
-        .eq('ativo', true);
+        .eq('ativo', true)
+        .eq('eh_vendedora', true);
       if (vendErr) throw vendErr;
 
       const { data: metas, error: metasErr } = await supabase
