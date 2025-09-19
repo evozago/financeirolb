@@ -58,7 +58,11 @@ export function SalespersonPanel() {
   const [existingEmployees, setExistingEmployees] = useState<ExistingEmployee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   
-  // Local salespeople data
+  // Local overrides to reflect edits/deletes immediately
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [editedNames, setEditedNames] = useState<Record<string, string>>({});
+  
+  // Local salespeople data (legacy - not used for rendering, kept for form state)
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
 
   // New salesperson form
@@ -155,44 +159,73 @@ export function SalespersonPanel() {
     toast.success("Vendedora adicionada com sucesso!");
   };
 
-  const editSalesperson = (person: Salesperson) => {
-    setEditingSalesperson(person);
-    setNewSalesperson({
-      name: person.name,
-      baseSalary: person.baseSalary,
-      commissionRate: person.commissionRate,
-      metaBase: person.metaBase,
-      supermetaRate: person.supermetaRate
-    });
+  const editSalesperson = async (person: Salesperson) => {
+    try {
+      // Load current data from fornecedores
+      const { data, error } = await supabase
+        .from('fornecedores')
+        .select('id, nome, salario, comissao_padrao, comissao_supermeta, meta_mensal')
+        .eq('id', person.id)
+        .single();
+      if (error) throw error;
+
+      setEditingSalesperson({ id: data.id, name: data.nome, baseSalary: Number(data.salario || 0), commissionRate: Number(data.comissao_padrao || 0) / 100, metaBase: Number(data.meta_mensal || 0), supermetaRate: Number(data.comissao_supermeta || 0) / 100 });
+      setNewSalesperson({
+        name: data.nome || '',
+        baseSalary: data.salario ? Number(data.salario) : undefined,
+        commissionRate: data.comissao_padrao != null ? Number(data.comissao_padrao) / 100 : undefined,
+        metaBase: data.meta_mensal ? Number(data.meta_mensal) : undefined,
+        supermetaRate: data.comissao_supermeta != null ? Number(data.comissao_supermeta) / 100 : undefined,
+      });
+    } catch (e: any) {
+      console.error('Erro ao carregar vendedora:', e);
+      toast.error('Não foi possível carregar os dados da vendedora');
+    }
   };
 
-  const saveEditSalesperson = () => {
+  const saveEditSalesperson = async () => {
     if (!editingSalesperson || !newSalesperson.name.trim()) {
       toast.error("Nome é obrigatório!");
       return;
     }
+    try {
+      const { error } = await supabase
+        .from('fornecedores')
+        .update({
+          nome: newSalesperson.name,
+          salario: newSalesperson.baseSalary ?? null,
+          comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+          comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+          meta_mensal: newSalesperson.metaBase ?? null,
+        })
+        .eq('id', editingSalesperson.id);
+      if (error) throw error;
 
-    setSalespeople(prev => prev.map(p => 
-      p.id === editingSalesperson.id 
-        ? { ...p, ...newSalesperson }
-        : p
-    ));
-    
-    setEditingSalesperson(null);
-    setNewSalesperson({
-      name: '',
-      baseSalary: 2000,
-      commissionRate: 0.03,
-      metaBase: 15000,
-      supermetaRate: 0.05
-    });
-    
-    toast.success("Vendedora atualizada com sucesso!");
+      setEditedNames((prev) => ({ ...prev, [editingSalesperson.id]: newSalesperson.name }));
+
+      setEditingSalesperson(null);
+      setNewSalesperson({ name: '', baseSalary: undefined, commissionRate: undefined, metaBase: undefined, supermetaRate: undefined });
+      toast.success("Vendedora atualizada com sucesso!");
+    } catch (e: any) {
+      console.error('Erro ao salvar vendedora:', e);
+      toast.error('Falha ao salvar alterações');
+    }
   };
 
-  const deleteSalesperson = (id: string) => {
-    setSalespeople(prev => prev.filter(p => p.id !== id));
-    toast.success("Vendedora removida com sucesso!");
+  const deleteSalesperson = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('fornecedores')
+        .update({ eh_vendedora: false })
+        .eq('id', id);
+      if (error) throw error;
+
+      setRemovedIds((prev) => [...prev, id]);
+      toast.success("Vendedora removida do painel!");
+    } catch (e: any) {
+      console.error('Erro ao remover vendedora:', e);
+      toast.error('Não foi possível remover');
+    }
   };
 
   const updateGoalForMonth = (salespersonId: string, value: string) => {
@@ -299,75 +332,78 @@ export function SalespersonPanel() {
 
           {/* Salespeople List */}
           <div className="grid gap-4 md:grid-cols-2">
-            {salespersonData.map((person) => {
-              const monthlyGoal = person.monthly_goals[selectedMonth] || '';
-              const progress = typeof monthlyGoal === 'number' && monthlyGoal > 0 ? 50 : 0; // Placeholder
-              
-              return (
-                <Card key={person.salesperson_id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{person.salesperson_name}</CardTitle>
-                        <CardDescription>
-                          Meta {months.find(m => m.value === selectedMonth)?.label}: {
-                            typeof monthlyGoal === 'number' ? formatCurrency(monthlyGoal) : 'Não definida'
-                          }
-                        </CardDescription>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => editSalesperson({
-                            id: person.salesperson_id,
-                            name: person.salesperson_name,
-                            baseSalary: 0,
-                            commissionRate: 0.03,
-                            metaBase: 0,
-                            supermetaRate: 0.05
-                          })}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            if (confirm(`Tem certeza que deseja remover ${person.salesperson_name}?`)) {
-                              deleteSalesperson(person.salesperson_id);
+            {salespersonData
+              .filter((p) => !removedIds.includes(p.salesperson_id))
+              .map((person) => {
+                const monthlyGoal = person.monthly_goals[selectedMonth] || '';
+                const progress = typeof monthlyGoal === 'number' && monthlyGoal > 0 ? 50 : 0; // Placeholder
+                const displayName = editedNames[person.salesperson_id] ?? person.salesperson_name;
+                
+                return (
+                  <Card key={person.salesperson_id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{displayName}</CardTitle>
+                          <CardDescription>
+                            Meta {months.find(m => m.value === selectedMonth)?.label}: {
+                              typeof monthlyGoal === 'number' ? formatCurrency(monthlyGoal) : 'Não definida'
                             }
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          </CardDescription>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => editSalesperson({
+                              id: person.salesperson_id,
+                              name: displayName,
+                              baseSalary: 0,
+                              commissionRate: 0.03,
+                              metaBase: 0,
+                              supermetaRate: 0.05
+                            })}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Tem certeza que deseja remover ${displayName}?`)) {
+                                deleteSalesperson(person.salesperson_id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <Label htmlFor={`goal-${person.salesperson_id}`} className="text-sm">
-                          Meta Mensal - {months.find(m => m.value === selectedMonth)?.label}
-                        </Label>
-                        <CurrencyInput
-                          value={typeof monthlyGoal === 'number' ? monthlyGoal : undefined}
-                          onValueChange={(value) => updateGoalForMonth(person.salesperson_id, value?.toString() || '')}
-                          placeholder="R$ 0,00"
-                        />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <Label htmlFor={`goal-${person.salesperson_id}`} className="text-sm">
+                            Meta Mensal - {months.find(m => m.value === selectedMonth)?.label}
+                          </Label>
+                          <CurrencyInput
+                            value={typeof monthlyGoal === 'number' ? monthlyGoal : undefined}
+                            onValueChange={(value) => updateGoalForMonth(person.salesperson_id, value?.toString() || '')}
+                            placeholder="R$ 0,00"
+                          />
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex justify-between items-center pt-2">
-                      <Badge variant={progress >= 100 ? "default" : "secondary"}>
-                        <Target className="w-3 h-3 mr-1" />
-                        Meta definida
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                      
+                      <div className="flex justify-between items-center pt-2">
+                        <Badge variant={progress >= 100 ? "default" : "secondary"}>
+                          <Target className="w-3 h-3 mr-1" />
+                          Meta definida
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
           </div>
 
           <Dialog open={isAddDialogOpen || !!editingSalesperson} onOpenChange={(open) => {

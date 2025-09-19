@@ -116,7 +116,7 @@ export function useSalesData() {
       // --- 2) Painel de Vendedoras (tabela direita) ---
       const { data: vendedoras, error: vendErr } = await supabase
         .from('fornecedores')
-        .select('id, nome, ativo')
+        .select('id, nome, ativo, cpf_cnpj_normalizado')
         .eq('ativo', true)
         .eq('eh_vendedora', true);
       if (vendErr) throw vendErr;
@@ -138,7 +138,15 @@ export function useSalesData() {
         map.set(sid, cur);
       }
 
-      const formattedSales: SalespersonPanelData[] = (vendedoras ?? []).map((v: any) => ({
+      // Deduplicate vendedoras by name + normalized document
+      const uniqueVendedoras = new Map<string, any>();
+      (vendedoras ?? []).forEach((v: any) => {
+        const key = `${(v.nome || '').trim().toUpperCase()}-${v.cpf_cnpj_normalizado || ''}`;
+        if (!uniqueVendedoras.has(key)) uniqueVendedoras.set(key, v);
+      });
+      const vendedorasList = Array.from(uniqueVendedoras.values());
+
+      const formattedSales: SalespersonPanelData[] = vendedorasList.map((v: any) => ({
         salesperson_id: v.id,
         salesperson_name: v.nome,
         monthly_goals: map.get(v.id) ?? {},
