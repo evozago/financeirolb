@@ -3,6 +3,8 @@ import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -57,10 +59,10 @@ export function SalespersonPanel() {
   // New salesperson form
   const [newSalesperson, setNewSalesperson] = useState({
     name: '',
-    baseSalary: 2000,
-    commissionRate: 0.03,
-    metaBase: 15000,
-    supermetaRate: 0.05
+    baseSalary: undefined as number | undefined,
+    commissionRate: undefined as number | undefined,
+    metaBase: undefined as number | undefined,
+    supermetaRate: undefined as number | undefined
   });
 
   const formatCurrency = (value: number) => {
@@ -93,10 +95,10 @@ export function SalespersonPanel() {
     
     setNewSalesperson({
       name: '',
-      baseSalary: 2000,
-      commissionRate: 0.03,
-      metaBase: 15000,
-      supermetaRate: 0.05
+      baseSalary: undefined,
+      commissionRate: undefined,
+      metaBase: undefined,
+      supermetaRate: undefined
     });
     
     setIsAddDialogOpen(false);
@@ -384,46 +386,48 @@ export function SalespersonPanel() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="baseSalary">Salário Base</Label>
-                    <Input
-                      id="baseSalary"
-                      type="number"
+                    <CurrencyInput
                       value={newSalesperson.baseSalary}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, baseSalary: parseFloat(e.target.value) || 0 }))}
+                      onValueChange={(value) => setNewSalesperson(prev => ({ ...prev, baseSalary: value }))}
+                      placeholder="R$ 0,00"
                     />
                   </div>
                   <div>
                     <Label htmlFor="metaBase">Meta Base</Label>
-                    <Input
-                      id="metaBase"
-                      type="number"
+                    <CurrencyInput
                       value={newSalesperson.metaBase}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, metaBase: parseFloat(e.target.value) || 0 }))}
+                      onValueChange={(value) => setNewSalesperson(prev => ({ ...prev, metaBase: value }))}
+                      placeholder="R$ 0,00"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="commissionRate">Comissão Base (%)</Label>
-                    <Input
-                      id="commissionRate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={newSalesperson.commissionRate * 100}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, commissionRate: (parseFloat(e.target.value) || 0) / 100 }))}
+                    <NumberInput
+                      value={newSalesperson.commissionRate ? newSalesperson.commissionRate * 100 : undefined}
+                      onValueChange={(value) => setNewSalesperson(prev => ({ 
+                        ...prev, 
+                        commissionRate: value ? value / 100 : undefined 
+                      }))}
+                      decimals={2}
+                      min={0}
+                      max={100}
+                      placeholder="Ex: 3.50"
                     />
                   </div>
                   <div>
                     <Label htmlFor="supermetaRate">Super Meta (%)</Label>
-                    <Input
-                      id="supermetaRate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={newSalesperson.supermetaRate * 100}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, supermetaRate: (parseFloat(e.target.value) || 0) / 100 }))}
+                    <NumberInput
+                      value={newSalesperson.supermetaRate ? newSalesperson.supermetaRate * 100 : undefined}
+                      onValueChange={(value) => setNewSalesperson(prev => ({ 
+                        ...prev, 
+                        supermetaRate: value ? value / 100 : undefined 
+                      }))}
+                      decimals={2}
+                      min={0}
+                      max={100}
+                      placeholder="Ex: 5.00"
                     />
                   </div>
                 </div>

@@ -3,6 +3,8 @@ import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,7 +43,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
     category_id: "",
     closing_day: "",
     due_day: "",
-    expected_amount: "",
+    expected_amount: 0 as number,
     open_ended: true as boolean,
     end_date: "",
     notes: "",
@@ -72,7 +74,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         category_id: bill.category_id || "",
         closing_day: bill.closing_day?.toString() || "",
         due_day: bill.due_day.toString(),
-        expected_amount: bill.expected_amount.toString(),
+        expected_amount: bill.expected_amount,
         open_ended: bill.open_ended,
         end_date: bill.end_date || "",
         notes: bill.notes || "",
@@ -158,7 +160,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
       category_id: formData.category_id || null,
       closing_day: formData.closing_day ? parseInt(formData.closing_day) : null,
       due_day: parseInt(formData.due_day),
-      expected_amount: parseFloat(formData.expected_amount),
+      expected_amount: formData.expected_amount,
       open_ended: formData.open_ended,
       end_date: formData.end_date || null,
       notes: formData.notes || null,
@@ -360,14 +362,10 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               {/* Valor esperado */}
               <div className="space-y-2">
                 <Label htmlFor="expected_amount">Valor Esperado *</Label>
-                <Input
-                  id="expected_amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.expected_amount}
-                  onChange={(e) => handleInputChange("expected_amount", e.target.value)}
-                  placeholder="0.00"
-                  required
+                <CurrencyInput
+                  value={formData.expected_amount || undefined}
+                  onValueChange={(value) => handleInputChange("expected_amount", value || 0)}
+                  placeholder="R$ 0,00"
                 />
               </div>
 

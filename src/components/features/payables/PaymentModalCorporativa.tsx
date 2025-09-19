@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,11 +51,7 @@ export const PaymentModalCorporativa: React.FC<PaymentModalCorporativaProps> = (
 }) => {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [paymentData, setPaymentData] = useState<Partial<PagamentoParcela>>({
-    valor_pago: 0,
     data_pagamento: format(new Date(), 'yyyy-MM-dd'),
-    juros: 0,
-    multa: 0,
-    desconto: 0,
   });
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const { toast } = useToast();
@@ -67,9 +64,6 @@ export const PaymentModalCorporativa: React.FC<PaymentModalCorporativaProps> = (
           parcela_id: parcela.id,
           valor_pago: parcela.valor_parcela,
           data_pagamento: format(new Date(), 'yyyy-MM-dd'),
-          juros: 0,
-          multa: 0,
-          desconto: 0,
         });
       }
     }
@@ -203,10 +197,10 @@ export const PaymentModalCorporativa: React.FC<PaymentModalCorporativaProps> = (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="valor_pago">Valor Pago *</Label>
-              <Input
-                id="valor_pago"
-                value={formatCurrency(paymentData.valor_pago || 0)}
-                onChange={(e) => handleCurrencyChange('valor_pago', e.target.value)}
+              <CurrencyInput
+                value={paymentData.valor_pago}
+                onValueChange={(value) => handleValueChange('valor_pago', value || 0)}
+                placeholder="R$ 0,00"
               />
             </div>
 
@@ -270,28 +264,28 @@ export const PaymentModalCorporativa: React.FC<PaymentModalCorporativaProps> = (
 
             <div>
               <Label htmlFor="juros">Juros</Label>
-              <Input
-                id="juros"
-                value={formatCurrency(paymentData.juros || 0)}
-                onChange={(e) => handleCurrencyChange('juros', e.target.value)}
+              <CurrencyInput
+                value={paymentData.juros}
+                onValueChange={(value) => handleValueChange('juros', value || 0)}
+                placeholder="R$ 0,00"
               />
             </div>
 
             <div>
               <Label htmlFor="multa">Multa</Label>
-              <Input
-                id="multa"
-                value={formatCurrency(paymentData.multa || 0)}
-                onChange={(e) => handleCurrencyChange('multa', e.target.value)}
+              <CurrencyInput
+                value={paymentData.multa}
+                onValueChange={(value) => handleValueChange('multa', value || 0)}
+                placeholder="R$ 0,00"
               />
             </div>
 
             <div>
               <Label htmlFor="desconto">Desconto</Label>
-              <Input
-                id="desconto"
-                value={formatCurrency(paymentData.desconto || 0)}
-                onChange={(e) => handleCurrencyChange('desconto', e.target.value)}
+              <CurrencyInput
+                value={paymentData.desconto}
+                onValueChange={(value) => handleValueChange('desconto', value || 0)}
+                placeholder="R$ 0,00"
               />
             </div>
           </div>
