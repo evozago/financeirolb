@@ -76,6 +76,16 @@ export function YearlyComparisonTable() {
     return "text-muted-foreground";
   };
 
+  const calculateGrowth = (current: number, previous: number) => {
+    if (!previous || previous === 0) return 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  const formatGrowth = (growth: number) => {
+    if (growth === 0) return "0%";
+    return `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%`;
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -183,33 +193,81 @@ export function YearlyComparisonTable() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Mês</TableHead>
-                    {[currentYear, currentYear - 1, currentYear - 2].map(year => (
-                      <TableHead key={year} className="text-right">{year}</TableHead>
-                    ))}
+                    <TableHead className="text-right">{currentYear}</TableHead>
+                    <TableHead className="text-center">Crescimento</TableHead>
+                    <TableHead className="text-right">{currentYear - 1}</TableHead>
+                    <TableHead className="text-center">Crescimento</TableHead>
+                    <TableHead className="text-right">{currentYear - 2}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {yearlyData.map((row) => (
-                    <TableRow key={row.month}>
-                      <TableCell className="font-medium">{row.monthName}</TableCell>
-                      {[currentYear, currentYear - 1, currentYear - 2].map(year => {
-                        const value = row.years[year];
-                        const displayValue = typeof value === 'number' ? value : '';
+                  {yearlyData.map((row) => {
+                    const currentValue = row.years[currentYear] || 0;
+                    const previousValue = row.years[currentYear - 1] || 0;
+                    const prevPrevValue = row.years[currentYear - 2] || 0;
+                    
+                    const growthCurrent = calculateGrowth(currentValue, previousValue);
+                    const growthPrevious = calculateGrowth(previousValue, prevPrevValue);
+                    
+                    return (
+                      <TableRow key={row.month}>
+                        <TableCell className="font-medium">{row.monthName}</TableCell>
                         
-                        return (
-                          <TableCell key={year} className="text-right">
-                            <Input
-                              type="number"
-                              value={displayValue}
-                              onChange={(e) => updateYearlySale(row.month, year, e.target.value)}
-                              className="text-right w-32 ml-auto"
-                              placeholder="0"
-                            />
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
+                        {/* Current Year */}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            value={typeof row.years[currentYear] === 'number' ? row.years[currentYear] : ''}
+                            onChange={(e) => updateYearlySale(row.month, currentYear, e.target.value)}
+                            className="text-right w-32 ml-auto"
+                            placeholder="0"
+                          />
+                        </TableCell>
+                        
+                        {/* Growth vs Previous Year */}
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {getGrowthIcon(growthCurrent)}
+                            <span className={`text-sm font-medium ${getGrowthColor(growthCurrent)}`}>
+                              {formatGrowth(growthCurrent)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Previous Year */}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            value={typeof row.years[currentYear - 1] === 'number' ? row.years[currentYear - 1] : ''}
+                            onChange={(e) => updateYearlySale(row.month, currentYear - 1, e.target.value)}
+                            className="text-right w-32 ml-auto"
+                            placeholder="0"
+                          />
+                        </TableCell>
+                        
+                        {/* Growth vs Previous Previous Year */}
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {getGrowthIcon(growthPrevious)}
+                            <span className={`text-sm font-medium ${getGrowthColor(growthPrevious)}`}>
+                              {formatGrowth(growthPrevious)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Year Before Previous */}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            value={typeof row.years[currentYear - 2] === 'number' ? row.years[currentYear - 2] : ''}
+                            onChange={(e) => updateYearlySale(row.month, currentYear - 2, e.target.value)}
+                            className="text-right w-32 ml-auto"
+                            placeholder="0"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
