@@ -183,23 +183,33 @@ export default function Pessoas() {
   const handleDelete = async (pessoa: PessoaData) => {
     try {
       setLoading(true);
+
+      const normDoc = pessoa.cpf_cnpj ? pessoa.cpf_cnpj.replace(/\D/g, '') : null;
       
-      // Primeiro tenta excluir de entidades_corporativas
-      let { error } = await supabase
+      // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
+      await supabase
         .from('entidades_corporativas')
         .delete()
         .eq('id', pessoa.id);
 
-      // Se não encontrou lá, tenta em fornecedores (dados legados)
-      if (error && error.code === 'PGRST116') {
-        const { error: fornError } = await supabase
+      if (normDoc) {
+        await supabase
+          .from('entidades_corporativas')
+          .delete()
+          .eq('cpf_cnpj_normalizado', normDoc);
+      }
+
+      // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
+      await supabase
+        .from('fornecedores')
+        .delete()
+        .eq('id', pessoa.id);
+
+      if (normDoc) {
+        await supabase
           .from('fornecedores')
           .delete()
-          .eq('id', pessoa.id);
-        
-        if (fornError) throw fornError;
-      } else if (error) {
-        throw error;
+          .eq('cpf_cnpj_normalizado', normDoc);
       }
       
       toast({ 

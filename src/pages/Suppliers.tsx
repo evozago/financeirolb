@@ -90,22 +90,32 @@ export default function Suppliers() {
 
   const handleDelete = async (supplier: SupplierData) => {
     try {
-      // Primeiro tenta excluir de entidades_corporativas
-      let { error } = await supabase
+      const normDoc = supplier.cpf_cnpj ? supplier.cpf_cnpj.replace(/\D/g, '') : null;
+
+      // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
+      await supabase
         .from('entidades_corporativas')
         .delete()
         .eq('id', supplier.id);
 
-      // Se não encontrou lá, tenta em fornecedores (dados legados)
-      if (error && error.code === 'PGRST116') {
-        const { error: fornError } = await supabase
+      if (normDoc) {
+        await supabase
+          .from('entidades_corporativas')
+          .delete()
+          .eq('cpf_cnpj_normalizado', normDoc);
+      }
+
+      // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
+      await supabase
+        .from('fornecedores')
+        .delete()
+        .eq('id', supplier.id);
+
+      if (normDoc) {
+        await supabase
           .from('fornecedores')
           .delete()
-          .eq('id', supplier.id);
-        
-        if (fornError) throw fornError;
-      } else if (error) {
-        throw error;
+          .eq('cpf_cnpj_normalizado', normDoc);
       }
 
       toast({
