@@ -51,7 +51,8 @@ async function getSingleDefaultEntityId(): Promise<string | null> {
     console.error('Erro ao buscar entidades_corporativas:', error.message);
     return null;
   }
-  if (!data || data.length !== 1) return null;
+  if (!data || data.length === 0) return null;
+  // Use a primeira entidade se houver múltiplas (fallback automático)
   return data[0].id as string;
 }
 
@@ -87,8 +88,9 @@ export function useSalesData() {
         setYearlyData([]);
         setSalespersonData([]);
         toast({
-          title: 'Selecione a Entidade',
-          description: 'Não foi possível determinar automaticamente. Selecione a entidade/filial no topo.',
+          title: 'Nenhuma Entidade Encontrada',
+          description: 'Configure pelo menos uma entidade corporativa no sistema para usar o módulo de vendas.',
+          variant: 'destructive'
         });
         return;
       }
@@ -180,7 +182,11 @@ export function useSalesData() {
   const saveAllData = async () => {
     const eid = effectiveEntityId;
     if (!eid) {
-      toast({ title: 'Selecione a Entidade', description: 'Escolha a entidade/filial e tente novamente.' });
+      toast({ 
+        title: 'Entidade Não Configurada', 
+        description: 'Configure uma entidade corporativa no sistema primeiro.',
+        variant: 'destructive'
+      });
       return;
     }
     setLoading(true);
