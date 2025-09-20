@@ -23,6 +23,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useEntidadesCorporativas } from "@/hooks/useEntidadesCorporativas";
 
 interface PessoaData {
   id: string;
@@ -68,6 +69,16 @@ export default function Pessoas() {
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  const {
+    papeis,
+    carregarPapeis,
+    criarEntidade,
+    atualizarEntidade,
+    adicionarPapel,
+    removerPapel,
+    loading: entidadeLoading
+  } = useEntidadesCorporativas();
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -92,7 +103,8 @@ export default function Pessoas() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    carregarPapeis();
+  }, [carregarPapeis]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -143,17 +155,46 @@ export default function Pessoas() {
     setLoading(true);
 
     try {
-      // This would need to be adapted for entidades_corporativas
-      // For now, keeping the existing logic but with a toast message
-      toast({
-        title: 'Funcionalidade em desenvolvimento',
-        description: 'A criação/edição de pessoas será migrada para o novo sistema em breve.',
-        variant: 'default',
-      });
+      const cpfCnpjValue = formData.tipo_pessoa === 'pessoa_fisica' ? formData.cpf : formData.cnpj;
+      
+      const entidadeData = {
+        nome_razao_social: formData.nome,
+        nome_fantasia: formData.tipo_pessoa === 'pessoa_juridica' ? formData.nome : null,
+        tipo_pessoa: formData.tipo_pessoa,
+        cpf_cnpj: cpfCnpjValue,
+        cpf_cnpj_normalizado: cpfCnpjValue ? cpfCnpjValue.replace(/\D/g, '') : null,
+        email: formData.email || null,
+        email_normalizado: formData.email ? formData.email.toLowerCase() : null,
+        telefone: formData.telefone || null,
+        ativo: true,
+      };
+
+      let entidadeId: string;
+
+      if (editingPessoa) {
+        // Atualizar entidade existente
+        await atualizarEntidade(editingPessoa.id, entidadeData);
+        entidadeId = editingPessoa.id;
+      } else {
+        // Criar nova entidade
+        const novaEntidade = await criarEntidade(entidadeData);
+        entidadeId = novaEntidade.id;
+      }
+
+      // Gerenciar papéis (roles)
+      if (formData.categorias.length > 0) {
+        for (const categoria of formData.categorias) {
+          const papel = papeis.find(p => p.nome === categoria);
+          if (papel) {
+            await adicionarPapel(entidadeId, papel.id);
+          }
+        }
+      }
       
       setDialogOpen(false);
       setEditingPessoa(null);
       resetForm();
+      loadData();
     } catch (error) {
       console.error('Error saving pessoa:', error);
       toast({
@@ -374,19 +415,134 @@ export default function Pessoas() {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Funcionalidade em Desenvolvimento</CardTitle>
-                  <CardDescription>
-                    A criação e edição de pessoas será migrada para o novo sistema unificado em breve.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button type="button" onClick={() => setDialogOpen(false)}>
-                    Fechar
-                  </Button>
-                </CardContent>
-              </Card>
+              <Tabs defaultValue="dados" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="dados">Dados Básicos</TabsTrigger>
+                  <TabsTrigger value="papeis">Papéis</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="dados">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Informações Pessoais</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="tipo_pessoa">Tipo de Pessoa</Label>
+                          <Select
+                            value={formData.tipo_pessoa}
+                            onValueChange={(value: 'pessoa_fisica' | 'pessoa_juridica') =>
+                              setFormData(prev => ({ ...prev, tipo_pessoa: value }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pessoa_fisica">Pessoa Física</SelectItem>
+                              <SelectItem value="pessoa_juridica">Pessoa Jurídica</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="nome">
+                            {formData.tipo_pessoa === 'pessoa_fisica' ? 'Nome Completo' : 'Razão Social'}
+                          </Label>
+                          <Input
+                            id="nome"
+                            value={formData.nome}
+                            onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="telefone">Telefone</Label>
+                          <Input
+                            id="telefone"
+                            value={formData.telefone}
+                            onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {formData.tipo_pessoa === 'pessoa_fisica' ? (
+                          <div>
+                            <Label htmlFor="cpf">CPF</Label>
+                            <Input
+                              id="cpf"
+                              value={formData.cpf}
+                              onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
+                              placeholder="000.000.000-00"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <Label htmlFor="cnpj">CNPJ</Label>
+                            <Input
+                              id="cnpj"
+                              value={formData.cnpj}
+                              onChange={(e) => setFormData(prev => ({ ...prev, cnpj: e.target.value }))}
+                              placeholder="00.000.000/0000-00"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="papeis">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Papéis da Pessoa</CardTitle>
+                      <CardDescription>
+                        Selecione os papéis que esta pessoa desempenha na organização
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        {papeis.map((papel) => (
+                          <div key={papel.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={papel.id}
+                              checked={formData.categorias.includes(papel.nome)}
+                              onCheckedChange={(checked) =>
+                                handleCategoriaChange(papel.nome, checked as boolean)
+                              }
+                            />
+                            <Label htmlFor={papel.id} className="text-sm font-medium">
+                              {papel.nome}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+              
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading || entidadeLoading}>
+                  {editingPessoa ? "Atualizar" : "Criar"} Pessoa
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
