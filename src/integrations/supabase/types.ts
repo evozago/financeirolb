@@ -1169,6 +1169,7 @@ export type Database = {
           ativo: boolean
           cargo_id: string | null
           categoria_id: string | null
+          categorias: Json | null
           chave_pix: string | null
           cnpj_cpf: string | null
           comissao_padrao: number | null
@@ -1187,6 +1188,7 @@ export type Database = {
           eh_funcionario: boolean | null
           eh_vendedora: boolean | null
           email: string | null
+          email_normalizado: string | null
           email_representante: string | null
           endereco: string | null
           estado_civil: string | null
@@ -1219,6 +1221,7 @@ export type Database = {
           ativo?: boolean
           cargo_id?: string | null
           categoria_id?: string | null
+          categorias?: Json | null
           chave_pix?: string | null
           cnpj_cpf?: string | null
           comissao_padrao?: number | null
@@ -1237,6 +1240,7 @@ export type Database = {
           eh_funcionario?: boolean | null
           eh_vendedora?: boolean | null
           email?: string | null
+          email_normalizado?: string | null
           email_representante?: string | null
           endereco?: string | null
           estado_civil?: string | null
@@ -1269,6 +1273,7 @@ export type Database = {
           ativo?: boolean
           cargo_id?: string | null
           categoria_id?: string | null
+          categorias?: Json | null
           chave_pix?: string | null
           cnpj_cpf?: string | null
           comissao_padrao?: number | null
@@ -1287,6 +1292,7 @@ export type Database = {
           eh_funcionario?: boolean | null
           eh_vendedora?: boolean | null
           email?: string | null
+          email_normalizado?: string | null
           email_representante?: string | null
           endereco?: string | null
           estado_civil?: string | null
