@@ -71,7 +71,7 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
   const form = useForm<EntidadeFormData>({
     resolver: zodResolver(entidadeSchema),
     defaultValues: {
-      tipo_pessoa: 'juridica',
+      tipo_pessoa: 'fisica',
       nacionalidade: 'Brasileira',
     },
   });
@@ -310,10 +310,10 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
                     value={form.watch('tipo_pessoa')}
                     onValueChange={(value) => form.setValue('tipo_pessoa', value as any)}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Selecione o tipo de pessoa" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-background border shadow-md z-50">
                       <SelectItem value="fisica">Pessoa Física</SelectItem>
                       <SelectItem value="juridica">Pessoa Jurídica</SelectItem>
                     </SelectContent>
