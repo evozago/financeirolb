@@ -118,10 +118,10 @@ export function useSalesData() {
 
       // --- 2) Painel de Vendedoras (tabela direita) ---
       const { data: vendedoras, error: vendErr } = await supabase
-        .from('fornecedores')
-        .select('id, nome, ativo, cpf_cnpj_normalizado')
+        .from('pessoas')
+        .select('id, nome, ativo, cpf_cnpj_normalizado, papeis')
         .eq('ativo', true)
-        .eq('eh_vendedora', true);
+        .contains('papeis', ['vendedora']);
       if (vendErr) throw vendErr;
 
       const { data: metas, error: metasErr } = await supabase
@@ -131,14 +131,32 @@ export function useSalesData() {
         .eq('year', currentYear);
       if (metasErr) throw metasErr;
 
-      const map = new Map<string, Record<number, number>>();
+      // Buscar vendas realizadas por vendedora
+      const { data: vendasRealizadas, error: vendasErr } = await supabase
+        .from('salesperson_sales')
+        .select('salesperson_id, month, sales_amount')
+        .eq('entity_id', eid)
+        .eq('year', currentYear);
+      if (vendasErr) throw vendasErr;
+
+      const goalsMap = new Map<string, Record<number, number>>();
       for (const m of metas ?? []) {
         const sid = m.salesperson_id as string;
         const mm = Number(m.month);
         const val = Number(m.goal_amount ?? 0);
-        const cur = map.get(sid) ?? {};
+        const cur = goalsMap.get(sid) ?? {};
         cur[mm] = val;
-        map.set(sid, cur);
+        goalsMap.set(sid, cur);
+      }
+
+      const salesMap = new Map<string, Record<number, number>>();
+      for (const v of vendasRealizadas ?? []) {
+        const sid = v.salesperson_id as string;
+        const mm = Number(v.month);
+        const val = Number(v.sales_amount ?? 0);
+        const cur = salesMap.get(sid) ?? {};
+        cur[mm] = val;
+        salesMap.set(sid, cur);
       }
 
       // Deduplicate vendedoras by name + normalized document
@@ -152,8 +170,8 @@ export function useSalesData() {
       const formattedSales: SalespersonPanelData[] = vendedorasList.map((v: any) => ({
         salesperson_id: v.id,
         salesperson_name: v.nome,
-        monthly_goals: map.get(v.id) ?? {},
-        monthly_sales: {}, // Inicializar vazio, será carregado posteriormente
+        monthly_goals: goalsMap.get(v.id) ?? {},
+        monthly_sales: salesMap.get(v.id) ?? {}, // Agora carrega os dados reais
       }));
       setSalespersonData(formattedSales);
     } catch (err: any) {
@@ -240,6 +258,28 @@ export function useSalesData() {
         const { error } = await supabase
           .from('sales_goals')
           .upsert(toUpsertGoals, { onConflict: 'salesperson_id, entity_id, year, month' });
+        if (error) throw error;
+      }
+
+      // 3) Vendas realizadas por vendedora
+      const toUpsertSales: any[] = [];
+      salespersonData.forEach((p) => {
+        Object.entries(p.monthly_sales).forEach(([mStr, val]) => {
+          if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
+            toUpsertSales.push({
+              entity_id: eid,
+              salesperson_id: p.salesperson_id,
+              year: currentYear,
+              month: Number(mStr),
+              sales_amount: Number(val),
+            });
+          }
+        });
+      });
+      if (toUpsertSales.length) {
+        const { error } = await supabase
+          .from('salesperson_sales')
+          .upsert(toUpsertSales, { onConflict: 'entity_id, salesperson_id, year, month' });
         if (error) throw error;
       }
 
