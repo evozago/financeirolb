@@ -179,18 +179,64 @@ export default function Pessoas() {
         // Criar nova entidade e aguardar a criação completa
         const novaEntidade = await criarEntidade(entidadeData);
         entidadeId = novaEntidade.id;
+        
+        // Aguardar e verificar se a entidade foi realmente criada
+        let entidadeExiste = false;
+        let tentativas = 0;
+        while (!entidadeExiste && tentativas < 10) {
+          try {
+            const { data } = await supabase
+              .from('entidades_corporativas')
+              .select('id')
+              .eq('id', entidadeId)
+              .single();
+            
+            if (data) {
+              entidadeExiste = true;
+            }
+          } catch (error) {
+            console.log(`Tentativa ${tentativas + 1}: Entidade ainda não encontrada`);
+          }
+          
+          if (!entidadeExiste) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            tentativas++;
+          }
+        }
+        
+        if (!entidadeExiste) {
+          throw new Error('Entidade não foi criada corretamente');
+        }
       }
 
-      // Aguardar um pouco para garantir que a entidade foi criada
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Gerenciar papéis (roles) - fazer sequencialmente para evitar conflitos
+      // Gerenciar papéis (roles) - limpar papéis existentes primeiro se for edição
+      if (editingPessoa) {
+        // Desativar papéis existentes
+        await supabase
+          .from('entidade_papeis')
+          .update({ ativo: false, data_fim: new Date().toISOString().split('T')[0] })
+          .eq('entidade_id', entidadeId)
+          .eq('ativo', true);
+      }
+      
+      // Adicionar novos papéis
       if (formData.categorias.length > 0) {
         for (const categoria of formData.categorias) {
           const papel = papeis.find(p => p.nome === categoria);
           if (papel) {
             try {
-              await adicionarPapel(entidadeId, papel.id);
+              // Verificar se já existe papel ativo
+              const { data: papelExistente } = await supabase
+                .from('entidade_papeis')
+                .select('id')
+                .eq('entidade_id', entidadeId)
+                .eq('papel_id', papel.id)
+                .eq('ativo', true)
+                .single();
+              
+              if (!papelExistente) {
+                await adicionarPapel(entidadeId, papel.id);
+              }
             } catch (papelError) {
               console.warn(`Erro ao adicionar papel ${categoria}:`, papelError);
             }
