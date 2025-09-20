@@ -187,6 +187,8 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
       // Preparar dados para envio, convertendo strings vazias em null para campos de data
       const processedData = {
         ...data,
+        // Mapear valores do frontend para o esperado no banco
+        tipo_pessoa: data.tipo_pessoa === 'fisica' ? 'pessoa_fisica' : 'pessoa_juridica',
         data_nascimento: data.data_nascimento && data.data_nascimento.trim() !== '' ? data.data_nascimento : null,
         data_fundacao: data.data_fundacao && data.data_fundacao.trim() !== '' ? data.data_fundacao : null,
       };
