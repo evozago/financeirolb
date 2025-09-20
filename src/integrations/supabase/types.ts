@@ -2937,35 +2937,7 @@ export type Database = {
             foreignKeyName: "sales_goals_salesperson_id_fkey"
             columns: ["salesperson_id"]
             isOneToOne: false
-            referencedRelation: "fornecedores_unified"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "fornecedores_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios_unified"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "pessoas"
+            referencedRelation: "fornecedores"
             referencedColumns: ["id"]
           },
         ]
