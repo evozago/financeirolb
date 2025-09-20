@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface SalesKPIData {
+interface KPIData {
   total_sales: number;
   total_goal: number;
   goal_achievement_percentage: number;
@@ -13,7 +13,7 @@ interface SalesKPIData {
   top_performer_sales: number;
 }
 
-interface SalespersonGrowth {
+interface GrowthData {
   vendedora_id: string;
   vendedora_nome: string;
   current_sales: number;
@@ -29,38 +29,32 @@ interface MonthlySalesData {
 }
 
 export function useDashboardSalesData(year: number, month: number) {
-  const [kpiData, setKpiData] = useState<SalesKPIData | null>(null);
-  const [momGrowthData, setMomGrowthData] = useState<SalespersonGrowth[]>([]);
-  const [yoyGrowthData, setYoyGrowthData] = useState<SalespersonGrowth[]>([]);
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [momGrowthData, setMomGrowthData] = useState<GrowthData[]>([]);
+  const [yoyGrowthData, setYoyGrowthData] = useState<GrowthData[]>([]);
   const [monthlySalesData, setMonthlySalesData] = useState<MonthlySalesData[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Função para buscar vendedoras reais do banco
   const fetchRealSalespeople = async () => {
     try {
-      // Primeiro, tentar buscar da tabela vendedoras
-      let { data: vendedoras, error: vendError } = await supabase
-        .from('vendedoras')
-        .select('id, nome, ativo')
+      // Buscar vendedoras reais da tabela pessoas (onde estão realmente cadastradas)
+      const { data: pessoas, error: pessoasError } = await supabase
+        .from('pessoas')
+        .select('id, nome, ativo, papeis')
         .eq('ativo', true)
+        .contains('papeis', ['vendedora'])
         .limit(10);
 
-      if (vendError || !vendedoras || vendedoras.length === 0) {
-        // Se não encontrar, tentar buscar fornecedores que são vendedoras
-        const { data: fornecedores, error: fornError } = await supabase
-          .from('fornecedores')
-          .select('id, nome, ativo')
-          .eq('eh_vendedora', true)
-          .eq('ativo', true)
-          .limit(10);
-
-        if (!fornError && fornecedores && fornecedores.length > 0) {
-          vendedoras = fornecedores;
-        }
+      if (!pessoasError && pessoas && pessoas.length > 0) {
+        return pessoas.map(pessoa => ({
+          id: pessoa.id,
+          nome: pessoa.nome,
+          ativo: pessoa.ativo
+        }));
       }
 
-      return vendedoras || [];
+      return [];
     } catch (error) {
       console.warn('Erro ao buscar vendedoras reais:', error);
       return [];
@@ -203,7 +197,7 @@ export function useDashboardSalesData(year: number, month: number) {
 
       if (error || !data || data.length === 0) {
         console.warn('Erro ao buscar dados mensais:', error);
-        // Criar estrutura básica com zeros
+        // Criar dados básicos para todos os meses
         const basicMonthlyData = months.map((name) => ({
           mes: name,
           vendas: 0,
@@ -214,10 +208,10 @@ export function useDashboardSalesData(year: number, month: number) {
       }
 
       // Processar dados reais se disponíveis
-      const monthlyData = Array.from({ length: 12 }, (_, i) => {
-        const monthData = data?.filter(item => item.mes === i + 1) || [];
-        const totalSales = monthData.reduce((sum, item) => sum + (item.total_vendas || 0), 0);
-        const totalGoal = monthData.reduce((sum, item) => sum + (item.meta_mensal || 0), 0);
+      const monthlyData = months.map((name, i) => {
+        const monthData = data.find(d => d.mes === i + 1);
+        const totalSales = monthData ? Number(monthData.total_vendas || 0) : 0;
+        const totalGoal = monthData ? Number(monthData.meta_mensal || 0) : 0;
 
         return {
           mes: months[i],
