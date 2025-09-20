@@ -44,44 +44,19 @@ export function EntitySelector({
 
   const loadEntities = async () => {
     try {
-      // Buscar fornecedores (PJ)
-      const { data: fornecedores, error: errorFornecedores } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cnpj_cpf, tipo_pessoa')
+      const { data, error } = await supabase
+        .from('entidades')
+        .select('id, nome, cnpj_cpf, tipo')
         .eq('ativo', true)
+        .eq('tipo', 'PJ')
         .order('nome');
 
-      // Buscar pessoas (PF)
-      const { data: pessoas, error: errorPessoas } = await supabase
-        .from('pessoas')
-        .select('id, nome, cpf, tipo_pessoa')
-        .eq('ativo', true)
-        .order('nome');
-
-      if (errorFornecedores) {
-        console.error('Erro ao carregar fornecedores:', errorFornecedores);
-      }
-      if (errorPessoas) {
-        console.error('Erro ao carregar pessoas:', errorPessoas);
+      if (error) {
+        console.error('Erro ao carregar entidades:', error);
+        return;
       }
 
-      // Unificar dados: PJ e PF juntos
-      const allEntities = [
-        ...(fornecedores || []).map(f => ({
-          id: f.id,
-          nome: `${f.nome} (PJ)`,
-          cnpj_cpf: f.cnpj_cpf,
-          tipo: 'PJ'
-        })),
-        ...(pessoas || []).map(p => ({
-          id: p.id,
-          nome: `${p.nome} (PF)`,
-          cnpj_cpf: p.cpf,
-          tipo: 'PF'
-        }))
-      ].sort((a, b) => a.nome.localeCompare(b.nome));
-
-      setEntities(allEntities);
+      setEntities(data || []);
     } catch (error) {
       console.error('Erro ao carregar entidades:', error);
     } finally {

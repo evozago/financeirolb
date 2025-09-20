@@ -98,38 +98,14 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
 
   const loadSuppliers = async () => {
     try {
-      // Buscar fornecedores (PJ)
-      const { data: fornecedores, error: errorFornecedores } = await supabase
+      const { data, error } = await supabase
         .from("fornecedores" as any)
-        .select("id, nome, filial_id, tipo_pessoa")
+        .select("id, nome, filial_id")
         .eq("ativo", true)
         .order("nome");
 
-      // Buscar pessoas (PF)
-      const { data: pessoas, error: errorPessoas } = await supabase
-        .from("pessoas" as any)
-        .select("id, nome")
-        .eq("ativo", true)
-        .order("nome");
-
-      if (errorFornecedores) console.error("Error loading fornecedores:", errorFornecedores);
-      if (errorPessoas) console.error("Error loading pessoas:", errorPessoas);
-
-      // Unificar dados: PJ e PF juntos
-      const allSuppliers: Supplier[] = [
-        ...(fornecedores || []).map((f: any) => ({
-          id: f.id,
-          nome: `${f.nome} (PJ)`,
-          filial_id: f.filial_id
-        })),
-        ...(pessoas || []).map((p: any) => ({
-          id: p.id,
-          nome: `${p.nome} (PF)`,
-          filial_id: null
-        }))
-      ].sort((a, b) => a.nome.localeCompare(b.nome));
-
-      setSuppliers(allSuppliers);
+      if (error) throw error;
+      setSuppliers((data as unknown as Supplier[]) || []);
     } catch (error) {
       console.error("Error loading suppliers:", error);
     }
