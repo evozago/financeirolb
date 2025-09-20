@@ -28,71 +28,6 @@ interface MonthlySalesData {
   meta: number;
 }
 
-// Dados de exemplo para fallback
-const SAMPLE_KPI_DATA: SalesKPIData = {
-  total_sales: 145000,
-  total_goal: 180000,
-  goal_achievement_percentage: 80.56,
-  mom_growth_percentage: 12.5,
-  yoy_growth_percentage: 25.3,
-  active_salespeople: 8,
-  top_performer_name: "Maria Silva",
-  top_performer_sales: 35000
-};
-
-const SAMPLE_SALESPEOPLE: SalespersonGrowth[] = [
-  {
-    vendedora_id: "1",
-    vendedora_nome: "Maria Silva",
-    current_sales: 35000,
-    previous_sales: 28000,
-    growth_percentage: 25.0
-  },
-  {
-    vendedora_id: "2", 
-    vendedora_nome: "Ana Santos",
-    current_sales: 32000,
-    previous_sales: 30000,
-    growth_percentage: 6.7
-  },
-  {
-    vendedora_id: "3",
-    vendedora_nome: "Carla Oliveira", 
-    current_sales: 28000,
-    previous_sales: 25000,
-    growth_percentage: 12.0
-  },
-  {
-    vendedora_id: "4",
-    vendedora_nome: "Juliana Costa",
-    current_sales: 25000,
-    previous_sales: 27000,
-    growth_percentage: -7.4
-  },
-  {
-    vendedora_id: "5",
-    vendedora_nome: "Patricia Lima",
-    current_sales: 25000,
-    previous_sales: 22000,
-    growth_percentage: 13.6
-  }
-];
-
-const SAMPLE_MONTHLY_DATA: MonthlySalesData[] = [
-  { mes: "Janeiro", vendas: 125000, meta: 150000 },
-  { mes: "Fevereiro", vendas: 98000, meta: 150000 },
-  { mes: "Março", vendas: 145000, meta: 160000 },
-  { mes: "Abril", vendas: 167000, meta: 160000 },
-  { mes: "Maio", vendas: 189000, meta: 170000 },
-  { mes: "Junho", vendas: 201000, meta: 180000 },
-  { mes: "Julho", vendas: 178000, meta: 180000 },
-  { mes: "Agosto", vendas: 156000, meta: 175000 },
-  { mes: "Setembro", vendas: 145000, meta: 180000 },
-  { mes: "Outubro", vendas: 0, meta: 185000 },
-  { mes: "Novembro", vendas: 0, meta: 190000 },
-  { mes: "Dezembro", vendas: 0, meta: 200000 }
-];
-
 export function useDashboardSalesData(year: number, month: number) {
   const [kpiData, setKpiData] = useState<SalesKPIData | null>(null);
   const [momGrowthData, setMomGrowthData] = useState<SalespersonGrowth[]>([]);
@@ -100,6 +35,37 @@ export function useDashboardSalesData(year: number, month: number) {
   const [monthlySalesData, setMonthlySalesData] = useState<MonthlySalesData[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Função para buscar vendedoras reais do banco
+  const fetchRealSalespeople = async () => {
+    try {
+      // Primeiro, tentar buscar da tabela vendedoras
+      let { data: vendedoras, error: vendError } = await supabase
+        .from('vendedoras')
+        .select('id, nome, ativo')
+        .eq('ativo', true)
+        .limit(10);
+
+      if (vendError || !vendedoras || vendedoras.length === 0) {
+        // Se não encontrar, tentar buscar fornecedores que são vendedoras
+        const { data: fornecedores, error: fornError } = await supabase
+          .from('fornecedores')
+          .select('id, nome, ativo')
+          .eq('eh_vendedora', true)
+          .eq('ativo', true)
+          .limit(10);
+
+        if (!fornError && fornecedores && fornecedores.length > 0) {
+          vendedoras = fornecedores;
+        }
+      }
+
+      return vendedoras || [];
+    } catch (error) {
+      console.warn('Erro ao buscar vendedoras reais:', error);
+      return [];
+    }
+  };
 
   const fetchKPIData = async () => {
     try {
@@ -110,26 +76,61 @@ export function useDashboardSalesData(year: number, month: number) {
       });
 
       if (error) {
-        console.warn('Erro ao buscar KPI data, usando dados de exemplo:', error);
-        // Usar dados de exemplo se houver erro
-        setKpiData(SAMPLE_KPI_DATA);
+        console.warn('Erro ao buscar KPI data:', error);
+        // Buscar vendedoras reais para criar dados básicos
+        const realSalespeople = await fetchRealSalespeople();
+        const activeSalespeopleCoun = realSalespeople.length;
+        
+        setKpiData({
+          total_sales: 0,
+          total_goal: 0,
+          goal_achievement_percentage: 0,
+          mom_growth_percentage: 0,
+          yoy_growth_percentage: 0,
+          active_salespeople: activeSalespeopleCoun,
+          top_performer_name: realSalespeople[0]?.nome || "Nenhuma vendedora encontrada",
+          top_performer_sales: 0
+        });
         return;
       }
 
-      if (data && data.length > 0 && data[0].total_sales > 0) {
+      if (data && data.length > 0) {
         setKpiData(data[0]);
       } else {
-        // Se não há dados ou são zeros, usar dados de exemplo
-        setKpiData(SAMPLE_KPI_DATA);
+        // Se não há dados, criar estrutura básica com vendedoras reais
+        const realSalespeople = await fetchRealSalespeople();
+        setKpiData({
+          total_sales: 0,
+          total_goal: 0,
+          goal_achievement_percentage: 0,
+          mom_growth_percentage: 0,
+          yoy_growth_percentage: 0,
+          active_salespeople: realSalespeople.length,
+          top_performer_name: realSalespeople[0]?.nome || "Nenhuma vendedora encontrada",
+          top_performer_sales: 0
+        });
       }
     } catch (error) {
-      console.warn('Erro ao buscar KPI data, usando dados de exemplo:', error);
-      setKpiData(SAMPLE_KPI_DATA);
+      console.warn('Erro ao buscar KPI data:', error);
+      const realSalespeople = await fetchRealSalespeople();
+      setKpiData({
+        total_sales: 0,
+        total_goal: 0,
+        goal_achievement_percentage: 0,
+        mom_growth_percentage: 0,
+        yoy_growth_percentage: 0,
+        active_salespeople: realSalespeople.length,
+        top_performer_name: realSalespeople[0]?.nome || "Nenhuma vendedora encontrada",
+        top_performer_sales: 0
+      });
     }
   };
 
   const fetchGrowthData = async () => {
     try {
+      // Buscar vendedoras reais primeiro
+      const realSalespeople = await fetchRealSalespeople();
+
       // Tentar buscar dados reais de crescimento MoM
       const { data: momData, error: momError } = await supabase.rpc('calculate_mom_growth', {
         p_year: year,
@@ -137,8 +138,16 @@ export function useDashboardSalesData(year: number, month: number) {
       });
 
       if (momError || !momData || momData.length === 0) {
-        console.warn('Erro ao buscar dados MoM, usando dados de exemplo:', momError);
-        setMomGrowthData(SAMPLE_SALESPEOPLE);
+        console.warn('Erro ao buscar dados MoM:', momError);
+        // Criar dados básicos com vendedoras reais
+        const basicMomData = realSalespeople.map((vendedora, index) => ({
+          vendedora_id: vendedora.id,
+          vendedora_nome: vendedora.nome,
+          current_sales: 0,
+          previous_sales: 0,
+          growth_percentage: 0
+        }));
+        setMomGrowthData(basicMomData);
       } else {
         setMomGrowthData(momData);
       }
@@ -150,15 +159,31 @@ export function useDashboardSalesData(year: number, month: number) {
       });
 
       if (yoyError || !yoyData || yoyData.length === 0) {
-        console.warn('Erro ao buscar dados YoY, usando dados de exemplo:', yoyError);
-        setYoyGrowthData(SAMPLE_SALESPEOPLE);
+        console.warn('Erro ao buscar dados YoY:', yoyError);
+        // Criar dados básicos com vendedoras reais
+        const basicYoyData = realSalespeople.map((vendedora, index) => ({
+          vendedora_id: vendedora.id,
+          vendedora_nome: vendedora.nome,
+          current_sales: 0,
+          previous_year_sales: 0,
+          growth_percentage: 0
+        }));
+        setYoyGrowthData(basicYoyData);
       } else {
         setYoyGrowthData(yoyData);
       }
     } catch (error) {
-      console.warn('Erro ao buscar dados de crescimento, usando dados de exemplo:', error);
-      setMomGrowthData(SAMPLE_SALESPEOPLE);
-      setYoyGrowthData(SAMPLE_SALESPEOPLE);
+      console.warn('Erro ao buscar dados de crescimento:', error);
+      const realSalespeople = await fetchRealSalespeople();
+      const basicData = realSalespeople.map((vendedora) => ({
+        vendedora_id: vendedora.id,
+        vendedora_nome: vendedora.nome,
+        current_sales: 0,
+        previous_sales: 0,
+        growth_percentage: 0
+      }));
+      setMomGrowthData(basicData);
+      setYoyGrowthData(basicData);
     }
   };
 
@@ -171,18 +196,24 @@ export function useDashboardSalesData(year: number, month: number) {
         .eq('ano', year)
         .order('mes');
 
-      if (error || !data || data.length === 0) {
-        console.warn('Erro ao buscar dados mensais, usando dados de exemplo:', error);
-        setMonthlySalesData(SAMPLE_MONTHLY_DATA);
-        return;
-      }
-
-      // Processar dados reais se disponíveis
       const months = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
       ];
 
+      if (error || !data || data.length === 0) {
+        console.warn('Erro ao buscar dados mensais:', error);
+        // Criar estrutura básica com zeros
+        const basicMonthlyData = months.map((name) => ({
+          mes: name,
+          vendas: 0,
+          meta: 0
+        }));
+        setMonthlySalesData(basicMonthlyData);
+        return;
+      }
+
+      // Processar dados reais se disponíveis
       const monthlyData = Array.from({ length: 12 }, (_, i) => {
         const monthData = data?.filter(item => item.mes === i + 1) || [];
         const totalSales = monthData.reduce((sum, item) => sum + (item.total_vendas || 0), 0);
@@ -191,20 +222,23 @@ export function useDashboardSalesData(year: number, month: number) {
         return {
           mes: months[i],
           vendas: totalSales,
-          meta: totalGoal || SAMPLE_MONTHLY_DATA[i].meta // Fallback para meta de exemplo
+          meta: totalGoal
         };
       });
 
-      // Se todos os valores são zero, usar dados de exemplo
-      const hasRealData = monthlyData.some(item => item.vendas > 0);
-      if (!hasRealData) {
-        setMonthlySalesData(SAMPLE_MONTHLY_DATA);
-      } else {
-        setMonthlySalesData(monthlyData);
-      }
+      setMonthlySalesData(monthlyData);
     } catch (error) {
-      console.warn('Erro ao buscar dados mensais, usando dados de exemplo:', error);
-      setMonthlySalesData(SAMPLE_MONTHLY_DATA);
+      console.warn('Erro ao buscar dados mensais:', error);
+      const months = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+      ];
+      const basicMonthlyData = months.map((name) => ({
+        mes: name,
+        vendas: 0,
+        meta: 0
+      }));
+      setMonthlySalesData(basicMonthlyData);
     }
   };
 
@@ -221,7 +255,7 @@ export function useDashboardSalesData(year: number, month: number) {
         console.error('Erro geral ao buscar dados:', error);
         toast({
           title: "Aviso",
-          description: "Usando dados de exemplo. Verifique a conexão com o banco de dados.",
+          description: "Dados de vendas não configurados. Configure vendedoras e metas no sistema.",
           variant: "default",
         });
       } finally {
