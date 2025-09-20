@@ -184,12 +184,19 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
     try {
       setLoading(true);
 
+      // Preparar dados para envio, convertendo strings vazias em null para campos de data
+      const processedData = {
+        ...data,
+        data_nascimento: data.data_nascimento && data.data_nascimento.trim() !== '' ? data.data_nascimento : null,
+        data_fundacao: data.data_fundacao && data.data_fundacao.trim() !== '' ? data.data_fundacao : null,
+      };
+
       // Salvar ou atualizar entidade
       let entidadeResult;
       if (entidadeId) {
         const { data: updated, error } = await supabase
           .from('entidades_corporativas')
-          .update(data as any)
+          .update(processedData as any)
           .eq('id', entidadeId)
           .select()
           .single();
@@ -199,7 +206,7 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
       } else {
         const { data: created, error } = await supabase
           .from('entidades_corporativas')
-          .insert([data as any])
+          .insert([processedData as any])
           .select()
           .single();
         
