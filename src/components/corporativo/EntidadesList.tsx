@@ -4,21 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Search, Plus, Eye, Edit2, Users, Phone, Mail, Trash2 } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { Building2, Search, Plus, Users } from 'lucide-react';
+import { EntitiesTable } from '@/components/features/entities/EntitiesTable';
+import { EntityBulkEditModal, EntityBulkEditData } from '@/components/features/entities/EntityBulkEditModal';
+import { useUndoActions } from '@/hooks/useUndoActions';
 
 interface Entidade {
   id: string;
@@ -43,7 +34,11 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [papelFilter, setPapelFilter] = useState('all');
-  const [papeis, setPapeis] = useState<{ nome: string }[]>([]);
+  const [papeis, setPapeis] = useState<{ nome: string; id: string }[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Entidade[]>([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
+  const { addUndoAction } = useUndoActions();
 
   useEffect(() => {
     loadPapeis();
@@ -54,7 +49,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     try {
       const { data, error } = await supabase
         .from('papeis')
-        .select('nome')
+        .select('id, nome')
         .eq('ativo', true)
         .order('nome');
 
@@ -87,25 +82,154 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     }
   };
 
-  const handleDelete = async (entidade: Entidade) => {
+  const handleDelete = async (entidades: Entidade[]) => {
     try {
-      const { error } = await supabase
-        .from('entidades_corporativas')
-        .delete()
-        .eq('id', entidade.id);
+      const entidadeIds = entidades.map(e => e.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = entidades.map(entidade => ({
+        id: entidade.id,
+        nome_razao_social: entidade.nome_razao_social,
+        ativo: entidade.ativo,
+      }));
 
-      if (error) {
-        console.error('Erro ao excluir entidade:', error);
-        toast.error('Erro ao excluir entidade');
-        return;
+      for (const entidade of entidades) {
+        const { error } = await supabase
+          .from('entidades_corporativas')
+          .delete()
+          .eq('id', entidade.id);
+
+        if (error) {
+          console.error('Erro ao excluir entidade:', error);
+          toast.error(`Erro ao excluir entidade ${entidade.nome_razao_social}`);
+          continue;
+        }
       }
 
-      toast.success('Entidade excluída definitivamente');
+      setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `deleteEntities-${Date.now()}`,
+        type: 'deleteEntities',
+        data: { entidadeIds, count: entidades.length },
+        originalData: { entidades: originalData },
+      }, () => {
+        loadEntidades();
+      });
+
+      toast.success(`${entidades.length} entidade${entidades.length !== 1 ? 's' : ''} excluída${entidades.length !== 1 ? 's' : ''} definitivamente`);
       loadEntidades();
     } catch (error) {
-      console.error('Erro ao excluir entidade:', error);
-      toast.error('Erro ao excluir entidade');
+      console.error('Erro ao excluir entidades:', error);
+      toast.error('Erro ao excluir entidades');
     }
+  };
+
+  const handleBulkEdit = (entidades: Entidade[]) => {
+    setBulkEditModalOpen(true);
+  };
+
+  const handleBulkEditSave = async (updates: EntityBulkEditData) => {
+    try {
+      setBulkEditLoading(true);
+      const entidadeIds = selectedItems.map(e => e.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = selectedItems.map(entidade => ({
+        id: entidade.id,
+        ativo: entidade.ativo,
+        papeis: entidade.papeis,
+      }));
+
+      // Atualizar status se especificado
+      if (updates.ativo !== undefined) {
+        const updateData = { ativo: updates.ativo };
+
+        const { error } = await supabase
+          .from('entidades_corporativas')
+          .update(updateData)
+          .in('id', entidadeIds);
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      // Gerenciar papéis se especificado
+      if (updates.papeis) {
+        for (const entidadeId of entidadeIds) {
+          // Adicionar papéis
+          if (updates.papeis.add.length > 0) {
+            for (const papelId of updates.papeis.add) {
+              try {
+                const { error: insertError } = await supabase
+                  .from('entidade_papeis')
+                  .upsert({
+                    entidade_id: entidadeId,
+                    papel_id: papelId,
+                    data_inicio: new Date().toISOString().split('T')[0],
+                    ativo: true,
+                  });
+
+                if (insertError) {
+                  console.warn(`Erro ao adicionar papel ${papelId} para ${entidadeId}:`, insertError);
+                }
+              } catch (error) {
+                console.warn(`Erro ao adicionar papel ${papelId}:`, error);
+              }
+            }
+          }
+
+          // Remover papéis
+          if (updates.papeis.remove.length > 0) {
+            const { error: removeError } = await supabase
+              .from('entidade_papeis')
+              .update({ 
+                ativo: false, 
+                data_fim: new Date().toISOString().split('T')[0] 
+              })
+              .eq('entidade_id', entidadeId)
+              .in('papel_id', updates.papeis.remove)
+              .eq('ativo', true);
+
+            if (removeError) {
+              console.warn(`Erro ao remover papéis para ${entidadeId}:`, removeError);
+            }
+          }
+        }
+      }
+
+      setSelectedItems([]);
+      setBulkEditModalOpen(false);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `bulkEditEntities-${Date.now()}`,
+        type: 'bulkEditEntities',
+        data: { entidadeIds, count: selectedItems.length },
+        originalData: { entidades: originalData },
+      }, () => {
+        loadEntidades();
+      });
+
+      toast.success(`${selectedItems.length} entidade${selectedItems.length !== 1 ? 's' : ''} atualizada${selectedItems.length !== 1 ? 's' : ''} com sucesso`);
+      
+      loadEntidades();
+    } catch (error) {
+      console.error('Error bulk editing entidades:', error);
+      toast.error('Falha ao atualizar entidades em massa');
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
+  const handleActivate = async (entidades: Entidade[]) => {
+    await handleBulkEditSave({ ativo: true });
+  };
+
+  const handleDeactivate = async (entidades: Entidade[]) => {
+    await handleBulkEditSave({ ativo: false });
   };
 
   const formatCpfCnpj = (cpfCnpj: string) => {
@@ -164,139 +288,19 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
         </div>
 
         {/* Tabela */}
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Entidade</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>CPF/CNPJ</TableHead>
-                <TableHead>Contato</TableHead>
-                <TableHead>Papéis</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Carregando entidades...
-                  </TableCell>
-                </TableRow>
-              ) : entidades.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Nenhuma entidade encontrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                entidades.map((entidade) => (
-                  <TableRow key={entidade.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{entidade.nome_razao_social}</div>
-                        {entidade.nome_fantasia && (
-                          <div className="text-sm text-muted-foreground">
-                            {entidade.nome_fantasia}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <Badge variant={entidade.tipo_pessoa === 'fisica' ? 'default' : 'secondary'}>
-                        {entidade.tipo_pessoa === 'fisica' ? 'PF' : 'PJ'}
-                      </Badge>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="font-mono text-sm">
-                        {formatCpfCnpj(entidade.cpf_cnpj)}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="space-y-1">
-                        {entidade.email && (
-                          <div className="flex items-center text-sm">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {entidade.email}
-                          </div>
-                        )}
-                        {entidade.telefone && (
-                          <div className="flex items-center text-sm">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {entidade.telefone}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {entidade.papeis?.map((papel) => (
-                          <Badge key={papel} variant="outline" className="text-xs">
-                            {papel}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEntidadeSelect?.(entidade)}
-                          title="Visualizar ficha 360°"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEditarEntidade?.(entidade)}
-                          title="Editar entidade"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Excluir entidade"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir definitivamente a entidade "{entidade.nome_razao_social}"? 
-                                Esta ação não pode ser desfeita e removerá todos os dados relacionados.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDelete(entidade)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Excluir Definitivamente
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <EntitiesTable
+          data={entidades}
+          loading={loading}
+          selectedItems={selectedItems}
+          onSelectionChange={setSelectedItems}
+          onRowClick={(entidade) => {}} // Pode implementar navegação para detalhes
+          onEdit={onEditarEntidade}
+          onDelete={handleDelete}
+          onView={onEntidadeSelect}
+          onBulkEdit={handleBulkEdit}
+          onActivate={handleActivate}
+          onDeactivate={handleDeactivate}
+        />
 
         {/* Estatísticas */}
         <div className="flex justify-between items-center text-sm text-muted-foreground">
@@ -311,6 +315,16 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
           </div>
         </div>
       </CardContent>
+
+      {/* Bulk Edit Modal */}
+      <EntityBulkEditModal
+        open={bulkEditModalOpen}
+        onOpenChange={setBulkEditModalOpen}
+        selectedCount={selectedItems.length}
+        onSave={handleBulkEditSave}
+        loading={bulkEditLoading}
+        availableRoles={papeis}
+      />
     </Card>
   );
 }

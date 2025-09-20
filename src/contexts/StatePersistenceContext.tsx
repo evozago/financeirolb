@@ -14,6 +14,16 @@ interface PageState {
   selectedItems?: string[];
   columnOrder?: string[];
   columnVisibility?: Record<string, boolean>;
+  viewMode?: string;
+  selectedEntity?: string;
+  selectedAccount?: string;
+  selectedFilial?: string;
+  searchTerm?: string;
+  dateRange?: {
+    from?: string;
+    to?: string;
+  };
+  customSettings?: Record<string, any>;
 }
 
 interface StatePersistenceContextType {
@@ -25,6 +35,16 @@ interface StatePersistenceContextType {
   updateSorting: (pageKey: string, sorting: { column: string; direction: 'asc' | 'desc' }) => void;
   updateSelection: (pageKey: string, selectedItems: string[]) => void;
   updateColumnSettings: (pageKey: string, columnOrder?: string[], columnVisibility?: Record<string, boolean>) => void;
+  updateViewMode: (pageKey: string, viewMode: string) => void;
+  updateSelectedEntity: (pageKey: string, entityId: string) => void;
+  updateSelectedAccount: (pageKey: string, accountId: string) => void;
+  updateSelectedFilial: (pageKey: string, filialId: string) => void;
+  updateSearchTerm: (pageKey: string, searchTerm: string) => void;
+  updateDateRange: (pageKey: string, dateRange: { from?: string; to?: string }) => void;
+  updateCustomSetting: (pageKey: string, key: string, value: any) => void;
+  clearAllStates: () => void;
+  exportStates: () => string;
+  importStates: (statesJson: string) => boolean;
 }
 
 const StatePersistenceContext = createContext<StatePersistenceContextType | undefined>(undefined);
@@ -103,6 +123,55 @@ export function StatePersistenceProvider({ children }: StatePersistenceProviderP
     setPageState(pageKey, updates);
   };
 
+  const updateViewMode = (pageKey: string, viewMode: string) => {
+    setPageState(pageKey, { viewMode });
+  };
+
+  const updateSelectedEntity = (pageKey: string, entityId: string) => {
+    setPageState(pageKey, { selectedEntity: entityId });
+  };
+
+  const updateSelectedAccount = (pageKey: string, accountId: string) => {
+    setPageState(pageKey, { selectedAccount: accountId });
+  };
+
+  const updateSelectedFilial = (pageKey: string, filialId: string) => {
+    setPageState(pageKey, { selectedFilial: filialId });
+  };
+
+  const updateSearchTerm = (pageKey: string, searchTerm: string) => {
+    setPageState(pageKey, { searchTerm });
+  };
+
+  const updateDateRange = (pageKey: string, dateRange: { from?: string; to?: string }) => {
+    setPageState(pageKey, { dateRange });
+  };
+
+  const updateCustomSetting = (pageKey: string, key: string, value: any) => {
+    const currentState = getPageState(pageKey);
+    const customSettings = { ...currentState.customSettings, [key]: value };
+    setPageState(pageKey, { customSettings });
+  };
+
+  const clearAllStates = () => {
+    setPageStates({});
+  };
+
+  const exportStates = () => {
+    return JSON.stringify(pageStates);
+  };
+
+  const importStates = (statesJson: string) => {
+    try {
+      const states = JSON.parse(statesJson);
+      setPageStates(states);
+      return true;
+    } catch (error) {
+      console.error('Erro ao importar estados:', error);
+      return false;
+    }
+  };
+
   return (
     <StatePersistenceContext.Provider
       value={{
@@ -114,6 +183,16 @@ export function StatePersistenceProvider({ children }: StatePersistenceProviderP
         updateSorting,
         updateSelection,
         updateColumnSettings,
+        updateViewMode,
+        updateSelectedEntity,
+        updateSelectedAccount,
+        updateSelectedFilial,
+        updateSearchTerm,
+        updateDateRange,
+        updateCustomSetting,
+        clearAllStates,
+        exportStates,
+        importStates,
       }}
     >
       {children}

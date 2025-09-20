@@ -5,25 +5,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Plus, Building2, FileText, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Building2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { SuppliersTable } from '@/components/features/suppliers/SuppliersTable';
+import { SupplierBulkEditModal, SupplierBulkEditData } from '@/components/features/suppliers/SupplierBulkEditModal';
+import { useUndoActions } from '@/hooks/useUndoActions';
 
 interface SupplierData {
   id: string;
@@ -41,9 +31,13 @@ interface SupplierData {
 export default function Suppliers() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { addUndoAction } = useUndoActions();
   const [search, setSearch] = useState('');
   const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedItems, setSelectedItems] = useState<SupplierData[]>([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
 
   // Load suppliers from database using unified search
   const loadSuppliers = async () => {
@@ -88,50 +82,156 @@ export default function Suppliers() {
     navigate(`/suppliers/${supplier.id}`);
   };
 
-  const handleDelete = async (supplier: SupplierData) => {
+  const handleDelete = async (suppliers: SupplierData[]) => {
     try {
-      const normDoc = supplier.cpf_cnpj ? supplier.cpf_cnpj.replace(/\D/g, '') : null;
+      setLoading(true);
+      const supplierIds = suppliers.map(s => s.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = suppliers.map(supplier => ({
+        id: supplier.id,
+        nome_razao_social: supplier.nome_razao_social,
+        ativo: supplier.ativo,
+      }));
 
-      // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
-      await supabase
-        .from('entidades_corporativas')
-        .delete()
-        .eq('id', supplier.id);
+      for (const supplier of suppliers) {
+        const normDoc = supplier.cpf_cnpj ? supplier.cpf_cnpj.replace(/\D/g, '') : null;
 
-      if (normDoc) {
+        // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
         await supabase
           .from('entidades_corporativas')
           .delete()
-          .eq('cpf_cnpj_normalizado', normDoc);
-      }
+          .eq('id', supplier.id);
 
-      // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
-      await supabase
-        .from('fornecedores')
-        .delete()
-        .eq('id', supplier.id);
+        if (normDoc) {
+          await supabase
+            .from('entidades_corporativas')
+            .delete()
+            .eq('cpf_cnpj_normalizado', normDoc);
+        }
 
-      if (normDoc) {
+        // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
         await supabase
           .from('fornecedores')
           .delete()
-          .eq('cpf_cnpj_normalizado', normDoc);
+          .eq('id', supplier.id);
+
+        if (normDoc) {
+          await supabase
+            .from('fornecedores')
+            .delete()
+            .eq('cpf_cnpj_normalizado', normDoc);
+        }
       }
+
+      setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `deleteSuppliers-${Date.now()}`,
+        type: 'deleteSuppliers',
+        data: { supplierIds, count: suppliers.length },
+        originalData: { suppliers: originalData },
+      }, () => {
+        loadSuppliers();
+      });
 
       toast({
         title: "Sucesso",
-        description: "Fornecedor excluído definitivamente",
+        description: `${suppliers.length} fornecedor${suppliers.length !== 1 ? 'es' : ''} excluído${suppliers.length !== 1 ? 's' : ''} definitivamente`,
       });
       
       loadSuppliers();
     } catch (error) {
-      console.error('Error deleting supplier:', error);
+      console.error('Error deleting suppliers:', error);
       toast({
         title: "Erro",
-        description: "Falha ao excluir fornecedor",
+        description: "Falha ao excluir fornecedores",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleBulkEdit = (suppliers: SupplierData[]) => {
+    setBulkEditModalOpen(true);
+  };
+
+  const handleBulkEditSave = async (updates: SupplierBulkEditData) => {
+    try {
+      setBulkEditLoading(true);
+      const supplierIds = selectedItems.map(s => s.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = selectedItems.map(supplier => ({
+        id: supplier.id,
+        ativo: supplier.ativo,
+      }));
+
+      // Preparar dados de atualização
+      const updateData: any = {};
+      if (updates.ativo !== undefined) {
+        updateData.ativo = updates.ativo;
+      }
+
+      // Atualizar na entidades_corporativas
+      const { error: errorEntidades } = await supabase
+        .from('entidades_corporativas')
+        .update(updateData)
+        .in('id', supplierIds);
+
+      if (errorEntidades) {
+        throw errorEntidades;
+      }
+
+      // Atualizar na fornecedores (legado)
+      const { error: errorFornecedores } = await supabase
+        .from('fornecedores')
+        .update(updateData)
+        .in('id', supplierIds);
+
+      if (errorFornecedores) {
+        console.warn('Error updating fornecedores table:', errorFornecedores);
+      }
+
+      setSelectedItems([]);
+      setBulkEditModalOpen(false);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `bulkEditSuppliers-${Date.now()}`,
+        type: 'bulkEditSuppliers',
+        data: { supplierIds, count: selectedItems.length },
+        originalData: { suppliers: originalData },
+      }, () => {
+        loadSuppliers();
+      });
+
+      toast({
+        title: "Sucesso",
+        description: `${selectedItems.length} fornecedor${selectedItems.length !== 1 ? 'es' : ''} atualizado${selectedItems.length !== 1 ? 's' : ''} com sucesso`,
+      });
+      
+      loadSuppliers();
+    } catch (error) {
+      console.error('Error bulk editing suppliers:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar fornecedores em massa",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
+  const handleActivate = async (suppliers: SupplierData[]) => {
+    await handleBulkEditSave({ ativo: true });
+  };
+
+  const handleDeactivate = async (suppliers: SupplierData[]) => {
+    await handleBulkEditSave({ ativo: false });
   };
 
   const formatCNPJ = (cnpj: string | undefined) => {
@@ -207,120 +307,32 @@ export default function Suppliers() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Razão Social</TableHead>
-                      <TableHead>Nome Fantasia</TableHead>
-                      <TableHead>CPF/CNPJ</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSuppliers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          <div className="flex flex-col items-center gap-2">
-                            <FileText className="h-12 w-12 text-muted-foreground/50" />
-                            <p>Nenhum fornecedor encontrado</p>
-                            {search && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSearch('')}
-                              >
-                                Limpar busca
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredSuppliers.map((supplier) => (
-                        <TableRow
-                          key={supplier.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleRowClick(supplier)}
-                        >
-                          <TableCell className="font-medium">{supplier.nome_razao_social}</TableCell>
-                          <TableCell>{supplier.nome_fantasia || '-'}</TableCell>
-                          <TableCell className="font-mono text-sm">{formatCNPJ(supplier.cpf_cnpj)}</TableCell>
-                          <TableCell>
-                            <Badge variant={supplier.tipo_pessoa === 'pessoa_fisica' ? 'default' : 'secondary'}>
-                              {supplier.tipo_pessoa === 'pessoa_fisica' ? 'PF' : 'PJ'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={supplier.ativo ? "default" : "secondary"}>
-                              {supplier.ativo ? "Ativo" : "Inativo"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRowClick(supplier);
-                                }}
-                              >
-                                Ver Detalhes
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/suppliers/${supplier.id}/edit`);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja excluir definitivamente o fornecedor "{supplier.nome_razao_social}"? 
-                                      Esta ação não pode ser desfeita e removerá todos os dados relacionados.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDelete(supplier)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Excluir Definitivamente
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <SuppliersTable
+                data={filteredSuppliers}
+                loading={loading}
+                selectedItems={selectedItems}
+                onSelectionChange={setSelectedItems}
+                onRowClick={handleRowClick}
+                onEdit={(supplier) => navigate(`/suppliers/${supplier.id}/edit`)}
+                onDelete={handleDelete}
+                onView={handleRowClick}
+                onBulkEdit={handleBulkEdit}
+                onActivate={handleActivate}
+                onDeactivate={handleDeactivate}
+              />
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Bulk Edit Modal */}
+      <SupplierBulkEditModal
+        open={bulkEditModalOpen}
+        onOpenChange={setBulkEditModalOpen}
+        selectedCount={selectedItems.length}
+        onSave={handleBulkEditSave}
+        loading={bulkEditLoading}
+      />
     </div>
   );
 }

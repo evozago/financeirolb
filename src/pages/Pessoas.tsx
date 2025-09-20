@@ -25,6 +25,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useEntidadesCorporativas } from "@/hooks/useEntidadesCorporativas";
+import { PeopleTable } from "@/components/features/people/PeopleTable";
+import { PersonBulkEditModal, PersonBulkEditData } from "@/components/features/people/PersonBulkEditModal";
+import { useUndoActions } from "@/hooks/useUndoActions";
 
 interface PessoaData {
   id: string;
@@ -68,8 +71,12 @@ export default function Pessoas() {
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [filterCategoria, setFilterCategoria] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedItems, setSelectedItems] = useState<PessoaData[]>([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { addUndoAction } = useUndoActions();
   
   const {
     papeis,
@@ -300,50 +307,72 @@ export default function Pessoas() {
     });
   };
 
-  const handleDelete = async (pessoa: PessoaData) => {
+  const handleDelete = async (pessoas: PessoaData[]) => {
     try {
       setLoading(true);
-
-      const normDoc = pessoa.cpf_cnpj ? pessoa.cpf_cnpj.replace(/\D/g, '') : null;
+      const pessoaIds = pessoas.map(p => p.id);
       
-      // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
-      await supabase
-        .from('entidades_corporativas')
-        .delete()
-        .eq('id', pessoa.id);
+      // Armazenar dados originais para undo
+      const originalData = pessoas.map(pessoa => ({
+        id: pessoa.id,
+        nome_razao_social: pessoa.nome_razao_social,
+        ativo: pessoa.ativo,
+      }));
 
-      if (normDoc) {
+      for (const pessoa of pessoas) {
+        const normDoc = pessoa.cpf_cnpj ? pessoa.cpf_cnpj.replace(/\D/g, '') : null;
+        
+        // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
         await supabase
           .from('entidades_corporativas')
           .delete()
-          .eq('cpf_cnpj_normalizado', normDoc);
-      }
+          .eq('id', pessoa.id);
 
-      // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
-      await supabase
-        .from('fornecedores')
-        .delete()
-        .eq('id', pessoa.id);
+        if (normDoc) {
+          await supabase
+            .from('entidades_corporativas')
+            .delete()
+            .eq('cpf_cnpj_normalizado', normDoc);
+        }
 
-      if (normDoc) {
+        // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
         await supabase
           .from('fornecedores')
           .delete()
-          .eq('cpf_cnpj_normalizado', normDoc);
+          .eq('id', pessoa.id);
+
+        if (normDoc) {
+          await supabase
+            .from('fornecedores')
+            .delete()
+            .eq('cpf_cnpj_normalizado', normDoc);
+        }
       }
+
+      setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `deletePeople-${Date.now()}`,
+        type: 'deletePeople',
+        data: { pessoaIds, count: pessoas.length },
+        originalData: { pessoas: originalData },
+      }, () => {
+        loadData();
+      });
       
       toast({ 
-        title: 'Pessoa excluída definitivamente', 
-        description: 'A pessoa foi removida com sucesso.' 
+        title: 'Pessoa(s) excluída(s) definitivamente', 
+        description: `${pessoas.length} pessoa${pessoas.length !== 1 ? 's' : ''} removida${pessoas.length !== 1 ? 's' : ''} com sucesso.` 
       });
       
       setDeletingPessoa(null);
       loadData();
     } catch (error) {
-      console.error('Error deleting pessoa:', error);
+      console.error('Error deleting pessoas:', error);
       toast({ 
         title: 'Erro ao excluir', 
-        description: 'Não foi possível excluir a pessoa.', 
+        description: 'Não foi possível excluir as pessoas.', 
         variant: 'destructive' 
       });
     } finally {
@@ -382,6 +411,130 @@ export default function Pessoas() {
         ? [...prev.categorias, categoria]
         : prev.categorias.filter(c => c !== categoria)
     }));
+  };
+
+  const handleBulkEdit = (pessoas: PessoaData[]) => {
+    setBulkEditModalOpen(true);
+  };
+
+  const handleBulkEditSave = async (updates: PersonBulkEditData) => {
+    try {
+      setBulkEditLoading(true);
+      const pessoaIds = selectedItems.map(p => p.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = selectedItems.map(pessoa => ({
+        id: pessoa.id,
+        ativo: pessoa.ativo,
+        papeis: pessoa.papeis,
+      }));
+
+      // Atualizar status se especificado
+      if (updates.ativo !== undefined) {
+        const updateData = { ativo: updates.ativo };
+
+        // Atualizar na entidades_corporativas
+        const { error: errorEntidades } = await supabase
+          .from('entidades_corporativas')
+          .update(updateData)
+          .in('id', pessoaIds);
+
+        if (errorEntidades) {
+          throw errorEntidades;
+        }
+
+        // Atualizar na fornecedores (legado)
+        const { error: errorFornecedores } = await supabase
+          .from('fornecedores')
+          .update(updateData)
+          .in('id', pessoaIds);
+
+        if (errorFornecedores) {
+          console.warn('Error updating fornecedores table:', errorFornecedores);
+        }
+      }
+
+      // Gerenciar papéis se especificado
+      if (updates.papeis) {
+        for (const pessoaId of pessoaIds) {
+          // Adicionar papéis
+          if (updates.papeis.add.length > 0) {
+            for (const papelId of updates.papeis.add) {
+              try {
+                const { error: insertError } = await supabase
+                  .from('entidade_papeis')
+                  .upsert({
+                    entidade_id: pessoaId,
+                    papel_id: papelId,
+                    data_inicio: new Date().toISOString().split('T')[0],
+                    ativo: true,
+                  });
+
+                if (insertError) {
+                  console.warn(`Erro ao adicionar papel ${papelId} para ${pessoaId}:`, insertError);
+                }
+              } catch (error) {
+                console.warn(`Erro ao adicionar papel ${papelId}:`, error);
+              }
+            }
+          }
+
+          // Remover papéis
+          if (updates.papeis.remove.length > 0) {
+            const { error: removeError } = await supabase
+              .from('entidade_papeis')
+              .update({ 
+                ativo: false, 
+                data_fim: new Date().toISOString().split('T')[0] 
+              })
+              .eq('entidade_id', pessoaId)
+              .in('papel_id', updates.papeis.remove)
+              .eq('ativo', true);
+
+            if (removeError) {
+              console.warn(`Erro ao remover papéis para ${pessoaId}:`, removeError);
+            }
+          }
+        }
+      }
+
+      setSelectedItems([]);
+      setBulkEditModalOpen(false);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `bulkEditPeople-${Date.now()}`,
+        type: 'bulkEditPeople',
+        data: { pessoaIds, count: selectedItems.length },
+        originalData: { pessoas: originalData },
+      }, () => {
+        loadData();
+      });
+
+      toast({
+        title: "Sucesso",
+        description: `${selectedItems.length} pessoa${selectedItems.length !== 1 ? 's' : ''} atualizada${selectedItems.length !== 1 ? 's' : ''} com sucesso`,
+      });
+      
+      loadData();
+    } catch (error) {
+      console.error('Error bulk editing pessoas:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar pessoas em massa",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
+  const handleActivate = async (pessoas: PessoaData[]) => {
+    await handleBulkEditSave({ ativo: true });
+  };
+
+  const handleDeactivate = async (pessoas: PessoaData[]) => {
+    await handleBulkEditSave({ ativo: false });
   };
 
   const filteredPessoas = pessoas.filter(pessoa => {
@@ -498,38 +651,37 @@ export default function Pessoas() {
                 <TabsContent value="dados">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Informações Pessoais</CardTitle>
+                      <CardTitle>Informações Básicas</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="tipo_pessoa">Tipo de Pessoa</Label>
-                          <Select
-                            value={formData.tipo_pessoa}
-                            onValueChange={(value: 'pessoa_fisica' | 'pessoa_juridica') =>
-                              setFormData(prev => ({ ...prev, tipo_pessoa: value }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pessoa_fisica">Pessoa Física</SelectItem>
-                              <SelectItem value="pessoa_juridica">Pessoa Jurídica</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="nome">
-                            {formData.tipo_pessoa === 'pessoa_fisica' ? 'Nome Completo' : 'Razão Social'}
-                          </Label>
-                          <Input
-                            id="nome"
-                            value={formData.nome}
-                            onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                            required
-                          />
-                        </div>
+                      <div>
+                        <Label htmlFor="tipo_pessoa">Tipo de Pessoa</Label>
+                        <Select 
+                          value={formData.tipo_pessoa} 
+                          onValueChange={(value: 'pessoa_fisica' | 'pessoa_juridica') => 
+                            setFormData(prev => ({ ...prev, tipo_pessoa: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pessoa_fisica">Pessoa Física</SelectItem>
+                            <SelectItem value="pessoa_juridica">Pessoa Jurídica</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="nome">
+                          {formData.tipo_pessoa === 'pessoa_fisica' ? 'Nome Completo' : 'Razão Social'}
+                        </Label>
+                        <Input
+                          id="nome"
+                          value={formData.nome}
+                          onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                          required
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -578,13 +730,13 @@ export default function Pessoas() {
                     </CardContent>
                   </Card>
                 </TabsContent>
-                
+
                 <TabsContent value="papeis">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Papéis da Pessoa</CardTitle>
+                      <CardTitle>Papéis e Categorias</CardTitle>
                       <CardDescription>
-                        Selecione os papéis que esta pessoa desempenha na organização
+                        Selecione os papéis que esta pessoa desempenha na empresa
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -594,13 +746,11 @@ export default function Pessoas() {
                             <Checkbox
                               id={papel.id}
                               checked={formData.categorias.includes(papel.nome)}
-                              onCheckedChange={(checked) =>
+                              onCheckedChange={(checked) => 
                                 handleCategoriaChange(papel.nome, checked as boolean)
                               }
                             />
-                            <Label htmlFor={papel.id} className="text-sm font-medium">
-                              {papel.nome}
-                            </Label>
+                            <Label htmlFor={papel.id}>{papel.nome}</Label>
                           </div>
                         ))}
                       </div>
@@ -608,13 +758,13 @@ export default function Pessoas() {
                   </Card>
                 </TabsContent>
               </Tabs>
-              
-              <div className="flex justify-end space-x-2">
+
+              <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={loading || entidadeLoading}>
-                  {editingPessoa ? "Atualizar" : "Criar"} Pessoa
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Salvando...' : (editingPessoa ? 'Atualizar' : 'Criar')}
                 </Button>
               </div>
             </form>
@@ -630,98 +780,31 @@ export default function Pessoas() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>CPF/CNPJ</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Papéis</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPessoas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        Nenhuma pessoa encontrada
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredPessoas.map((pessoa) => (
-                    <TableRow key={pessoa.id}>
-                      <TableCell className="font-medium">{pessoa.nome_razao_social}</TableCell>
-                      <TableCell>
-                        <Badge variant={pessoa.tipo_pessoa === 'pessoa_fisica' ? 'default' : 'secondary'}>
-                          {pessoa.tipo_pessoa === 'pessoa_fisica' ? 'PF' : 'PJ'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{formatCPF(pessoa.cpf_cnpj)}</TableCell>
-                      <TableCell>{pessoa.email || '-'}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {pessoa.papeis && pessoa.papeis.length > 0 ? (
-                            getCategoriasBadges(pessoa.papeis)
-                          ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(pessoa)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog
-                            open={deletingPessoa?.id === pessoa.id}
-                            onOpenChange={(open) => !open && setDeletingPessoa(null)}
-                          >
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeletingPessoa(pessoa)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir definitivamente "{pessoa.nome_razao_social}"? 
-                                  Esta ação não pode ser desfeita e removerá todos os dados relacionados.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel onClick={() => setDeletingPessoa(null)}>
-                                  Cancelar
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deletingPessoa && handleDelete(deletingPessoa)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Excluir Definitivamente
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <PeopleTable
+            data={filteredPessoas}
+            loading={loading}
+            selectedItems={selectedItems}
+            onSelectionChange={setSelectedItems}
+            onRowClick={(pessoa) => {}} // Pode implementar navegação para detalhes
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onView={(pessoa) => {}} // Pode implementar visualização
+            onBulkEdit={handleBulkEdit}
+            onActivate={handleActivate}
+            onDeactivate={handleDeactivate}
+          />
         </CardContent>
       </Card>
+
+      {/* Bulk Edit Modal */}
+      <PersonBulkEditModal
+        open={bulkEditModalOpen}
+        onOpenChange={setBulkEditModalOpen}
+        selectedCount={selectedItems.length}
+        onSave={handleBulkEditSave}
+        loading={bulkEditLoading}
+        availableRoles={papeis}
+      />
     </div>
   );
 }
