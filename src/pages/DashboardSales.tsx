@@ -1,50 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, TrendingUp, TrendingDown, Target, Users, Trophy, DollarSign } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
-interface SalesKPIData {
-  total_sales: number;
-  total_goal: number;
-  goal_achievement_percentage: number;
-  mom_growth_percentage: number;
-  yoy_growth_percentage: number;
-  active_salespeople: number;
-  top_performer_name: string;
-  top_performer_sales: number;
-}
-
-interface SalespersonGrowth {
-  vendedora_id: string;
-  vendedora_nome: string;
-  current_sales: number;
-  previous_sales?: number;
-  previous_year_sales?: number;
-  growth_percentage: number;
-}
-
-interface MonthlySalesData {
-  mes: string;
-  vendas: number;
-  meta: number;
-}
+import { useDashboardSalesData } from "@/hooks/useDashboardSalesData";
 
 export default function DashboardSales() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [kpiData, setKpiData] = useState<SalesKPIData | null>(null);
-  const [momGrowthData, setMomGrowthData] = useState<SalespersonGrowth[]>([]);
-  const [yoyGrowthData, setYoyGrowthData] = useState<SalespersonGrowth[]>([]);
-  const [monthlySalesData, setMonthlySalesData] = useState<MonthlySalesData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  
+  const { 
+    kpiData, 
+    momGrowthData, 
+    yoyGrowthData, 
+    monthlySalesData, 
+    loading 
+  } = useDashboardSalesData(selectedYear, selectedMonth);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -69,107 +42,6 @@ export default function DashboardSales() {
       currency: 'BRL'
     }).format(value);
   };
-
-  const fetchKPIData = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_sales_kpi_data', {
-        p_year: selectedYear,
-        p_month: selectedMonth
-      });
-
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setKpiData(data[0]);
-      }
-    } catch (error) {
-      console.error('Error fetching KPI data:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados de KPI",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchGrowthData = async () => {
-    try {
-      // Fetch MoM growth data
-      const { data: momData, error: momError } = await supabase.rpc('calculate_mom_growth', {
-        p_year: selectedYear,
-        p_month: selectedMonth
-      });
-
-      if (momError) throw momError;
-      setMomGrowthData(momData || []);
-
-      // Fetch YoY growth data
-      const { data: yoyData, error: yoyError } = await supabase.rpc('calculate_yoy_growth', {
-        p_year: selectedYear,
-        p_month: selectedMonth
-      });
-
-      if (yoyError) throw yoyError;
-      setYoyGrowthData(yoyData || []);
-    } catch (error) {
-      console.error('Error fetching growth data:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados de crescimento",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchMonthlySalesData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('sales_monthly_summary')
-        .select('ano, mes, total_vendas, meta_mensal')
-        .eq('ano', selectedYear)
-        .order('mes');
-
-      if (error) throw error;
-
-      // Aggregate by month
-      const monthlyData = Array.from({ length: 12 }, (_, i) => {
-        const monthData = data?.filter(item => item.mes === i + 1) || [];
-        const totalSales = monthData.reduce((sum, item) => sum + (item.total_vendas || 0), 0);
-        const totalGoal = monthData.reduce((sum, item) => sum + (item.meta_mensal || 0), 0);
-
-        return {
-          mes: months[i].label,
-          vendas: totalSales,
-          meta: totalGoal
-        };
-      });
-
-      setMonthlySalesData(monthlyData);
-    } catch (error) {
-      console.error('Error fetching monthly sales data:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados mensais",
-        variant: "destructive",
-      });
-    }
-  };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        await Promise.all([
-          fetchKPIData(),
-          fetchGrowthData(),
-          fetchMonthlySalesData()
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [selectedYear, selectedMonth]);
 
   return (
     <div className="container mx-auto p-6 space-y-8">
