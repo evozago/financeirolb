@@ -157,6 +157,20 @@ export const useEntidadesCorporativas = () => {
 
   const adicionarPapel = async (entidadeId: string, papelId: string) => {
     try {
+      // Verificar se já existe papel ativo para evitar duplicação
+      const { data: existing } = await supabase
+        .from('entidade_papeis')
+        .select('id')
+        .eq('entidade_id', entidadeId)
+        .eq('papel_id', papelId)
+        .eq('ativo', true)
+        .maybeSingle();
+
+      if (existing) {
+        // Se já existe papel ativo, não faz nada
+        return;
+      }
+
       const { error } = await supabase
         .from('entidade_papeis')
         .insert([{
