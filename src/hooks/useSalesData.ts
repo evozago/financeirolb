@@ -244,5 +244,6 @@ export function useSalesData() {
     salespersonData, updateSalespersonGoal,
     saveAllData,
     hasEntity, // para a UI saber se temos entidade efetiva
+    refreshData: fetchAllData,
   };
 }

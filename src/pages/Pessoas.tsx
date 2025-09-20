@@ -172,9 +172,20 @@ export default function Pessoas() {
       let entidadeId: string;
 
       if (editingPessoa) {
-        // Atualizar entidade existente
-        await atualizarEntidade(editingPessoa.id, entidadeData);
-        entidadeId = editingPessoa.id;
+        // Garantir que o ID pertence a entidades_corporativas; se não, cria uma nova
+        const { data: existente } = await supabase
+          .from('entidades_corporativas')
+          .select('id')
+          .eq('id', editingPessoa.id)
+          .maybeSingle();
+
+        if (existente) {
+          await atualizarEntidade(editingPessoa.id, entidadeData);
+          entidadeId = editingPessoa.id;
+        } else {
+          const novaEntidade = await criarEntidade(entidadeData);
+          entidadeId = novaEntidade.id;
+        }
       } else {
         // Criar nova entidade e aguardar a criação completa
         const novaEntidade = await criarEntidade(entidadeData);
@@ -189,7 +200,7 @@ export default function Pessoas() {
               .from('entidades_corporativas')
               .select('id')
               .eq('id', entidadeId)
-              .single();
+              .maybeSingle();
             
             if (data) {
               entidadeExiste = true;
@@ -232,7 +243,7 @@ export default function Pessoas() {
                 .eq('entidade_id', entidadeId)
                 .eq('papel_id', papel.id)
                 .eq('ativo', true)
-                .single();
+                .maybeSingle();
               
               if (!papelExistente) {
                 await adicionarPapel(entidadeId, papel.id);

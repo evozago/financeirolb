@@ -49,7 +49,8 @@ export function SalespersonPanel() {
     salespersonData, 
     updateSalespersonGoal, 
     saveAllData,
-    hasEntity 
+    hasEntity,
+    refreshData,
   } = useSalesData();
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -138,25 +139,57 @@ export function SalespersonPanel() {
     return goal > 0 ? Math.min((sales / goal) * 100, 100) : 0;
   };
 
-  const addSalesperson = () => {
+  const addSalesperson = async () => {
     if (!newSalesperson.name.trim()) {
       toast.error("Nome é obrigatório!");
       return;
     }
 
-    const id = selectedEmployee || Date.now().toString();
-    setSalespeople(prev => [...prev, { ...newSalesperson, id }]);
-    
-    setNewSalesperson({
-      name: '',
-      baseSalary: undefined,
-      commissionRate: undefined,
-      metaBase: undefined,
-      supermetaRate: undefined
-    });
-    setSelectedEmployee('');
-    setIsAddDialogOpen(false);
-    toast.success("Vendedora adicionada com sucesso!");
+    try {
+      if (selectedEmployee) {
+        // Marcar funcionário existente como vendedora e atualizar dados principais
+        const { error } = await supabase
+          .from('fornecedores')
+          .update({
+            eh_vendedora: true,
+            nome: newSalesperson.name,
+            salario: newSalesperson.baseSalary ?? null,
+            comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+            comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+            meta_mensal: newSalesperson.metaBase ?? null,
+          })
+          .eq('id', selectedEmployee);
+        if (error) throw error;
+      } else {
+        // Criar novo cadastro mínimo na tabela fornecedores (legado)
+        const { error } = await supabase
+          .from('fornecedores')
+          .insert([{ 
+            nome: newSalesperson.name,
+            tipo_pessoa: 'pessoa_fisica',
+            ativo: true,
+            eh_vendedora: true,
+            salario: newSalesperson.baseSalary ?? null,
+            comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+            comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+            meta_mensal: newSalesperson.metaBase ?? null,
+          }]);
+        if (error) throw error;
+      }
+
+      // Atualizar lista
+      await refreshData();
+      await loadExistingEmployees();
+
+      // Resetar form
+      setNewSalesperson({ name: '', baseSalary: undefined, commissionRate: undefined, metaBase: undefined, supermetaRate: undefined });
+      setSelectedEmployee('');
+      setIsAddDialogOpen(false);
+      toast.success("Vendedora adicionada com sucesso!");
+    } catch (e: any) {
+      console.error('Erro ao adicionar vendedora:', e);
+      toast.error(e?.message || 'Falha ao adicionar vendedora');
+    }
   };
 
   const editSalesperson = async (person: Salesperson) => {
