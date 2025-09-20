@@ -21,9 +21,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { PayablesFilter, Supplier } from '@/types/payables';
+import { PayablesFilter } from '@/types/payables';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+
+interface UnifiedSupplier {
+  id: string;
+  name: string;
+  tipo: 'fornecedor' | 'pessoa';
+}
 
 interface Entity {
   id: string;
@@ -48,7 +54,7 @@ interface Filial {
 interface PayableFiltersProps {
   filters: PayablesFilter;
   onFiltersChange: (filters: PayablesFilter) => void;
-  suppliers: Supplier[];
+  suppliers: UnifiedSupplier[];
   className?: string;
 }
 
@@ -231,26 +237,26 @@ export function PayableFilters({
                 </Select>
               </div>
 
-              {/* Fornecedor */}
-              <div className="space-y-2">
-                <Label>Fornecedor</Label>
-                <Select
-                  value={filters.supplierId || 'all'}
-                  onValueChange={(value) => updateFilter('supplierId', value === 'all' ? undefined : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os fornecedores" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os fornecedores</SelectItem>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+               {/* Credor (PF + PJ) */}
+               <div className="space-y-2">
+                 <Label>Credor</Label>
+                 <Select
+                   value={filters.supplierId || 'all'}
+                   onValueChange={(value) => updateFilter('supplierId', value === 'all' ? undefined : value)}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="Todos os credores" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="all">Todos os credores</SelectItem>
+                     {suppliers.map((supplier) => (
+                       <SelectItem key={supplier.id} value={supplier.id}>
+                         {supplier.name}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
 
 
               {/* Filial */}
@@ -419,15 +425,15 @@ export function PayableFilters({
             </Badge>
           )}
           
-          {filters.supplierId && (
-            <Badge variant="secondary" className="flex items-center gap-1">
-              Fornecedor: {suppliers.find(s => s.id === filters.supplierId)?.name}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => updateFilter('supplierId', undefined)}
-              />
-            </Badge>
-          )}
+           {filters.supplierId && (
+             <Badge variant="secondary" className="flex items-center gap-1">
+               Credor: {suppliers.find(s => s.id === filters.supplierId)?.name}
+               <X 
+                 className="h-3 w-3 cursor-pointer" 
+                 onClick={() => updateFilter('supplierId', undefined)}
+               />
+             </Badge>
+           )}
 
           {filters.entityId && (
             <Badge variant="secondary" className="flex items-center gap-1">
