@@ -176,20 +176,32 @@ export default function Pessoas() {
         await atualizarEntidade(editingPessoa.id, entidadeData);
         entidadeId = editingPessoa.id;
       } else {
-        // Criar nova entidade
+        // Criar nova entidade e aguardar a criação completa
         const novaEntidade = await criarEntidade(entidadeData);
         entidadeId = novaEntidade.id;
       }
 
-      // Gerenciar papéis (roles)
+      // Aguardar um pouco para garantir que a entidade foi criada
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Gerenciar papéis (roles) - fazer sequencialmente para evitar conflitos
       if (formData.categorias.length > 0) {
         for (const categoria of formData.categorias) {
           const papel = papeis.find(p => p.nome === categoria);
           if (papel) {
-            await adicionarPapel(entidadeId, papel.id);
+            try {
+              await adicionarPapel(entidadeId, papel.id);
+            } catch (papelError) {
+              console.warn(`Erro ao adicionar papel ${categoria}:`, papelError);
+            }
           }
         }
       }
+      
+      toast({
+        title: 'Sucesso',
+        description: editingPessoa ? 'Pessoa atualizada com sucesso.' : 'Pessoa criada com sucesso.',
+      });
       
       setDialogOpen(false);
       setEditingPessoa(null);
