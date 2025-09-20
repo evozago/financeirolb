@@ -38,6 +38,7 @@ export type SalespersonPanelData = {
   salesperson_id: string;
   salesperson_name: string;
   monthly_goals: Record<number, number | ''>;
+  monthly_sales: Record<number, number | ''>;
 };
 
 const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -152,6 +153,7 @@ export function useSalesData() {
         salesperson_id: v.id,
         salesperson_name: v.nome,
         monthly_goals: map.get(v.id) ?? {},
+        monthly_sales: {}, // Inicializar vazio, será carregado posteriormente
       }));
       setSalespersonData(formattedSales);
     } catch (err: any) {
@@ -175,6 +177,13 @@ export function useSalesData() {
   const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
     setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
       ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value === '' ? '' : Number(value) } })
+      : p));
+  };
+
+  // Edição local (vendas realizadas por vendedora)
+  const updateSalespersonSales = (salesperson_id: string, month: number, value: string) => {
+    setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
+      ? ({ ...p, monthly_sales: { ...p.monthly_sales, [month]: value === '' ? '' : Number(value) } })
       : p));
   };
 
@@ -247,7 +256,7 @@ export function useSalesData() {
     loading,
     currentYear, setCurrentYear,
     yearlyData, updateYearlySale,
-    salespersonData, updateSalespersonGoal,
+    salespersonData, updateSalespersonGoal, updateSalespersonSales,
     saveAllData,
     hasEntity, // para a UI saber se temos entidade efetiva
     refreshData: fetchAllData,

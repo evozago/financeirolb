@@ -48,9 +48,9 @@ export function SalespersonPanel() {
     setCurrentYear, 
     salespersonData, 
     updateSalespersonGoal, 
+    updateSalespersonSales,
     saveAllData,
     hasEntity,
-    refreshData,
   } = useSalesData();
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -338,6 +338,10 @@ export function SalespersonPanel() {
     updateSalespersonGoal(salespersonId, selectedMonth, value);
   };
 
+  const updateSalesForMonth = (salespersonId: string, value: string) => {
+    updateSalespersonSales(salespersonId, selectedMonth, value);
+  };
+
   const handleSaveAll = () => {
     if (!hasEntity) {
       toast.error("Nenhuma entidade configurada. Configure uma entidade corporativa primeiro.");
@@ -495,6 +499,17 @@ export function SalespersonPanel() {
                           <CurrencyInput
                             value={typeof monthlyGoal === 'number' ? monthlyGoal : undefined}
                             onValueChange={(value) => updateGoalForMonth(person.salesperson_id, value?.toString() || '')}
+                            placeholder="R$ 0,00"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor={`sales-${person.salesperson_id}`} className="text-sm">
+                            Vendas Realizadas - {months.find(m => m.value === selectedMonth)?.label}
+                          </Label>
+                          <CurrencyInput
+                            value={person.monthly_sales?.[selectedMonth] || undefined}
+                            onValueChange={(value) => updateSalesForMonth(person.salesperson_id, value?.toString() || '')}
                             placeholder="R$ 0,00"
                           />
                         </div>
