@@ -75,42 +75,59 @@ export function SalespersonPanel() {
     supermetaRate: undefined as number | undefined
   });
 
-  // Load existing employees from fornecedores table
+  // Load existing employees from fornecedores and entidades_corporativas
   const loadExistingEmployees = async () => {
     try {
-      // Get all people from fornecedores table (employees and suppliers)
-      const { data: fornecedores, error } = await supabase
+      // 1) Fornecedores (legado)
+      const { data: fornecedores, error: fornError } = await supabase
         .from('fornecedores')
-        .select('id, nome, cpf, cnpj_cpf, email, telefone, salario, tipo_pessoa')
+        .select('id, nome, cpf, cnpj_cpf, email, telefone, salario, tipo_pessoa, cpf_cnpj_normalizado')
         .eq('ativo', true)
         .order('nome');
+      if (fornError) throw fornError;
 
-      if (error) {
-        console.error('Error loading fornecedores:', error);
-        toast.error('Erro ao carregar funcionários/vendedoras');
-        return;
-      }
+      // 2) Entidades Corporativas (novo)
+      const { data: entidades, error: entError } = await supabase
+        .from('entidades_corporativas')
+        .select('id, nome_razao_social, cpf_cnpj, cpf_cnpj_normalizado, email, telefone, tipo_pessoa, ativo')
+        .eq('ativo', true)
+        .order('nome_razao_social');
+      if (entError) throw entError;
 
-      // Create unique list by name and document to avoid duplicates
-      const uniqueEmployees = new Map<string, ExistingEmployee>();
-      
-      fornecedores?.forEach(f => {
-        const cpfCnpj = f.tipo_pessoa === 'pessoa_fisica' ? f.cpf : f.cnpj_cpf;
-        const key = `${f.nome.trim().toUpperCase()}-${cpfCnpj || ''}`;
-        
-        if (!uniqueEmployees.has(key)) {
-          uniqueEmployees.set(key, {
+      // Unificar por nome+documento
+      const unique = new Map<string, ExistingEmployee>();
+
+      (fornecedores || []).forEach((f) => {
+        const doc = (f.tipo_pessoa === 'pessoa_fisica' ? (f.cpf || '') : (f.cnpj_cpf || '')) as string;
+        const key = `${(f.nome || '').trim().toUpperCase()}-${(f.cpf_cnpj_normalizado || doc || '').trim()}`;
+        if (!unique.has(key)) {
+          unique.set(key, {
             id: f.id || '',
             nome: f.nome || '',
-            cpf: cpfCnpj,
-            email: f.email,
-            telefone: f.telefone,
-            salario: f.salario ? Number(f.salario) : undefined
+            cpf: doc || undefined,
+            email: f.email || undefined,
+            telefone: f.telefone || undefined,
+            salario: f.salario ? Number(f.salario) : undefined,
           });
         }
       });
 
-      setExistingEmployees(Array.from(uniqueEmployees.values()));
+      (entidades || []).forEach((e: any) => {
+        const doc = e.cpf_cnpj || '';
+        const key = `${(e.nome_razao_social || '').trim().toUpperCase()}-${(e.cpf_cnpj_normalizado || doc || '').trim()}`;
+        if (!unique.has(key)) {
+          unique.set(key, {
+            id: `entidade:${e.id}`,
+            nome: e.nome_razao_social || '',
+            cpf: doc || undefined,
+            email: e.email || undefined,
+            telefone: e.telefone || undefined,
+            salario: undefined,
+          });
+        }
+      });
+
+      setExistingEmployees(Array.from(unique.values()));
     } catch (error) {
       console.error('Error loading existing employees:', error);
       toast.error('Erro ao carregar funcionários/vendedoras');
@@ -147,19 +164,75 @@ export function SalespersonPanel() {
 
     try {
       if (selectedEmployee) {
-        // Marcar funcionário existente como vendedora e atualizar dados principais
-        const { error } = await supabase
-          .from('fornecedores')
-          .update({
-            eh_vendedora: true,
-            nome: newSalesperson.name,
-            salario: newSalesperson.baseSalary ?? null,
-            comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
-            comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
-            meta_mensal: newSalesperson.metaBase ?? null,
-          })
-          .eq('id', selectedEmployee);
-        if (error) throw error;
+        if (selectedEmployee.startsWith('entidade:')) {
+          // Criar/atualizar registro em fornecedores a partir de uma entidade corporativa
+          const entidadeId = selectedEmployee.split(':')[1];
+          const { data: ent, error: entErr } = await supabase
+            .from('entidades_corporativas')
+            .select('id, nome_razao_social, cpf_cnpj, cpf_cnpj_normalizado, email, telefone, tipo_pessoa')
+            .eq('id', entidadeId)
+            .maybeSingle();
+          if (entErr) throw entErr;
+
+          const normDoc = ent?.cpf_cnpj_normalizado || (ent?.cpf_cnpj ? String(ent.cpf_cnpj).replace(/\D/g, '') : null);
+          let fornecedorId: string | null = null;
+
+          if (normDoc) {
+            const { data: fornExistente } = await supabase
+              .from('fornecedores')
+              .select('id')
+              .eq('cpf_cnpj_normalizado', normDoc)
+              .maybeSingle();
+            fornecedorId = fornExistente?.id ?? null;
+          }
+
+          if (fornecedorId) {
+            const { error } = await supabase
+              .from('fornecedores')
+              .update({
+                eh_vendedora: true,
+                nome: newSalesperson.name,
+                salario: newSalesperson.baseSalary ?? null,
+                comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+                comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+                meta_mensal: newSalesperson.metaBase ?? null,
+              })
+              .eq('id', fornecedorId);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('fornecedores')
+              .insert([{ 
+                nome: newSalesperson.name || ent?.nome_razao_social || '',
+                tipo_pessoa: ent?.tipo_pessoa || 'pessoa_fisica',
+                ativo: true,
+                eh_vendedora: true,
+                salario: newSalesperson.baseSalary ?? null,
+                comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+                comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+                meta_mensal: newSalesperson.metaBase ?? null,
+                cnpj_cpf: ent?.cpf_cnpj || null,
+                cpf_cnpj_normalizado: normDoc || null,
+                email: ent?.email || null,
+                telefone: ent?.telefone || null,
+              }]);
+            if (error) throw error;
+          }
+        } else {
+          // Marcar fornecedor existente como vendedora e atualizar dados principais
+          const { error } = await supabase
+            .from('fornecedores')
+            .update({
+              eh_vendedora: true,
+              nome: newSalesperson.name,
+              salario: newSalesperson.baseSalary ?? null,
+              comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+              comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+              meta_mensal: newSalesperson.metaBase ?? null,
+            })
+            .eq('id', selectedEmployee);
+          if (error) throw error;
+        }
       } else {
         // Criar novo cadastro mínimo na tabela fornecedores (legado)
         const { error } = await supabase

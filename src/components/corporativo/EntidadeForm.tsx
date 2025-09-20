@@ -92,7 +92,9 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
         .order('nome');
 
       if (error) throw error;
-      setPapeis(data || []);
+      // Restringir papéis às opções desejadas
+      const allowed = new Set(['funcionario', 'empresa', 'empresa do grupo']);
+      setPapeis((data || []).filter(p => allowed.has(p.nome?.toLowerCase?.() || '')));
     } catch (error) {
       console.error('Erro ao carregar papéis:', error);
       toast.error('Erro ao carregar papéis');
@@ -115,8 +117,9 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
       if (entidadeError) throw entidadeError;
       
       // Mapear dados para o formulário
+      const tipoFront: 'fisica' | 'juridica' = entidade.tipo_pessoa === 'pessoa_fisica' ? 'fisica' : 'juridica';
       form.reset({
-        tipo_pessoa: entidade.tipo_pessoa as 'fisica' | 'juridica',
+        tipo_pessoa: tipoFront,
         nome_razao_social: entidade.nome_razao_social,
         nome_fantasia: entidade.nome_fantasia || '',
         cpf_cnpj: entidade.cpf_cnpj || '',
@@ -184,14 +187,17 @@ export function EntidadeForm({ entidadeId, onSuccess, onCancel }: EntidadeFormPr
     try {
       setLoading(true);
 
-      // Preparar dados para envio, convertendo strings vazias em null para campos de data
-      const processedData = {
-        ...data,
-        // Mapear valores do frontend para o esperado no banco
-        tipo_pessoa: data.tipo_pessoa === 'fisica' ? 'pessoa_fisica' : 'pessoa_juridica',
-        data_nascimento: data.data_nascimento && data.data_nascimento.trim() !== '' ? data.data_nascimento : null,
-        data_fundacao: data.data_fundacao && data.data_fundacao.trim() !== '' ? data.data_fundacao : null,
-      };
+    // Preparar dados para envio, convertendo strings vazias em null para campos de data
+    const processedData: any = {
+      ...data,
+      // Mapear valores do frontend para o esperado no banco
+      tipo_pessoa: data.tipo_pessoa === 'fisica' ? 'pessoa_fisica' : 'pessoa_juridica',
+      nome_fantasia: data.tipo_pessoa === 'juridica' ? (data.nome_fantasia || null) : null,
+      data_nascimento: data.data_nascimento && data.data_nascimento.trim() !== '' ? data.data_nascimento : null,
+      data_fundacao: data.data_fundacao && data.data_fundacao.trim() !== '' ? data.data_fundacao : null,
+      email_normalizado: data.email ? data.email.toLowerCase() : null,
+      cpf_cnpj_normalizado: data.cpf_cnpj ? data.cpf_cnpj.replace(/\D/g, '') : null,
+    };
 
       // Salvar ou atualizar entidade
       let entidadeResult;
