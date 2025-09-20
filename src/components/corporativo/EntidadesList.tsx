@@ -69,16 +69,67 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     try {
       setLoading(true);
       
-      // Usar a função RPC para buscar entidades com filtros
-      const { data, error } = await supabase.rpc('search_entidades_corporativas', {
-        p_query: searchQuery || null,
-        p_papel: papelFilter === 'all' ? null : papelFilter,
-        p_limite: 100,
-        p_offset: 0
-      });
+      // Buscar entidades corporativas com papéis (com foco em funcionários e empresas)
+      let query = supabase
+        .from('entidades_corporativas')
+        .select(`
+          *,
+          entidade_papeis!inner(
+            papel_id,
+            ativo,
+            papeis(nome)
+          )
+        `)
+        .eq('ativo', true)
+        .eq('entidade_papeis.ativo', true);
+
+      // Filtrar por papel específico ou mostrar pelo menos funcionários
+      if (papelFilter !== 'all') {
+        query = query.eq('entidade_papeis.papeis.nome', papelFilter);
+      } else {
+        // Por padrão, mostrar pessoas com papel de funcionário, empresa ou empresa do grupo
+        query = query.in('entidade_papeis.papeis.nome', ['funcionario', 'empresa', 'empresa do grupo']);
+      }
+
+      // Filtrar por busca
+      if (searchQuery) {
+        query = query.or(
+          `nome_razao_social.ilike.%${searchQuery}%,nome_fantasia.ilike.%${searchQuery}%,cpf_cnpj.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+        );
+      }
+
+      query = query.order('nome_razao_social');
+
+      const { data, error } = await query;
 
       if (error) throw error;
-      setEntidades(data || []);
+
+      // Transformar dados para o formato esperado, agrupando por entidade
+      const entidadesMap = new Map();
+      
+      (data || []).forEach((item: any) => {
+        if (!entidadesMap.has(item.id)) {
+          entidadesMap.set(item.id, {
+            id: item.id,
+            tipo_pessoa: item.tipo_pessoa,
+            nome_razao_social: item.nome_razao_social,
+            nome_fantasia: item.nome_fantasia,
+            cpf_cnpj: item.cpf_cnpj,
+            email: item.email,
+            telefone: item.telefone,
+            papeis: [],
+            ativo: item.ativo,
+          });
+        }
+        
+        const entidade = entidadesMap.get(item.id);
+        const papel = item.entidade_papeis?.[0]?.papeis?.nome;
+        if (papel && !entidade.papeis.includes(papel)) {
+          entidade.papeis.push(papel);
+        }
+      });
+
+      setEntidades(Array.from(entidadesMap.values()));
     } catch (error) {
       console.error('Erro ao carregar entidades:', error);
       toast.error('Erro ao carregar entidades');
@@ -124,10 +175,15 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            Entidades Corporativas
-          </CardTitle>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Entidades Corporativas
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Funcionários e empresas • Para editar papéis, use a aba "Papéis" ao editar a pessoa
+            </p>
+          </div>
           <Button onClick={onNovaEntidade}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Entidade

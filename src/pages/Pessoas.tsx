@@ -584,7 +584,8 @@ export default function Pessoas() {
                     <CardHeader>
                       <CardTitle>Papéis da Pessoa</CardTitle>
                       <CardDescription>
-                        Selecione os papéis que esta pessoa desempenha na organização
+                        Selecione os papéis que esta pessoa desempenha na organização. 
+                        Pessoas com papel "funcionario" aparecerão na aba Entidades Corporativas.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
