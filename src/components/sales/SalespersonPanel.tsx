@@ -251,7 +251,7 @@ export function SalespersonPanel() {
       }
 
       // Atualizar lista
-      await refreshData();
+      await loadExistingEmployees();
       await loadExistingEmployees();
 
       // Resetar form

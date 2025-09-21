@@ -162,7 +162,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
       // Adicionar ação de undo
       addUndoAction({
         id: `deleteEntities-${Date.now()}`,
-        type: 'deleteEntities',
+        type: 'delete',
         data: { entidadeIds, count: entidades.length },
         originalData: { entidades: originalData },
       }, () => {
@@ -257,7 +257,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
       // Adicionar ação de undo
       addUndoAction({
         id: `bulkEditEntities-${Date.now()}`,
-        type: 'bulkEditEntities',
+        type: 'bulkEdit',
         data: { entidadeIds, count: selectedItems.length },
         originalData: { entidades: originalData },
       }, () => {

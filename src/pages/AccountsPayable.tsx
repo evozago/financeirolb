@@ -1209,6 +1209,35 @@ export default function AccountsPayable() {
         </div>
 
         <div className="space-y-6">
+          {/* Controles principais */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Controles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedItems.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedItems([])}
+                    className="text-muted-foreground"
+                  >
+                    Limpar Seleção ({selectedItems.length})
+                  </Button>
+                )}
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setFilters({})}
+                  disabled={!Object.keys(filters).some(key => filters[key as keyof PayablesFilter])}
+                  className="text-muted-foreground"
+                >
+                  Limpar Filtros
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Filtros */}
           <Card>
             <CardHeader>

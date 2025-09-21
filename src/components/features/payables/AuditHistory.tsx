@@ -32,6 +32,14 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
   const loadAuditHistory = async () => {
     try {
       setLoading(true);
+      
+      // Verificar se o usuário tem permissão de admin
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        console.error('Usuário não autenticado');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('ap_audit_log')
         .select('*')
@@ -40,12 +48,18 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
 
       if (error) {
         console.error('Erro ao carregar histórico:', error);
+        // Se o erro for de permissão, mostrar uma mensagem mais amigável
+        if (error.code === '42501' || error.message.includes('permission')) {
+          setAuditLogs([]);
+          return;
+        }
         return;
       }
 
       setAuditLogs(data || []);
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
+      setAuditLogs([]);
     } finally {
       setLoading(false);
     }
@@ -199,9 +213,14 @@ export function AuditHistory({ recordId, className }: AuditHistoryProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {auditLogs.length === 0 ? (
+        {auditLogs.length === 0 && !loading ? (
           <div className="text-center py-4">
-            <p className="text-muted-foreground">Nenhuma alteração registrada</p>
+            <p className="text-muted-foreground">
+              Nenhuma alteração registrada ou sem permissão para visualizar
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              O histórico de alterações está disponível apenas para administradores
+            </p>
           </div>
         ) : (
           <ScrollArea className="h-64">

@@ -354,7 +354,7 @@ export default function Pessoas() {
       // Adicionar ação de undo
       addUndoAction({
         id: `deletePeople-${Date.now()}`,
-        type: 'deletePeople',
+        type: 'delete',
         data: { pessoaIds, count: pessoas.length },
         originalData: { pessoas: originalData },
       }, () => {
@@ -504,7 +504,7 @@ export default function Pessoas() {
       // Adicionar ação de undo
       addUndoAction({
         id: `bulkEditPeople-${Date.now()}`,
-        type: 'bulkEditPeople',
+        type: 'bulkEdit',
         data: { pessoaIds, count: selectedItems.length },
         originalData: { pessoas: originalData },
       }, () => {
