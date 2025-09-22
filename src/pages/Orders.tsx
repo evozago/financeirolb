@@ -151,26 +151,34 @@ export default function Orders() {
 
       // Carregar marcas para filtros
       try {
-        const { data: marcasData } = await supabase
+        console.log('Carregando marcas...');
+        const { data: marcasData, error: marcasError } = await supabase
           .from('marcas')
           .select('id, nome')
+          .eq('ativo', true)
           .order('nome');
         
+        console.log('Marcas carregadas:', marcasData?.length, marcasError);
         setMarcas(marcasData || []);
       } catch (error) {
         console.error('Erro ao carregar marcas:', error);
+        setMarcas([]);
       }
 
       // Carregar fornecedores para filtros
       try {
-        const { data: fornecedoresData } = await supabase
+        console.log('Carregando fornecedores...');
+        const { data: fornecedoresData, error: fornecedoresError } = await supabase
           .from('fornecedores')
           .select('id, nome')
+          .eq('ativo', true)
           .order('nome');
         
+        console.log('Fornecedores carregados:', fornecedoresData?.length, fornecedoresError);
         setFornecedores(fornecedoresData || []);
       } catch (error) {
         console.error('Erro ao carregar fornecedores:', error);
+        setFornecedores([]);
       }
 
     } catch (error) {
