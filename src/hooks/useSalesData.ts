@@ -117,25 +117,27 @@ export function useSalesData() {
       setYearlyData(formattedYearly);
 
       // --- 2) Painel de Vendedoras (tabela direita) ---
-      // Buscar vendedoras das duas fontes: tabela vendedoras e fornecedores marcados como vendedora
-      const { data: vendedorasTabela, error: vendErr1 } = await supabase
-        .from('vendedoras')
-        .select('id, nome, ativo')
-        .eq('ativo', true);
-      if (vendErr1) throw vendErr1;
-
-      const { data: fornecedoresVendedoras, error: vendErr2 } = await supabase
-        .from('fornecedores')
-        .select('id, nome, ativo, cpf_cnpj_normalizado, eh_vendedora')
+      // Buscar vendedoras da tabela pessoas com papel "vendedora"
+      const { data: pessoasVendedoras, error: vendErr } = await supabase
+        .from('pessoas')
+        .select(`
+          id, 
+          nome, 
+          ativo, 
+          cpf_cnpj_normalizado,
+          papeis_pessoa!inner(papel_id, papeis!inner(nome))
+        `)
         .eq('ativo', true)
-        .eq('eh_vendedora', true);
-      if (vendErr2) throw vendErr2;
+        .eq('papeis_pessoa.papeis.nome', 'vendedora');
+      
+      if (vendErr) throw vendErr;
 
-      // Combinar as duas fontes de vendedoras
-      const vendedoras = [
-        ...(vendedorasTabela || []).map(v => ({ ...v, source: 'vendedoras' })),
-        ...(fornecedoresVendedoras || []).map(v => ({ ...v, source: 'fornecedores' }))
-      ];
+      // Formatar vendedoras da tabela pessoas
+      const vendedoras = (pessoasVendedoras || []).map(v => ({ 
+        ...v, 
+        source: 'pessoas',
+        eh_vendedora: true 
+      }));
 
       const { data: metas, error: metasErr } = await supabase
         .from('sales_goals')
