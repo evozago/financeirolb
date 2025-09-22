@@ -42,7 +42,7 @@ import NotFound from "./pages/NotFound";
 // Dashboard variants
 const DashboardSales = React.lazy(() => import("./pages/DashboardSales"));
 const SalespersonPerformance = React.lazy(() => import("./pages/SalespersonPerformance"));
-const SalesManagement = React.lazy(() => import("./pages/SalesManagement"));
+const SalesManagement = React.lazy(() => import("./pages/SalesManagementFixed"));
 const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
 const DebugRoles = React.lazy(() => import("./pages/DebugRoles"));
@@ -50,6 +50,7 @@ const RoleDemo = React.lazy(() => import("./pages/RoleDemo"));
 const DebugPedidos = React.lazy(() => import("./pages/DebugPedidos"));
 const OrdersDemo = React.lazy(() => import("./pages/OrdersDemo"));
 const NewOrderDemo = React.lazy(() => import("./pages/NewOrderDemo"));
+const NewOrderDemoFixed = React.lazy(() => import("./pages/NewOrderDemoFixed"));
 
 const queryClient = new QueryClient();
 
