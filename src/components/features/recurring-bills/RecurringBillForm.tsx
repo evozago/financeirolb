@@ -47,7 +47,8 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
     open_ended: true as boolean,
     end_date: "",
     notes: "",
-    filial_id: "" as string | "" // guardamos id da filial (ou vazio)
+    filial_id: "" as string | "", // guardamos id da filial (ou vazio)
+    recorrente_livre: false as boolean // Nova opção para contas que podem ser lançadas múltiplas vezes
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -79,7 +80,8 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         end_date: bill.end_date || "",
         notes: bill.notes || "",
         // Se houver campo no tipo RecurringBill, usa; senão, tenta herdar do fornecedor
-        filial_id: (bill as any).filial_id || ""
+        filial_id: (bill as any).filial_id || "",
+        recorrente_livre: (bill as any).recorrente_livre || false
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,6 +190,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
       open_ended: formData.open_ended,
       end_date: formData.end_date || null,
       notes: formData.notes || null,
+      recorrente_livre: formData.recorrente_livre,
     };
 
     // Tentamos incluir filial_id. Se a coluna não existir no banco,
@@ -423,7 +426,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               </div>
             </div>
 
-            {/* Contínua / Data final / Observações */}
+            {/* Contínua / Data final / Observações / Recorrente Livre */}
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -447,6 +450,19 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                   />
                 </div>
               )}
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="recorrente_livre"
+                  checked={formData.recorrente_livre}
+                  onCheckedChange={(checked) =>
+                    handleInputChange("recorrente_livre", Boolean(checked))
+                  }
+                />
+                <Label htmlFor="recorrente_livre">
+                  Recorrente livre (pode ser lançada múltiplas vezes no mês)
+                </Label>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Observações</Label>

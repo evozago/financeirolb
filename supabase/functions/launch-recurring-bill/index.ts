@@ -86,22 +86,24 @@ serve(async (req) => {
       dueDate = new Date(today.getFullYear(), today.getMonth(), dueDay)
     }
 
-    // 3. Verificar se já existe uma conta a pagar para este mês
-    const { data: existing } = await supabaseAdmin
-      .from('ap_installments')
-      .select('id')
-      .eq('fornecedor_id', bill.supplier_id)
-      .eq('data_vencimento', dueDate.toISOString().split('T')[0])
-      .eq('eh_recorrente', true)
+    // 3. Verificar se já existe uma conta a pagar para este mês (só se não for recorrente livre)
+    if (!bill.recorrente_livre) {
+      const { data: existing } = await supabaseAdmin
+        .from('ap_installments')
+        .select('id')
+        .eq('fornecedor_id', bill.supplier_id)
+        .eq('data_vencimento', dueDate.toISOString().split('T')[0])
+        .eq('eh_recorrente', true)
 
-    if (existing && existing.length > 0) {
-      return new Response(
-        JSON.stringify({ error: 'Já existe uma conta a pagar para este fornecedor neste mês' }),
-        { 
-          status: 409, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+      if (existing && existing.length > 0) {
+        return new Response(
+          JSON.stringify({ error: 'Já existe uma conta a pagar para este fornecedor neste mês' }),
+          { 
+            status: 409, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
     }
 
     // 4. Criar a nova conta a pagar
@@ -119,7 +121,7 @@ serve(async (req) => {
       valor_total_titulo: bill.expected_amount,
       eh_recorrente: true,
       filial_id: bill.filial_id,
-      observacoes: `Lançamento automático da conta recorrente: ${bill.name}`,
+      observacoes: `Lançamento automático da conta recorrente: ${bill.name}${bill.recorrente_livre ? ' (Recorrente Livre)' : ''}`,
     }
 
     // 5. Inserir na tabela ap_installments
@@ -162,4 +164,3 @@ serve(async (req) => {
     )
   }
 })
-

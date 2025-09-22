@@ -251,7 +251,7 @@ export function SalespersonPanel() {
       }
 
       // Atualizar lista
-      await refreshData();
+      await loadExistingEmployees();
       await loadExistingEmployees();
 
       // Resetar form
@@ -442,9 +442,10 @@ export function SalespersonPanel() {
 
           {/* Salespeople List */}
           <div className="grid gap-4 md:grid-cols-2">
-            {salespersonData
-              .filter((p) => !removedIds.includes(p.salesperson_id))
-              .map((person) => {
+            {salespersonData && salespersonData.length > 0 ? (
+              salespersonData
+                .filter((p) => !removedIds.includes(p.salesperson_id))
+                .map((person) => {
                 const monthlyGoal = person.monthly_goals[selectedMonth] || '';
                 const progress = typeof monthlyGoal === 'number' && monthlyGoal > 0 ? 50 : 0; // Placeholder
                 const displayName = editedNames[person.salesperson_id] ?? person.salesperson_name;
@@ -524,7 +525,14 @@ export function SalespersonPanel() {
                     </CardContent>
                   </Card>
                 );
-              })}
+              })
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-muted-foreground">
+                  {loading ? 'Carregando vendedoras...' : 'Nenhuma vendedora encontrada. Adicione vendedoras usando o botão abaixo.'}
+                </p>
+              </div>
+            )}
           </div>
 
           <Dialog open={isAddDialogOpen || !!editingSalesperson} onOpenChange={(open) => {

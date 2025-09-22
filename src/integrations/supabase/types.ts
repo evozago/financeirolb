@@ -645,33 +645,6 @@ export type Database = {
           },
         ]
       }
-      detalhes_produtos: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          nome: string
-          tipo: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome: string
-          tipo: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome?: string
-          tipo?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       documentos_fiscais: {
         Row: {
           arquivo_pdf_id: string | null
@@ -2100,22 +2073,7 @@ export type Database = {
           vendas_realizadas?: number | null
           vendedora_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "metas_mensais_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "metas_mensais_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       nfe_data: {
         Row: {
@@ -2428,6 +2386,7 @@ export type Database = {
           categorias: Json
           cnpj: string | null
           cpf: string | null
+          cpf_cnpj_normalizado: string | null
           created_at: string
           dados_fornecedor: Json | null
           dados_funcionario: Json | null
@@ -2459,6 +2418,7 @@ export type Database = {
           categorias?: Json
           cnpj?: string | null
           cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
           dados_fornecedor?: Json | null
           dados_funcionario?: Json | null
@@ -2490,6 +2450,7 @@ export type Database = {
           categorias?: Json
           cnpj?: string | null
           cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
           dados_fornecedor?: Json | null
           dados_funcionario?: Json | null
@@ -2676,13 +2637,6 @@ export type Database = {
             referencedRelation: "nfe_data"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "produtos_tipo_manga_id_fkey"
-            columns: ["tipo_manga_id"]
-            isOneToOne: false
-            referencedRelation: "tipos_manga"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
@@ -2780,6 +2734,7 @@ export type Database = {
           name: string
           notes: string | null
           open_ended: boolean
+          recorrente_livre: boolean | null
           supplier_id: string | null
           updated_at: string
         }
@@ -2796,6 +2751,7 @@ export type Database = {
           name: string
           notes?: string | null
           open_ended?: boolean
+          recorrente_livre?: boolean | null
           supplier_id?: string | null
           updated_at?: string
         }
@@ -2812,6 +2768,7 @@ export type Database = {
           name?: string
           notes?: string | null
           open_ended?: boolean
+          recorrente_livre?: boolean | null
           supplier_id?: string | null
           updated_at?: string
         }
@@ -2948,6 +2905,39 @@ export type Database = {
           },
         ]
       }
+      salesperson_sales: {
+        Row: {
+          created_at: string
+          entity_id: string
+          id: string
+          month: number
+          sales_amount: number
+          salesperson_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          month: number
+          sales_amount?: number
+          salesperson_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          month?: number
+          sales_amount?: number
+          salesperson_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       store_monthly_sales: {
         Row: {
           created_at: string | null
@@ -3017,30 +3007,6 @@ export type Database = {
         }
         Relationships: []
       }
-      tipos_manga: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          nome: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       vendas: {
         Row: {
           cliente_nome: string | null
@@ -3075,22 +3041,7 @@ export type Database = {
           valor_venda?: number
           vendedora_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendas_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       vendas_corporativas: {
         Row: {
@@ -3269,75 +3220,6 @@ export type Database = {
           tipo_ferias?: string
           updated_at?: string
           vendedora_id?: string
-        }
-        Relationships: []
-      }
-      vendedoras: {
-        Row: {
-          ativo: boolean
-          comissao_padrao: number | null
-          comissao_supermeta: number | null
-          created_at: string
-          email: string | null
-          id: string
-          meta_mensal: number | null
-          nome: string
-          telefone: string | null
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          comissao_padrao?: number | null
-          comissao_supermeta?: number | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          meta_mensal?: number | null
-          nome: string
-          telefone?: string | null
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          comissao_padrao?: number | null
-          comissao_supermeta?: number | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          meta_mensal?: number | null
-          nome?: string
-          telefone?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      vendedoras_completas: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          metas_mensais: Json | null
-          nome: string
-          supermetas_mensais: Json | null
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          metas_mensais?: Json | null
-          nome: string
-          supermetas_mensais?: Json | null
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          metas_mensais?: Json | null
-          nome?: string
-          supermetas_mensais?: Json | null
-          updated_at?: string
         }
         Relationships: []
       }
@@ -3552,65 +3434,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      sales_monthly_summary: {
-        Row: {
-          ano: number | null
-          mes: number | null
-          meta_mensal: number | null
-          percentual_meta: number | null
-          ticket_medio: number | null
-          total_vendas: number | null
-          total_vendas_count: number | null
-          vendedora_id: string | null
-          vendedora_nome: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendas_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vendedoras_view: {
-        Row: {
-          ativo: boolean | null
-          created_at: string | null
-          email: string | null
-          id: string | null
-          nome: string | null
-          telefone: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          ativo?: boolean | null
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          nome?: string | null
-          telefone?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          ativo?: boolean | null
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          nome?: string | null
-          telefone?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
       }
       vw_dim_categorias: {
         Row: {
@@ -4109,6 +3932,15 @@ export type Database = {
           telefone: string
           tipo_pessoa: string
           updated_at: string
+        }[]
+      }
+      search_text_in_schema: {
+        Args: { p_schema: string; p_term: string }
+        Returns: {
+          column_name: string
+          row_ctid: unknown
+          schema_name: string
+          table_name: string
         }[]
       }
       update_ap_installments_relationships: {

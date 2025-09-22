@@ -129,7 +129,7 @@ export default function Suppliers() {
       // Adicionar ação de undo
       addUndoAction({
         id: `deleteSuppliers-${Date.now()}`,
-        type: 'deleteSuppliers',
+        type: 'delete',
         data: { supplierIds, count: suppliers.length },
         originalData: { suppliers: originalData },
       }, () => {
@@ -201,7 +201,7 @@ export default function Suppliers() {
       // Adicionar ação de undo
       addUndoAction({
         id: `bulkEditSuppliers-${Date.now()}`,
-        type: 'bulkEditSuppliers',
+        type: 'bulkEdit',
         data: { supplierIds, count: selectedItems.length },
         originalData: { suppliers: originalData },
       }, () => {
