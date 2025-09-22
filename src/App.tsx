@@ -47,6 +47,7 @@ const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial")
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
 const DebugRoles = React.lazy(() => import("./pages/DebugRoles"));
 const RoleDemo = React.lazy(() => import("./pages/RoleDemo"));
+const DebugPedidos = React.lazy(() => import("./pages/DebugPedidos"));
 
 const queryClient = new QueryClient();
 
@@ -117,6 +118,7 @@ function AppContent() {
                 <Route path="/reports" element={<Reports />} />
             <Route path="/debug-roles" element={<DebugRoles />} />
             <Route path="/role-demo" element={<RoleDemo />} />
+            <Route path="/debug-pedidos" element={<DebugPedidos />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

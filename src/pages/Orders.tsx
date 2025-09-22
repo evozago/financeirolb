@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Plus, ShoppingCart, FileText, ArrowUpDown, ArrowUp, ArrowDown, Package, DollarSign, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface OrderData {
   id: string;
   referencia: string;
+  numero_pedido?: string;
   descricao: string;
   fornecedor_id: string;
   marca_id: string;
@@ -24,83 +26,21 @@ interface OrderData {
   status: string;
   observacoes: string;
   arquivo_origem: string;
-  fornecedores?: { nome: string };
-  marcas?: { nome: string };
+  created_at?: string;
+  // Relations - podem não existir
+  fornecedores?: { nome: string } | null;
+  marcas?: { nome: string } | null;
 }
-
-// Dados de exemplo para demonstração
-const mockOrders: OrderData[] = [
-  {
-    id: '1',
-    referencia: 'PED-2025-001',
-    descricao: 'Camisetas Infantis Verão',
-    fornecedor_id: '1',
-    marca_id: '1',
-    quantidade: 100,
-    custo_unitario: 25.50,
-    valor_total_bruto: 2550.00,
-    valor_total_liquido: 2295.00,
-    valor_medio_peca: 22.95,
-    data_pedido: '2025-01-15',
-    status: 'pendente',
-    observacoes: 'Entrega urgente',
-    arquivo_origem: 'planilha_janeiro.xlsx',
-    fornecedores: { nome: 'Fornecedor ABC' },
-    marcas: { nome: 'Marca XYZ' }
-  },
-  {
-    id: '2',
-    referencia: 'PED-2025-002',
-    descricao: 'Calças Jeans Infantis',
-    fornecedor_id: '2',
-    marca_id: '2',
-    quantidade: 50,
-    custo_unitario: 45.00,
-    valor_total_bruto: 2250.00,
-    valor_total_liquido: 2025.00,
-    valor_medio_peca: 40.50,
-    data_pedido: '2025-01-16',
-    status: 'processando',
-    observacoes: '',
-    arquivo_origem: 'sistema_interno',
-    fornecedores: { nome: 'Fornecedor DEF' },
-    marcas: { nome: 'Marca ABC' }
-  },
-  {
-    id: '3',
-    referencia: 'PED-2025-003',
-    descricao: 'Tênis Esportivos',
-    fornecedor_id: '3',
-    marca_id: '3',
-    quantidade: 30,
-    custo_unitario: 85.00,
-    valor_total_bruto: 2550.00,
-    valor_total_liquido: 2295.00,
-    valor_medio_peca: 76.50,
-    data_pedido: '2025-01-17',
-    status: 'enviado',
-    observacoes: 'Acompanhar entrega',
-    arquivo_origem: 'pedido_manual',
-    fornecedores: { nome: 'Fornecedor GHI' },
-    marcas: { nome: 'Marca DEF' }
-  }
-];
-
-const mockMarcas = [
-  { id: '1', nome: 'Marca XYZ' },
-  { id: '2', nome: 'Marca ABC' },
-  { id: '3', nome: 'Marca DEF' }
-];
-
-const mockFornecedores = [
-  { id: '1', nome: 'Fornecedor ABC' },
-  { id: '2', nome: 'Fornecedor DEF' },
-  { id: '3', nome: 'Fornecedor GHI' }
-];
 
 export default function Orders() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Estados para dados
+  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [marcas, setMarcas] = useState<Array<{id: string, nome: string}>>([]);
+  const [fornecedores, setFornecedores] = useState<Array<{id: string, nome: string}>>([]);
+  const [loading, setLoading] = useState(true);
   
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,17 +51,148 @@ export default function Orders() {
   const [endDate, setEndDate] = useState('');
   
   // Estados para ordenação
-  const [sortField, setSortField] = useState<keyof OrderData>('data_pedido');
+  const [sortField, setSortField] = useState<keyof OrderData>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Carregar dados do banco
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('Carregando pedidos...');
+      
+      // Primeiro, tentar carregar pedidos sem relacionamentos para testar
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('pedidos_produtos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      console.log('Resultado pedidos:', { ordersData, ordersError });
+
+      if (ordersError) {
+        console.error('Erro ao carregar pedidos:', ordersError);
+        toast({
+          title: "Erro ao carregar pedidos",
+          description: ordersError.message,
+          variant: "destructive",
+        });
+        setOrders([]);
+      } else {
+        // Processar dados reais
+        const processedOrders = ordersData?.map(order => ({
+          ...order,
+          // Usar numero_pedido se existir, senão usar referencia, senão criar um
+          referencia: order.numero_pedido || order.referencia || `PED-${order.id?.slice(0, 8)}`,
+          // Garantir que data_pedido existe
+          data_pedido: order.data_pedido || order.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          // Status padrão se não existir
+          status: order.status || 'pendente',
+          // Valores calculados se não existirem
+          valor_total_bruto: order.valor_total_bruto || (order.quantidade * order.custo_unitario),
+          valor_total_liquido: order.valor_total_liquido || order.valor_total_bruto || (order.quantidade * order.custo_unitario),
+          valor_medio_peca: order.valor_medio_peca || (order.valor_total_liquido / order.quantidade) || order.custo_unitario,
+          // Valores padrão para campos obrigatórios
+          quantidade: order.quantidade || 0,
+          custo_unitario: order.custo_unitario || 0,
+          descricao: order.descricao || 'Sem descrição'
+        })) || [];
+        
+        console.log('Pedidos processados:', processedOrders.length);
+        setOrders(processedOrders);
+
+        // Agora tentar carregar os nomes de fornecedores e marcas separadamente
+        if (processedOrders.length > 0) {
+          try {
+            // Buscar fornecedores
+            const fornecedorIds = [...new Set(processedOrders.map(o => o.fornecedor_id).filter(Boolean))];
+            if (fornecedorIds.length > 0) {
+              const { data: fornecedoresData } = await supabase
+                .from('fornecedores')
+                .select('id, nome')
+                .in('id', fornecedorIds);
+              
+              if (fornecedoresData) {
+                // Mapear nomes dos fornecedores
+                const fornecedorMap = new Map(fornecedoresData.map(f => [f.id, f.nome]));
+                setOrders(prev => prev.map(order => ({
+                  ...order,
+                  fornecedores: order.fornecedor_id ? { nome: fornecedorMap.get(order.fornecedor_id) || 'N/A' } : null
+                })));
+              }
+            }
+
+            // Buscar marcas
+            const marcaIds = [...new Set(processedOrders.map(o => o.marca_id).filter(Boolean))];
+            if (marcaIds.length > 0) {
+              const { data: marcasData } = await supabase
+                .from('marcas')
+                .select('id, nome')
+                .in('id', marcaIds);
+              
+              if (marcasData) {
+                // Mapear nomes das marcas
+                const marcaMap = new Map(marcasData.map(m => [m.id, m.nome]));
+                setOrders(prev => prev.map(order => ({
+                  ...order,
+                  marcas: order.marca_id ? { nome: marcaMap.get(order.marca_id) || 'N/A' } : null
+                })));
+              }
+            }
+          } catch (relationError) {
+            console.error('Erro ao carregar relacionamentos:', relationError);
+            // Continuar mesmo se os relacionamentos falharem
+          }
+        }
+      }
+
+      // Carregar marcas para filtros
+      try {
+        const { data: marcasData } = await supabase
+          .from('marcas')
+          .select('id, nome')
+          .order('nome');
+        
+        setMarcas(marcasData || []);
+      } catch (error) {
+        console.error('Erro ao carregar marcas:', error);
+      }
+
+      // Carregar fornecedores para filtros
+      try {
+        const { data: fornecedoresData } = await supabase
+          .from('fornecedores')
+          .select('id, nome')
+          .order('nome');
+        
+        setFornecedores(fornecedoresData || []);
+      } catch (error) {
+        console.error('Erro ao carregar fornecedores:', error);
+      }
+
+    } catch (error) {
+      console.error('Erro geral ao carregar dados:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Verifique a conexão e tente novamente",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filtrar e ordenar pedidos
   const filteredAndSortedOrders = useMemo(() => {
-    let filtered = mockOrders.filter(order => {
+    let filtered = orders.filter(order => {
       const matchesSearch = !searchTerm || 
-        order.referencia.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.fornecedores?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.marcas?.nome.toLowerCase().includes(searchTerm.toLowerCase());
+        order.referencia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.fornecedores?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.marcas?.nome?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesMarca = !selectedMarca || order.marca_id === selectedMarca;
       const matchesFornecedor = !selectedFornecedor || order.fornecedor_id === selectedFornecedor;
@@ -144,13 +215,13 @@ export default function Orders() {
     });
 
     return filtered;
-  }, [mockOrders, searchTerm, selectedMarca, selectedFornecedor, selectedStatus, startDate, endDate, sortField, sortDirection]);
+  }, [orders, searchTerm, selectedMarca, selectedFornecedor, selectedStatus, startDate, endDate, sortField, sortDirection]);
 
   // Estatísticas
   const statistics = useMemo(() => {
     const totalPedidos = filteredAndSortedOrders.length;
-    const totalQuantidade = filteredAndSortedOrders.reduce((sum, order) => sum + order.quantidade, 0);
-    const totalValor = filteredAndSortedOrders.reduce((sum, order) => sum + order.valor_total_liquido, 0);
+    const totalQuantidade = filteredAndSortedOrders.reduce((sum, order) => sum + (order.quantidade || 0), 0);
+    const totalValor = filteredAndSortedOrders.reduce((sum, order) => sum + (order.valor_total_liquido || 0), 0);
     const valorMedio = totalPedidos > 0 ? totalValor / totalPedidos : 0;
 
     return { totalPedidos, totalQuantidade, totalValor, valorMedio };
@@ -166,8 +237,8 @@ export default function Orders() {
       
       marcaMap.set(marcaNome, {
         pedidos: existing.pedidos + 1,
-        quantidade: existing.quantidade + order.quantidade,
-        valor: existing.valor + order.valor_total_liquido
+        quantidade: existing.quantidade + (order.quantidade || 0),
+        valor: existing.valor + (order.valor_total_liquido || 0)
       });
     });
 
@@ -199,11 +270,11 @@ export default function Orders() {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value);
+    }).format(value || 0);
   };
 
   const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('pt-BR').format(value);
+    return new Intl.NumberFormat('pt-BR').format(value || 0);
   };
 
   const getStatusColor = (status: string) => {
@@ -221,6 +292,14 @@ export default function Orders() {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
     return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -301,7 +380,7 @@ export default function Orders() {
                     onChange={(e) => setSelectedMarca(e.target.value)}
                   >
                     <option value="">Todas as marcas</option>
-                    {mockMarcas.map(marca => (
+                    {marcas.map(marca => (
                       <option key={marca.id} value={marca.id}>{marca.nome}</option>
                     ))}
                   </select>
@@ -315,7 +394,7 @@ export default function Orders() {
                     onChange={(e) => setSelectedFornecedor(e.target.value)}
                   >
                     <option value="">Todos os fornecedores</option>
-                    {mockFornecedores.map(fornecedor => (
+                    {fornecedores.map(fornecedor => (
                       <option key={fornecedor.id} value={fornecedor.id}>{fornecedor.nome}</option>
                     ))}
                   </select>
@@ -400,7 +479,7 @@ export default function Orders() {
                         {filteredAndSortedOrders.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                              Nenhum pedido encontrado
+                              {loading ? 'Carregando pedidos...' : 'Nenhum pedido encontrado'}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -412,8 +491,8 @@ export default function Orders() {
                             >
                               <TableCell className="font-medium">{order.referencia}</TableCell>
                               <TableCell>{order.descricao}</TableCell>
-                              <TableCell>{order.fornecedores?.nome}</TableCell>
-                              <TableCell>{order.marcas?.nome}</TableCell>
+                              <TableCell>{order.fornecedores?.nome || 'N/A'}</TableCell>
+                              <TableCell>{order.marcas?.nome || 'N/A'}</TableCell>
                               <TableCell className="text-right">{formatNumber(order.quantidade)}</TableCell>
                               <TableCell className="text-right font-mono">
                                 {formatCurrency(order.valor_total_liquido)}
