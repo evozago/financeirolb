@@ -23,9 +23,7 @@ import SupplierDetail from "./pages/SupplierDetail";
 import NewSupplier from "./pages/NewSupplier";
 import EditSupplier from "./pages/EditSupplier";
 import Pessoas from "./pages/Pessoas";
-import PersonDetail from "./pages/PersonDetail";
 import Cadastros from "./pages/Cadastros";
-import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import BankAccounts from "./pages/BankAccounts";
 import NewBankAccount from "./pages/NewBankAccount";
@@ -42,33 +40,27 @@ import NotFound from "./pages/NotFound";
 // Dashboard variants
 const DashboardSales = React.lazy(() => import("./pages/DashboardSales"));
 const SalespersonPerformance = React.lazy(() => import("./pages/SalespersonPerformance"));
-const SalesManagement = React.lazy(() => import("./pages/SalesManagementFixed"));
+const SalesManagement = React.lazy(() => import("./pages/SalesManagement"));
 const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
-const DebugRoles = React.lazy(() => import("./pages/DebugRoles"));
-const RoleDemo = React.lazy(() => import("./pages/RoleDemo"));
-const DebugPedidos = React.lazy(() => import("./pages/DebugPedidos"));
-const OrdersDemo = React.lazy(() => import("./pages/OrdersDemo"));
-const NewOrderDemo = React.lazy(() => import("./pages/NewOrderDemo"));
-const NewOrderDemoFixed = React.lazy(() => import("./pages/NewOrderDemoFixed"));
 
 const queryClient = new QueryClient();
 
 function AppContent() {
+  const { user, loading } = useAuth();
   const isMobile = useIsMobile();
 
-  // Temporariamente removendo autenticação para facilitar testes
-  // const { user, loading } = useAuth();
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-  //     </div>
-  //   );
-  // }
-  // if (!user) {
-  //   return <LoginForm />;
-  // }
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm />;
+  }
 
   return (
     <BrowserRouter>
@@ -114,16 +106,9 @@ function AppContent() {
             <Route path="/recurring-bills" element={<RecurringBills />} />
                 <Route path="/filiais" element={<ManageFiliais />} />
                 <Route path="/pessoas" element={<Pessoas />} />
-                <Route path="/pessoas/:id" element={<PersonDetail />} />
             <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/cadastros" element={<Cadastros />} />
+            <Route path="/settings" element={<Cadastros />} />
                 <Route path="/reports" element={<Reports />} />
-            <Route path="/debug-roles" element={<DebugRoles />} />
-            <Route path="/role-demo" element={<RoleDemo />} />
-            <Route path="/debug-pedidos" element={<DebugPedidos />} />
-            <Route path="/orders-demo" element={<OrdersDemo />} />
-            <Route path="/orders-demo/new" element={<NewOrderDemo />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

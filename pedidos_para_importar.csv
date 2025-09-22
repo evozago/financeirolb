@@ -1,6 +1,0 @@
-id,fornecedor_id,marca_id,referencia,descricao,quantidade,custo_unitario,status,data_pedido,valor_total_liquido,cor,tamanho,codigo_barras,observacoes
-0a1b2c3d-1234-5678-9abc-def123456789,2bcb8a48-75a8-412f-b83b-5dac38f6fd5a,0cfdd44a-b89f-4144-b5d6-3115b139d715,REF-001,Camiseta Infantil PULLA BULLA,50,25.90,pendente,2025-09-20,1295.00,Azul,P,7891234567890,Pedido de teste
-1b2c3d4e-2345-6789-abcd-ef1234567890,2bcb8a48-75a8-412f-b83b-5dac38f6fd5a,42a6698b-b4d4-4eba-8319-868f5a27cdb3,REF-002,Conjunto BIBI Verão,30,45.50,processando,2025-09-19,1365.00,Rosa,M,7891234567891,Coleção verão
-2c3d4e5f-3456-789a-bcde-f12345678901,019ff4d4-a508-4991-98d1-462a64db688b,1a6d2941-a326-4034-b001-6d022bff83ae,REF-003,Bermuda RESERVA Kids,25,38.90,enviado,2025-09-18,972.50,Verde,G,7891234567892,Linha kids
-3d4e5f6a-4567-89ab-cdef-123456789012,1d35e975-d6b0-478e-a54e-d99df91e7326,54faa042-4353-415b-8890-2d184ced79e2,REF-004,Vestido BIMBI Festa,20,89.90,entregue,2025-09-17,1798.00,Branco,PP,7891234567893,Linha festa
-4e5f6a7b-5678-9abc-def1-23456789012a,133d6515-eb77-4ebf-909e-79d50f4fd61b,41d73a44-b030-48fb-9322-b7160da784a7,REF-005,Tênis DIVERSÃO Sport,40,65.00,pendente,2025-09-16,2600.00,Preto,33,7891234567894,Linha esportiva
