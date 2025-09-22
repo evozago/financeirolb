@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Plus, ShoppingCart, FileText, ArrowUpDown, ArrowUp, ArrowDown, Package, DollarSign, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { ImportExportModal } from '@/components/features/orders/ImportExportModal';
-import { OrderFilters } from '@/components/features/orders/OrderFilters';
-import { OrderCharts } from '@/components/features/orders/OrderCharts';
 
 interface OrderData {
   id: string;
@@ -28,175 +24,160 @@ interface OrderData {
   status: string;
   observacoes: string;
   arquivo_origem: string;
-  // Relations
   fornecedores?: { nome: string };
   marcas?: { nome: string };
 }
 
-interface FilterOptions {
-  search: string;
-  startDate: string;
-  endDate: string;
-  marca: string;
-  fornecedor: string;
-  status: string;
-}
+// Dados de exemplo para demonstração
+const mockOrders: OrderData[] = [
+  {
+    id: '1',
+    referencia: 'PED-2025-001',
+    descricao: 'Camisetas Infantis Verão',
+    fornecedor_id: '1',
+    marca_id: '1',
+    quantidade: 100,
+    custo_unitario: 25.50,
+    valor_total_bruto: 2550.00,
+    valor_total_liquido: 2295.00,
+    valor_medio_peca: 22.95,
+    data_pedido: '2025-01-15',
+    status: 'pendente',
+    observacoes: 'Entrega urgente',
+    arquivo_origem: 'planilha_janeiro.xlsx',
+    fornecedores: { nome: 'Fornecedor ABC' },
+    marcas: { nome: 'Marca XYZ' }
+  },
+  {
+    id: '2',
+    referencia: 'PED-2025-002',
+    descricao: 'Calças Jeans Infantis',
+    fornecedor_id: '2',
+    marca_id: '2',
+    quantidade: 50,
+    custo_unitario: 45.00,
+    valor_total_bruto: 2250.00,
+    valor_total_liquido: 2025.00,
+    valor_medio_peca: 40.50,
+    data_pedido: '2025-01-16',
+    status: 'processando',
+    observacoes: '',
+    arquivo_origem: 'sistema_interno',
+    fornecedores: { nome: 'Fornecedor DEF' },
+    marcas: { nome: 'Marca ABC' }
+  },
+  {
+    id: '3',
+    referencia: 'PED-2025-003',
+    descricao: 'Tênis Esportivos',
+    fornecedor_id: '3',
+    marca_id: '3',
+    quantidade: 30,
+    custo_unitario: 85.00,
+    valor_total_bruto: 2550.00,
+    valor_total_liquido: 2295.00,
+    valor_medio_peca: 76.50,
+    data_pedido: '2025-01-17',
+    status: 'enviado',
+    observacoes: 'Acompanhar entrega',
+    arquivo_origem: 'pedido_manual',
+    fornecedores: { nome: 'Fornecedor GHI' },
+    marcas: { nome: 'Marca DEF' }
+  }
+];
 
-type SortField = 'referencia' | 'fornecedor' | 'marca' | 'quantidade' | 'custo_unitario' | 'valor_total' | 'data_pedido' | 'status';
-type SortDirection = 'asc' | 'desc';
+const mockMarcas = [
+  { id: '1', nome: 'Marca XYZ' },
+  { id: '2', nome: 'Marca ABC' },
+  { id: '3', nome: 'Marca DEF' }
+];
+
+const mockFornecedores = [
+  { id: '1', nome: 'Fornecedor ABC' },
+  { id: '2', nome: 'Fornecedor DEF' },
+  { id: '3', nome: 'Fornecedor GHI' }
+];
 
 export default function Orders() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Estados principais
-  const [orders, setOrders] = useState<OrderData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<SortField>('data_pedido');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  // Estados para filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMarca, setSelectedMarca] = useState('');
+  const [selectedFornecedor, setSelectedFornecedor] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
-  // Estados de filtros
-  const [filters, setFilters] = useState<FilterOptions>({
-    search: '',
-    startDate: '',
-    endDate: '',
-    marca: '',
-    fornecedor: '',
-    status: ''
-  });
+  // Estados para ordenação
+  const [sortField, setSortField] = useState<keyof OrderData>('data_pedido');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('pedidos_produtos')
-        .select(`
-          *,
-          fornecedores:fornecedor_id(nome),
-          marcas:marca_id(nome)
-        `)
-        .order('data_pedido', { ascending: false });
+  // Filtrar e ordenar pedidos
+  const filteredAndSortedOrders = useMemo(() => {
+    let filtered = mockOrders.filter(order => {
+      const matchesSearch = !searchTerm || 
+        order.referencia.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.fornecedores?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.marcas?.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesMarca = !selectedMarca || order.marca_id === selectedMarca;
+      const matchesFornecedor = !selectedFornecedor || order.fornecedor_id === selectedFornecedor;
+      const matchesStatus = !selectedStatus || order.status === selectedStatus;
+      
+      const matchesDateRange = (!startDate || order.data_pedido >= startDate) &&
+                              (!endDate || order.data_pedido <= endDate);
+      
+      return matchesSearch && matchesMarca && matchesFornecedor && matchesStatus && matchesDateRange;
+    });
 
-      if (error) {
-        console.error('Error loading orders:', error);
-        toast({
-          title: "Erro",
-          description: "Falha ao carregar pedidos",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setOrders(data || []);
-    } catch (error) {
-      console.error('Error loading orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  // Aplicar filtros
-  const filteredOrders = useMemo(() => {
-    let filtered = orders;
-    
-    // Filtro de busca por texto
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(order =>
-        order.referencia.toLowerCase().includes(searchLower) ||
-        order.descricao?.toLowerCase().includes(searchLower) ||
-        order.fornecedores?.nome.toLowerCase().includes(searchLower) ||
-        order.marcas?.nome.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Filtro por data inicial
-    if (filters.startDate) {
-      const startDate = new Date(filters.startDate);
-      filtered = filtered.filter(order => {
-        const orderDate = new Date(order.data_pedido);
-        return orderDate >= startDate;
-      });
-    }
-
-    // Filtro por data final
-    if (filters.endDate) {
-      const endDate = new Date(filters.endDate);
-      filtered = filtered.filter(order => {
-        const orderDate = new Date(order.data_pedido);
-        return orderDate <= endDate;
-      });
-    }
-
-    // Filtro por marca
-    if (filters.marca) {
-      filtered = filtered.filter(order => order.marca_id === filters.marca);
-    }
-
-    // Filtro por fornecedor
-    if (filters.fornecedor) {
-      filtered = filtered.filter(order => order.fornecedor_id === filters.fornecedor);
-    }
-
-    // Filtro por status
-    if (filters.status) {
-      filtered = filtered.filter(order => order.status === filters.status);
-    }
-
-    // Aplicar ordenação
-    return filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      switch (sortField) {
-        case 'referencia':
-          aValue = a.referencia;
-          bValue = b.referencia;
-          break;
-        case 'fornecedor':
-          aValue = a.fornecedores?.nome || '';
-          bValue = b.fornecedores?.nome || '';
-          break;
-        case 'marca':
-          aValue = a.marcas?.nome || '';
-          bValue = b.marcas?.nome || '';
-          break;
-        case 'quantidade':
-          aValue = a.quantidade;
-          bValue = b.quantidade;
-          break;
-        case 'custo_unitario':
-          aValue = a.custo_unitario;
-          bValue = b.custo_unitario;
-          break;
-        case 'valor_total':
-          aValue = a.valor_total_liquido;
-          bValue = b.valor_total_liquido;
-          break;
-        case 'data_pedido':
-          aValue = new Date(a.data_pedido);
-          bValue = new Date(b.data_pedido);
-          break;
-        case 'status':
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        default:
-          aValue = a.referencia;
-          bValue = b.referencia;
-      }
-
+    // Ordenar
+    filtered.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [orders, filters, sortField, sortDirection]);
 
-  const handleSort = (field: SortField) => {
+    return filtered;
+  }, [mockOrders, searchTerm, selectedMarca, selectedFornecedor, selectedStatus, startDate, endDate, sortField, sortDirection]);
+
+  // Estatísticas
+  const statistics = useMemo(() => {
+    const totalPedidos = filteredAndSortedOrders.length;
+    const totalQuantidade = filteredAndSortedOrders.reduce((sum, order) => sum + order.quantidade, 0);
+    const totalValor = filteredAndSortedOrders.reduce((sum, order) => sum + order.valor_total_liquido, 0);
+    const valorMedio = totalPedidos > 0 ? totalValor / totalPedidos : 0;
+
+    return { totalPedidos, totalQuantidade, totalValor, valorMedio };
+  }, [filteredAndSortedOrders]);
+
+  // Estatísticas por marca
+  const marcaStats = useMemo(() => {
+    const marcaMap = new Map<string, { pedidos: number; quantidade: number; valor: number }>();
+    
+    filteredAndSortedOrders.forEach(order => {
+      const marcaNome = order.marcas?.nome || 'Sem marca';
+      const existing = marcaMap.get(marcaNome) || { pedidos: 0, quantidade: 0, valor: 0 };
+      
+      marcaMap.set(marcaNome, {
+        pedidos: existing.pedidos + 1,
+        quantidade: existing.quantidade + order.quantidade,
+        valor: existing.valor + order.valor_total_liquido
+      });
+    });
+
+    return Array.from(marcaMap.entries())
+      .map(([nome, stats]) => ({ nome, ...stats }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 10);
+  }, [filteredAndSortedOrders]);
+
+  const handleSort = (field: keyof OrderData) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -205,13 +186,13 @@ export default function Orders() {
     }
   };
 
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4" />;
-    }
-    return sortDirection === 'asc' ? 
-      <ArrowUp className="h-4 w-4" /> : 
-      <ArrowDown className="h-4 w-4" />;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedMarca('');
+    setSelectedFornecedor('');
+    setSelectedStatus('');
+    setStartDate('');
+    setEndDate('');
   };
 
   const formatCurrency = (value: number) => {
@@ -221,247 +202,329 @@ export default function Orders() {
     }).format(value);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('pt-BR').format(value);
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'pendente': { variant: 'secondary' as const, label: 'Pendente' },
-      'processando': { variant: 'default' as const, label: 'Processando' },
-      'enviado': { variant: 'outline' as const, label: 'Enviado' },
-      'entregue': { variant: 'default' as const, label: 'Entregue' },
-      'cancelado': { variant: 'destructive' as const, label: 'Cancelado' }
+  const getStatusColor = (status: string) => {
+    const colors = {
+      'pendente': 'bg-yellow-100 text-yellow-800',
+      'processando': 'bg-blue-100 text-blue-800',
+      'enviado': 'bg-purple-100 text-purple-800',
+      'entregue': 'bg-green-100 text-green-800',
+      'cancelado': 'bg-red-100 text-red-800'
     };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || 
-                  { variant: 'secondary' as const, label: status || 'Indefinido' };
-
-    return (
-      <Badge variant={config.variant}>
-        {config.label}
-      </Badge>
-    );
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const getSortIcon = (field: keyof OrderData) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-card border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Voltar
-              </Button>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <ShoppingCart className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
-                  <p className="text-muted-foreground">
-                    {filteredOrders.length} de {orders.length} pedidos
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <ImportExportModal onImportComplete={loadOrders} />
-              <Button onClick={() => navigate('/orders/new')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Pedido
-              </Button>
-            </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Pedidos</h1>
+            <p className="text-muted-foreground">
+              {filteredAndSortedOrders.length} pedidos encontrados
+            </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => navigate('/orders/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Pedido
+          </Button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="list" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="list" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Lista de Pedidos
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Análises e Gráficos
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="lista" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="lista">Lista de Pedidos</TabsTrigger>
+          <TabsTrigger value="analises">Análises e Gráficos</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="list" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Filtros */}
-              <div className="lg:col-span-1">
-                <OrderFilters
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                />
-              </div>
+        <TabsContent value="lista" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Filtros */}
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Filtros
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Buscar</label>
+                  <Input
+                    placeholder="Referência, descrição, fornecedor..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
 
-              {/* Lista de Pedidos */}
-              <div className="lg:col-span-3">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Lista de Pedidos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
+                <div>
+                  <label className="text-sm font-medium">Período</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Marca</label>
+                  <select
+                    className="w-full p-2 border rounded-md"
+                    value={selectedMarca}
+                    onChange={(e) => setSelectedMarca(e.target.value)}
+                  >
+                    <option value="">Todas as marcas</option>
+                    {mockMarcas.map(marca => (
+                      <option key={marca.id} value={marca.id}>{marca.nome}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Fornecedor</label>
+                  <select
+                    className="w-full p-2 border rounded-md"
+                    value={selectedFornecedor}
+                    onChange={(e) => setSelectedFornecedor(e.target.value)}
+                  >
+                    <option value="">Todos os fornecedores</option>
+                    {mockFornecedores.map(fornecedor => (
+                      <option key={fornecedor.id} value={fornecedor.id}>{fornecedor.nome}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <select
+                    className="w-full p-2 border rounded-md"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                  >
+                    <option value="">Todos os status</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="processando">Processando</option>
+                    <option value="enviado">Enviado</option>
+                    <option value="entregue">Entregue</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
+
+                <Button variant="outline" onClick={clearFilters} className="w-full">
+                  Limpar Filtros
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Lista de Pedidos */}
+            <div className="lg:col-span-3 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lista de Pedidos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead 
+                            className="cursor-pointer"
+                            onClick={() => handleSort('referencia')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Referência
+                              {getSortIcon('referencia')}
+                            </div>
+                          </TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Fornecedor</TableHead>
+                          <TableHead>Marca</TableHead>
+                          <TableHead 
+                            className="cursor-pointer text-right"
+                            onClick={() => handleSort('quantidade')}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Qtd
+                              {getSortIcon('quantidade')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer text-right"
+                            onClick={() => handleSort('valor_total_liquido')}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Valor Total
+                              {getSortIcon('valor_total_liquido')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer"
+                            onClick={() => handleSort('data_pedido')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Data
+                              {getSortIcon('data_pedido')}
+                            </div>
+                          </TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredAndSortedOrders.length === 0 ? (
                           <TableRow>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort('referencia')}
-                            >
-                              <div className="flex items-center gap-2">
-                                Referência
-                                {getSortIcon('referencia')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort('fornecedor')}
-                            >
-                              <div className="flex items-center gap-2">
-                                Fornecedor
-                                {getSortIcon('fornecedor')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort('marca')}
-                            >
-                              <div className="flex items-center gap-2">
-                                Marca
-                                {getSortIcon('marca')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 text-right"
-                              onClick={() => handleSort('quantidade')}
-                            >
-                              <div className="flex items-center gap-2 justify-end">
-                                Qtd
-                                {getSortIcon('quantidade')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 text-right"
-                              onClick={() => handleSort('custo_unitario')}
-                            >
-                              <div className="flex items-center gap-2 justify-end">
-                                Custo Unit.
-                                {getSortIcon('custo_unitario')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 text-right"
-                              onClick={() => handleSort('valor_total')}
-                            >
-                              <div className="flex items-center gap-2 justify-end">
-                                Valor Total
-                                {getSortIcon('valor_total')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort('data_pedido')}
-                            >
-                              <div className="flex items-center gap-2">
-                                Data
-                                {getSortIcon('data_pedido')}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort('status')}
-                            >
-                              <div className="flex items-center gap-2">
-                                Status
-                                {getSortIcon('status')}
-                              </div>
-                            </TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              Nenhum pedido encontrado
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredOrders.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                                <div className="flex flex-col items-center gap-2">
-                                  <ShoppingCart className="h-12 w-12 text-muted-foreground/50" />
-                                  <p>Nenhum pedido encontrado</p>
-                                  {(filters.search || filters.startDate || filters.endDate || filters.marca || filters.fornecedor || filters.status) && (
-                                    <p className="text-sm">Tente ajustar os filtros</p>
-                                  )}
-                                </div>
+                        ) : (
+                          filteredAndSortedOrders.map((order) => (
+                            <TableRow 
+                              key={order.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => navigate(`/orders/${order.id}`)}
+                            >
+                              <TableCell className="font-medium">{order.referencia}</TableCell>
+                              <TableCell>{order.descricao}</TableCell>
+                              <TableCell>{order.fornecedores?.nome}</TableCell>
+                              <TableCell>{order.marcas?.nome}</TableCell>
+                              <TableCell className="text-right">{formatNumber(order.quantidade)}</TableCell>
+                              <TableCell className="text-right font-mono">
+                                {formatCurrency(order.valor_total_liquido)}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(order.data_pedido).toLocaleDateString('pt-BR')}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={getStatusColor(order.status)}>
+                                  {order.status}
+                                </Badge>
                               </TableCell>
                             </TableRow>
-                          ) : (
-                            filteredOrders.map((order) => (
-                              <TableRow
-                                key={order.id}
-                                className="cursor-pointer hover:bg-muted/50"
-                                onClick={() => navigate(`/orders/${order.id}`)}
-                              >
-                                <TableCell className="font-medium">{order.referencia}</TableCell>
-                                <TableCell>{order.fornecedores?.nome || '-'}</TableCell>
-                                <TableCell>{order.marcas?.nome || '-'}</TableCell>
-                                <TableCell className="text-right">{order.quantidade.toLocaleString('pt-BR')}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(order.custo_unitario)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(order.valor_total_liquido)}</TableCell>
-                                <TableCell>{formatDate(order.data_pedido)}</TableCell>
-                                <TableCell>{getStatusBadge(order.status)}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate(`/orders/${order.id}`);
-                                    }}
-                                  >
-                                    Ver Detalhes
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </TabsContent>
+          </div>
+        </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-6">
-            <OrderCharts orders={filteredOrders} />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="analises" className="space-y-6">
+          {/* Cards de Estatísticas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Pedidos</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatNumber(statistics.totalPedidos)}</div>
+                <p className="text-xs text-muted-foreground">Pedidos registrados</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Quantidade Total</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatNumber(statistics.totalQuantidade)}</div>
+                <p className="text-xs text-muted-foreground">Itens pedidos</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(statistics.totalValor)}</div>
+                <p className="text-xs text-muted-foreground">Valor total dos pedidos</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Valor Médio</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(statistics.valorMedio)}</div>
+                <p className="text-xs text-muted-foreground">Por pedido</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Marcas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Top Marcas por Valor
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {marcaStats.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    Nenhum dado disponível
+                  </p>
+                ) : (
+                  marcaStats.map((marca, index) => (
+                    <div key={marca.nome} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium">{marca.nome}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {marca.pedidos} pedidos • {formatNumber(marca.quantidade)} itens
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{formatCurrency(marca.valor)}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
