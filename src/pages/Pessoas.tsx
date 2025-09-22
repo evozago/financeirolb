@@ -241,7 +241,7 @@ export default function Pessoas() {
       // Adicionar novos papéis
       if (formData.categorias.length > 0) {
         for (const categoria of formData.categorias) {
-          const papel = papeis.find(p => p.nome === categoria);
+          const papel = papeis.find(p => p.nome.toLowerCase() === categoria.toLowerCase());
           if (papel) {
             try {
               // Inserir diretamente pois já desativamos todos os papéis anteriores
@@ -388,7 +388,10 @@ export default function Pessoas() {
       telefone: pessoa.telefone || "",
       endereco: "",
       tipo_pessoa: pessoa.tipo_pessoa as 'pessoa_fisica' | 'pessoa_juridica',
-      categorias: pessoa.papeis || [],
+      categorias: Array.from(new Set((pessoa.papeis || []).map(r => {
+        const match = papeis.find(p => p.nome.toLowerCase() === (r || '').toLowerCase());
+        return match?.nome ?? r;
+      }).filter(Boolean))),
       cpf: pessoa.tipo_pessoa === 'pessoa_fisica' ? pessoa.cpf_cnpj || "" : "",
       cnpj: pessoa.tipo_pessoa === 'pessoa_juridica' ? pessoa.cpf_cnpj || "" : "",
       cargo_id: "",
@@ -456,41 +459,76 @@ export default function Pessoas() {
 
       // Gerenciar papéis se especificado
       if (updates.papeis) {
-        // Buscar IDs dos papéis pelos nomes
-        let papelIdsToAdd: string[] = [];
-        let papelIdsToRemove: string[] = [];
+        // Carregar todos os papéis e mapear por nome (case-insensitive)
+        const { data: allPapeis, error: allPapeisError } = await supabase
+          .from('papeis')
+          .select('id, nome');
+        if (allPapeisError) throw allPapeisError;
+        const roleMap = new Map<string, string>(
+          (allPapeis || []).map((p) => [p.nome.toLowerCase(), p.id])
+        );
 
-        if (updates.papeis.add.length > 0 || updates.papeis.remove.length > 0) {
-          const allPapelNames = [...updates.papeis.add, ...updates.papeis.remove];
-          const { data: papeisData, error: papeisError } = await supabase
-            .from('papeis')
-            .select('id, nome')
-            .in('nome', allPapelNames);
+        const papelIdsToAdd = (updates.papeis.add || [])
+          .map((nome) => roleMap.get((nome || '').toLowerCase()))
+          .filter(Boolean) as string[];
+        const papelIdsToRemove = (updates.papeis.remove || [])
+          .map((nome) => roleMap.get((nome || '').toLowerCase()))
+          .filter(Boolean) as string[];
 
-          if (papeisError) {
-            throw papeisError;
+        // Garantir que estamos operando sobre entidades_corporativas
+        const idMap = new Map<string, string>(); // pessoaId -> entidadeId
+        for (const pessoaId of pessoaIds) {
+          let entidadeId = pessoaId;
+          const { data: existente } = await supabase
+            .from('entidades_corporativas')
+            .select('id')
+            .eq('id', pessoaId)
+            .maybeSingle();
+
+          if (!existente) {
+            const pessoaInfo = selectedItems.find((p) => p.id === pessoaId);
+            if (pessoaInfo) {
+              const insertObj = {
+                nome_razao_social: pessoaInfo.nome_razao_social,
+                nome_fantasia:
+                  (pessoaInfo.tipo_pessoa as any) === 'pessoa_juridica'
+                    ? pessoaInfo.nome_razao_social
+                    : null,
+                tipo_pessoa: pessoaInfo.tipo_pessoa,
+                cpf_cnpj: pessoaInfo.cpf_cnpj || null,
+                cpf_cnpj_normalizado: pessoaInfo.cpf_cnpj
+                  ? pessoaInfo.cpf_cnpj.replace(/\D/g, '')
+                  : null,
+                email: pessoaInfo.email || null,
+                email_normalizado: pessoaInfo.email
+                  ? pessoaInfo.email.toLowerCase()
+                  : null,
+                telefone: pessoaInfo.telefone || null,
+                ativo: true,
+              };
+              const { data: created, error: createErr } = await supabase
+                .from('entidades_corporativas')
+                .insert(insertObj)
+                .select('id')
+                .single();
+              if (createErr) throw createErr;
+              entidadeId = created.id;
+            }
           }
-
-          // Mapear nomes para IDs
-          papelIdsToAdd = updates.papeis.add
-            .map(nome => papeisData?.find(p => p.nome === nome)?.id)
-            .filter(Boolean) as string[];
-          
-          papelIdsToRemove = updates.papeis.remove
-            .map(nome => papeisData?.find(p => p.nome === nome)?.id)
-            .filter(Boolean) as string[];
+          idMap.set(pessoaId, entidadeId);
         }
 
         for (const pessoaId of pessoaIds) {
+          const entidadeId = idMap.get(pessoaId)!;
+
           // Adicionar papéis
           if (papelIdsToAdd.length > 0) {
             for (const papelId of papelIdsToAdd) {
               try {
-                // Verificar se já existe uma relação ativa
                 const { data: existingRole } = await supabase
                   .from('entidade_papeis')
                   .select('id')
-                  .eq('entidade_id', pessoaId)
+                  .eq('entidade_id', entidadeId)
                   .eq('papel_id', papelId)
                   .eq('ativo', true)
                   .maybeSingle();
@@ -499,14 +537,14 @@ export default function Pessoas() {
                   const { error: insertError } = await supabase
                     .from('entidade_papeis')
                     .insert({
-                      entidade_id: pessoaId,
+                      entidade_id: entidadeId,
                       papel_id: papelId,
                       data_inicio: new Date().toISOString().split('T')[0],
                       ativo: true,
                     });
 
                   if (insertError) {
-                    console.warn(`Erro ao adicionar papel ${papelId} para ${pessoaId}:`, insertError);
+                    console.warn(`Erro ao adicionar papel ${papelId} para ${entidadeId}:`, insertError);
                   }
                 }
               } catch (error) {
@@ -519,16 +557,16 @@ export default function Pessoas() {
           if (papelIdsToRemove.length > 0) {
             const { error: removeError } = await supabase
               .from('entidade_papeis')
-              .update({ 
-                ativo: false, 
-                data_fim: new Date().toISOString().split('T')[0] 
+              .update({
+                ativo: false,
+                data_fim: new Date().toISOString().split('T')[0],
               })
-              .eq('entidade_id', pessoaId)
+              .eq('entidade_id', entidadeId)
               .in('papel_id', papelIdsToRemove)
               .eq('ativo', true);
 
             if (removeError) {
-              console.warn(`Erro ao remover papéis para ${pessoaId}:`, removeError);
+              console.warn(`Erro ao remover papéis para ${entidadeId}:`, removeError);
             }
           }
         }
@@ -782,7 +820,7 @@ export default function Pessoas() {
                           <div key={papel.id} className="flex items-center space-x-2">
                             <Checkbox
                               id={papel.id}
-                              checked={formData.categorias.includes(papel.nome)}
+                              checked={formData.categorias.some(c => c.toLowerCase() === papel.nome.toLowerCase())}
                               onCheckedChange={(checked) => 
                                 handleCategoriaChange(papel.nome, checked as boolean)
                               }
