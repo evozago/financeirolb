@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Target, DollarSign, TrendingUp, Award, CalendarDays } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, Target, DollarSign, TrendingUp, Award, CalendarDays, Users } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, isSameMonth, isSameYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { RoleManagementPanel } from "@/components/roles/RoleManagementPanel";
 
 interface SalespersonPerformanceData {
   vendedora_id: string;
@@ -298,7 +300,7 @@ export default function SalespersonPerformance() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Performance das Vendedoras</h1>
           <p className="text-muted-foreground">
-            Acompanhe o desempenho individual, metas e comissões
+            Acompanhe o desempenho individual, metas, comissões e gerencie papéis
           </p>
         </div>
 
@@ -345,7 +347,17 @@ export default function SalespersonPerformance() {
         </div>
       </div>
 
-      {/* Performance Cards */}
+      <Tabs defaultValue="performance" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="roles">
+            <Users className="h-4 w-4 mr-2" />
+            Gerenciar Papéis
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="performance" className="space-y-6">
+          {/* Performance Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {performanceData.map((vendedora) => (
           <Card key={vendedora.vendedora_id} className="relative">
@@ -526,6 +538,22 @@ export default function SalespersonPerformance() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-6">
+          <RoleManagementPanel 
+            showAllEntities={true}
+            onRoleChange={(entityId, roles) => {
+              // Atualizar dados quando papéis mudarem
+              if (roles.includes('vendedora')) {
+                // Recarregar vendedoras se o papel vendedora foi adicionado/removido
+                fetchVendedoras();
+                fetchPerformanceData();
+              }
+            }}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

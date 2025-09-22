@@ -1,330 +1,306 @@
-// src/hooks/useSalesData.ts
-// ARQUIVO COMPLETO — substitua integralmente o existente por este.
-// Objetivo:
-//  - Resolver o aviso "Selecione uma entidade" com fallback automático (quando só há 1 entidade).
-/*
-// Como funciona o fallback:
-//  - Se o contexto não tiver primaryEntity selecionada, o hook consulta 'entidades_corporativas'.
-//  - Se encontrar exatamente 1 entidade, usa essa como 'effectiveEntityId' para ler/salvar.
-//  - Se houver 0 ou mais de 1, mantém a exigência de seleção manual (UI deve mostrar aviso).
-*/
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
-type YearlySale = {
-  entity_id: string;
-  year: number;
-  month: number;
-  total_sales: number;
-};
-
-type SalespersonGoal = {
-  salesperson_id: string;
-  entity_id: string;
-  year: number;
-  month: number;
-  goal_amount: number;
-};
-
-export type YearlyComparisonData = {
-  month: number;
-  monthName: string;
-  years: Record<number, number | ''>;
-};
-
-export type SalespersonPanelData = {
-  salesperson_id: string;
-  salesperson_name: string;
-  monthly_goals: Record<number, number | ''>;
-  monthly_sales: Record<number, number | ''>;
-};
-
-const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-
-async function getSingleDefaultEntityId(): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('entidades_corporativas')
-    .select('id')
-    .order('created_at', { ascending: true });
-  if (error) {
-    console.error('Erro ao buscar entidades_corporativas:', error.message);
-    return null;
-  }
-  if (!data || data.length === 0) return null;
-  // Use a primeira entidade se houver múltiplas (fallback automático)
-  return data[0].id as string;
+export interface Salesperson {
+  id: string;
+  nome: string;
+  email?: string;
+  telefone?: string;
+  cpf?: string;
+  papeis: string[];
+  is_vendedora: boolean;
 }
 
-export function useSalesData() {
-  const { user } = useAuth(); // pode estar vazio
+export interface SalesData {
+  vendedor_id: string;
+  vendedor_nome: string;
+  total_vendas: number;
+  meta_mensal: number;
+  percentual_meta: number;
+  vendas_mes_atual: number;
+  vendas_mes_anterior: number;
+  crescimento: number;
+}
+
+export const useSalesData = () => {
+  const [salespersons, setSalespersons] = useState<Salesperson[]>([]);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [effectiveEntityId, setEffectiveEntityId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  // Dados para as duas grades
-  const [yearlyData, setYearlyData] = useState<YearlyComparisonData[]>([]);
-  const [salespersonData, setSalespersonData] = useState<SalespersonPanelData[]>([]);
-
-  // Determina a entidade efetiva (contexto OU fallback automático)
-  const computeEffectiveEntity = useCallback(async () => {
-    const ctxId = null; // sem contexto de entidade por enquanto
-    if (ctxId) {
-      setEffectiveEntityId(ctxId);
-      return ctxId;
-    }
-    const fallbackId = await getSingleDefaultEntityId();
-    setEffectiveEntityId(fallbackId);
-    return fallbackId;
-  }, [user?.id]);
-
-  const hasEntity = useMemo(() => !!effectiveEntityId, [effectiveEntityId]);
-
-  const fetchAllData = useCallback(async () => {
-    setLoading(true);
+  // Função para buscar pessoas com papéis usando a nova função do banco
+  const fetchSalespersons = async () => {
     try {
-      const eid = await computeEffectiveEntity();
-      if (!eid) {
-        setYearlyData([]);
-        setSalespersonData([]);
-        toast({
-          title: 'Nenhuma Entidade Encontrada',
-          description: 'Configure pelo menos uma entidade corporativa no sistema para usar o módulo de vendas.',
-          variant: 'destructive'
-        });
-        return;
-      }
+      setLoading(true);
+      setError(null);
 
-      // --- 1) Comparativo Anual (tabela esquerda) ---
-      const yearsToFetch = [currentYear, currentYear - 1, currentYear - 2];
-      const { data: yearlySales, error: yearlyErr } = await supabase
-        .from('store_monthly_sales')
-        .select('*')
-        .eq('entity_id', eid)
-        .in('year', yearsToFetch);
-      if (yearlyErr) throw yearlyErr;
-
-      const formattedYearly: YearlyComparisonData[] = months.map((name, idx) => {
-        const month = idx + 1;
-        const row: YearlyComparisonData = { month, monthName: name, years: {} };
-        yearsToFetch.forEach((y) => {
-          const hit = yearlySales?.find((s) => s.year === y && s.month === month);
-          row.years[y] = hit ? Number(hit.total_sales) : '';
-        });
-        return row;
-      });
-      setYearlyData(formattedYearly);
-
-      // --- 2) Painel de Vendedoras (tabela direita) ---
-      // Buscar vendedoras usando a função que retorna pessoas com papéis
-      const { data: pessoasComPapeis, error: vendErr } = await supabase
+      // Usar a função do banco que criamos
+      const { data: pessoasComPapeis, error: pessoasError } = await supabase
         .rpc('get_pessoas_with_papeis');
       
-      let vendedoras = [];
-      
-      if (vendErr) {
-        console.warn('Erro ao buscar pessoas com papéis:', vendErr);
-        // Fallback: buscar pessoas diretamente
-        const { data: pessoasFallback, error: fallbackErr } = await supabase
-          .from('pessoas')
-          .select('id, nome, ativo, cpf_cnpj_normalizado, eh_vendedora')
-          .eq('ativo', true)
-          .eq('eh_vendedora', true);
-        
-        if (fallbackErr) throw fallbackErr;
-        
-        vendedoras = (pessoasFallback || []).map(v => ({ 
-          ...v, 
-          source: 'pessoas',
-          eh_vendedora: true 
-        }));
-      } else {
-        // Filtrar apenas pessoas com papel "vendedora"
-        vendedoras = (pessoasComPapeis || [])
-          .filter(p => p.papeis && p.papeis.includes('vendedora'))
-          .map(v => ({ 
-            ...v, 
-            source: 'pessoas',
-            eh_vendedora: true 
-          }));
+      if (pessoasError) {
+        throw pessoasError;
       }
 
-      const { data: metas, error: metasErr } = await supabase
-        .from('sales_goals')
-        .select('salesperson_id, month, goal_amount')
-        .eq('entity_id', eid)
-        .eq('year', currentYear);
-      if (metasErr) throw metasErr;
-
-      // Buscar vendas realizadas por vendedora
-      const { data: vendasRealizadas, error: vendasErr } = await supabase
-        .from('salesperson_sales')
-        .select('salesperson_id, month, sales_amount')
-        .eq('entity_id', eid)
-        .eq('year', currentYear);
-      if (vendasErr) throw vendasErr;
-
-      const goalsMap = new Map<string, Record<number, number>>();
-      for (const m of metas ?? []) {
-        const sid = m.salesperson_id as string;
-        const mm = Number(m.month);
-        const val = Number(m.goal_amount ?? 0);
-        const cur = goalsMap.get(sid) ?? {};
-        cur[mm] = val;
-        goalsMap.set(sid, cur);
-      }
-
-      const salesMap = new Map<string, Record<number, number>>();
-      for (const v of vendasRealizadas ?? []) {
-        const sid = v.salesperson_id as string;
-        const mm = Number(v.month);
-        const val = Number(v.sales_amount ?? 0);
-        const cur = salesMap.get(sid) ?? {};
-        cur[mm] = val;
-        salesMap.set(sid, cur);
-      }
-
-      // Deduplicate vendedoras by name + normalized document
-      const uniqueVendedoras = new Map<string, any>();
-      (vendedoras ?? []).forEach((v: any) => {
-        const key = `${(v.nome || '').trim().toUpperCase()}-${v.cpf_cnpj_normalizado || ''}`;
-        if (!uniqueVendedoras.has(key)) uniqueVendedoras.set(key, v);
-      });
-      const vendedorasList = Array.from(uniqueVendedoras.values());
-
-      const formattedSales: SalespersonPanelData[] = vendedorasList.map((v: any) => ({
-        salesperson_id: v.id,
-        salesperson_name: v.nome,
-        monthly_goals: goalsMap.get(v.id) ?? {},
-        monthly_sales: salesMap.get(v.id) ?? {}, // Agora carrega os dados reais
+      // Mapear dados para o formato esperado
+      const pessoas: Salesperson[] = (pessoasComPapeis || []).map(pessoa => ({
+        id: pessoa.id,
+        nome: pessoa.nome,
+        email: pessoa.email,
+        telefone: pessoa.telefone,
+        cpf: pessoa.cpf,
+        papeis: pessoa.papeis || [],
+        is_vendedora: pessoa.papeis?.includes('vendedora') || false
       }));
-      setSalespersonData(formattedSales);
-    } catch (err: any) {
-      console.error('Erro ao buscar dados:', err);
-      toast({ title: 'Falha ao carregar', description: err.message ?? String(err), variant: 'destructive' });
+
+      setSalespersons(pessoas);
+      console.log('Pessoas carregadas:', pessoas.length);
+      console.log('Vendedoras encontradas:', pessoas.filter(p => p.is_vendedora).length);
+
+    } catch (err) {
+      console.error('Erro ao buscar pessoas:', err);
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      toast({
+        title: "Erro ao carregar pessoas",
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  }, [computeEffectiveEntity, currentYear]);
+  };
+
+  // Função para atribuir papel de vendedora
+  const assignSalespersonRole = async (personId: string): Promise<boolean> => {
+    try {
+      // Usar a função do banco para adicionar papel
+      const { data, error } = await supabase
+        .rpc('add_papel_to_pessoa', {
+          p_pessoa_id: personId,
+          p_papel_nome: 'vendedora'
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data === true) {
+        toast({
+          title: "Papel atribuído",
+          description: "Papel de vendedora atribuído com sucesso",
+        });
+
+        // Atualizar lista local
+        setSalespersons(prev => prev.map(person => 
+          person.id === personId 
+            ? { 
+                ...person, 
+                is_vendedora: true,
+                papeis: [...person.papeis.filter(p => p !== 'vendedora'), 'vendedora']
+              }
+            : person
+        ));
+
+        return true;
+      }
+
+      return false;
+
+    } catch (err) {
+      console.error('Erro ao atribuir papel:', err);
+      toast({
+        title: "Erro ao atribuir papel",
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Função para remover papel de vendedora
+  const removeSalespersonRole = async (personId: string): Promise<boolean> => {
+    try {
+      // Usar a função do banco para remover papel
+      const { data, error } = await supabase
+        .rpc('remove_papel_from_pessoa', {
+          p_pessoa_id: personId,
+          p_papel_nome: 'vendedora'
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data === true) {
+        toast({
+          title: "Papel removido",
+          description: "Papel de vendedora removido com sucesso",
+        });
+
+        // Atualizar lista local
+        setSalespersons(prev => prev.map(person => 
+          person.id === personId 
+            ? { 
+                ...person, 
+                is_vendedora: false,
+                papeis: person.papeis.filter(p => p !== 'vendedora')
+              }
+            : person
+        ));
+
+        return true;
+      }
+
+      return false;
+
+    } catch (err) {
+      console.error('Erro ao remover papel:', err);
+      toast({
+        title: "Erro ao remover papel",
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Função para buscar dados de vendas
+  const fetchSalesData = async () => {
+    try {
+      // Implementar busca de dados de vendas aqui
+      // Por enquanto, retornar dados mock baseados nas vendedoras reais
+      const vendedoras = salespersons.filter(sp => sp.is_vendedora);
+      
+      const mockSalesData: SalesData[] = vendedoras.map(sp => ({
+        vendedor_id: sp.id,
+        vendedor_nome: sp.nome,
+        total_vendas: Math.random() * 100000,
+        meta_mensal: 50000,
+        percentual_meta: Math.random() * 150,
+        vendas_mes_atual: Math.random() * 30000,
+        vendas_mes_anterior: Math.random() * 25000,
+        crescimento: Math.random() * 50 - 25,
+      }));
+
+      setSalesData(mockSalesData);
+    } catch (err) {
+      console.error('Erro ao buscar dados de vendas:', err);
+    }
+  };
+
+  // Função para adicionar outros papéis
+  const assignRole = async (personId: string, roleName: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .rpc('add_papel_to_pessoa', {
+          p_pessoa_id: personId,
+          p_papel_nome: roleName
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data === true) {
+        toast({
+          title: "Papel atribuído",
+          description: `Papel de ${roleName} atribuído com sucesso`,
+        });
+
+        // Atualizar lista local
+        setSalespersons(prev => prev.map(person => 
+          person.id === personId 
+            ? { 
+                ...person, 
+                papeis: [...person.papeis.filter(p => p !== roleName), roleName],
+                is_vendedora: roleName === 'vendedora' ? true : person.is_vendedora
+              }
+            : person
+        ));
+
+        return true;
+      }
+
+      return false;
+
+    } catch (err) {
+      console.error('Erro ao atribuir papel:', err);
+      toast({
+        title: "Erro ao atribuir papel",
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Função para remover outros papéis
+  const removeRole = async (personId: string, roleName: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .rpc('remove_papel_from_pessoa', {
+          p_pessoa_id: personId,
+          p_papel_nome: roleName
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data === true) {
+        toast({
+          title: "Papel removido",
+          description: `Papel de ${roleName} removido com sucesso`,
+        });
+
+        // Atualizar lista local
+        setSalespersons(prev => prev.map(person => 
+          person.id === personId 
+            ? { 
+                ...person, 
+                papeis: person.papeis.filter(p => p !== roleName),
+                is_vendedora: roleName === 'vendedora' ? false : person.is_vendedora
+              }
+            : person
+        ));
+
+        return true;
+      }
+
+      return false;
+
+    } catch (err) {
+      console.error('Erro ao remover papel:', err);
+      toast({
+        title: "Erro ao remover papel",
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
 
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    fetchSalespersons();
+  }, []);
 
-  // Edição local (comparativo anual)
-  const updateYearlySale = (month: number, year: number, value: string) => {
-    setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value === '' ? '' : Number(value) } }) : r));
-  };
-
-  // Edição local (metas por vendedora)
-  const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
-    setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
-      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value === '' ? '' : Number(value) } })
-      : p));
-  };
-
-  // Edição local (vendas realizadas por vendedora)
-  const updateSalespersonSales = (salesperson_id: string, month: number, value: string) => {
-    setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
-      ? ({ ...p, monthly_sales: { ...p.monthly_sales, [month]: value === '' ? '' : Number(value) } })
-      : p));
-  };
-
-  // Persistência (UPERT idempotente)
-  const saveAllData = async () => {
-    const eid = effectiveEntityId;
-    if (!eid) {
-      toast({ 
-        title: 'Entidade Não Configurada', 
-        description: 'Configure uma entidade corporativa no sistema primeiro.',
-        variant: 'destructive'
-      });
-      return;
+  useEffect(() => {
+    if (salespersons.length > 0) {
+      fetchSalesData();
     }
-    setLoading(true);
-    try {
-      // 1) Totais mensais
-      const toUpsertTotals: YearlySale[] = [];
-      yearlyData.forEach((row) => {
-        Object.entries(row.years).forEach(([yearStr, val]) => {
-          if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
-            toUpsertTotals.push({
-              entity_id: eid,
-              year: Number(yearStr),
-              month: row.month,
-              total_sales: Number(val),
-            });
-          }
-        });
-      });
-      if (toUpsertTotals.length) {
-        const { error } = await supabase
-          .from('store_monthly_sales')
-          .upsert(toUpsertTotals, { onConflict: 'entity_id, year, month' });
-        if (error) throw error;
-      }
-
-      // 2) Metas por vendedora
-      const toUpsertGoals: SalespersonGoal[] = [];
-      salespersonData.forEach((p) => {
-        Object.entries(p.monthly_goals).forEach(([mStr, val]) => {
-          if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
-            toUpsertGoals.push({
-              entity_id: eid,
-              salesperson_id: p.salesperson_id,
-              year: currentYear,
-              month: Number(mStr),
-              goal_amount: Number(val),
-            });
-          }
-        });
-      });
-      if (toUpsertGoals.length) {
-        const { error } = await supabase
-          .from('sales_goals')
-          .upsert(toUpsertGoals, { onConflict: 'salesperson_id, entity_id, year, month' });
-        if (error) throw error;
-      }
-
-      // 3) Vendas realizadas por vendedora
-      const toUpsertSales: any[] = [];
-      salespersonData.forEach((p) => {
-        Object.entries(p.monthly_sales).forEach(([mStr, val]) => {
-          if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
-            toUpsertSales.push({
-              entity_id: eid,
-              salesperson_id: p.salesperson_id,
-              year: currentYear,
-              month: Number(mStr),
-              sales_amount: Number(val),
-            });
-          }
-        });
-      });
-      if (toUpsertSales.length) {
-        const { error } = await supabase
-          .from('salesperson_sales')
-          .upsert(toUpsertSales, { onConflict: 'entity_id, salesperson_id, year, month' });
-        if (error) throw error;
-      }
-
-      toast({ title: 'Salvo!', description: 'Vendas e metas persistidas no Supabase.' });
-    } catch (err: any) {
-      console.error('Erro ao salvar:', err);
-      toast({ title: 'Falha ao salvar', description: err.message ?? String(err), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [salespersons]);
 
   return {
+    salespersons,
+    salesData,
     loading,
-    currentYear, setCurrentYear,
-    yearlyData, updateYearlySale,
-    salespersonData, updateSalespersonGoal, updateSalespersonSales,
-    saveAllData,
-    hasEntity, // para a UI saber se temos entidade efetiva
-    refreshData: fetchAllData,
+    error,
+    assignSalespersonRole,
+    removeSalespersonRole,
+    assignRole,
+    removeRole,
+    refetch: fetchSalespersons,
   };
-}
+};

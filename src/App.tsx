@@ -24,6 +24,7 @@ import NewSupplier from "./pages/NewSupplier";
 import EditSupplier from "./pages/EditSupplier";
 import Pessoas from "./pages/Pessoas";
 import Cadastros from "./pages/Cadastros";
+import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import BankAccounts from "./pages/BankAccounts";
 import NewBankAccount from "./pages/NewBankAccount";
@@ -43,6 +44,8 @@ const SalespersonPerformance = React.lazy(() => import("./pages/SalespersonPerfo
 const SalesManagement = React.lazy(() => import("./pages/SalesManagement"));
 const DashboardFinancial = React.lazy(() => import("./pages/DashboardFinancial"));
 const DashboardPurchases = React.lazy(() => import("./pages/DashboardPurchases"));
+const DebugRoles = React.lazy(() => import("./pages/DebugRoles"));
+const RoleDemo = React.lazy(() => import("./pages/RoleDemo"));
 
 const queryClient = new QueryClient();
 
@@ -107,8 +110,11 @@ function AppContent() {
                 <Route path="/filiais" element={<ManageFiliais />} />
                 <Route path="/pessoas" element={<Pessoas />} />
             <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
-            <Route path="/settings" element={<Cadastros />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/cadastros" element={<Cadastros />} />
                 <Route path="/reports" element={<Reports />} />
+            <Route path="/debug-roles" element={<DebugRoles />} />
+            <Route path="/role-demo" element={<RoleDemo />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

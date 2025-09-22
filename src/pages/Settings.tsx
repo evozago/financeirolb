@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import PositionsManagement from "@/components/settings/PositionsManagement";
 import DepartmentsManagement from "@/components/settings/DepartmentsManagement";
 import PapeisManagement from '@/components/settings/PapeisManagement';
+import { RoleSettings } from '@/components/settings/RoleSettings';
 import { DataMigrationPanel } from "@/components/admin/DataMigrationPanel";
 
 interface Category {
@@ -359,7 +360,7 @@ export default function Settings() {
         </TabsList>
 
         <TabsContent value="roles">
-          <PapeisManagement />
+          <RoleSettings />
         </TabsContent>
 
         <TabsContent value="categories">
