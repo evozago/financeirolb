@@ -117,27 +117,38 @@ export function useSalesData() {
       setYearlyData(formattedYearly);
 
       // --- 2) Painel de Vendedoras (tabela direita) ---
-      // Buscar vendedoras da tabela pessoas com papel "vendedora"
-      const { data: pessoasVendedoras, error: vendErr } = await supabase
-        .from('pessoas')
-        .select(`
-          id, 
-          nome, 
-          ativo, 
-          cpf_cnpj_normalizado,
-          papeis_pessoa!inner(papel_id, papeis!inner(nome))
-        `)
-        .eq('ativo', true)
-        .eq('papeis_pessoa.papeis.nome', 'vendedora');
+      // Buscar vendedoras usando a função que retorna pessoas com papéis
+      const { data: pessoasComPapeis, error: vendErr } = await supabase
+        .rpc('get_pessoas_with_papeis');
       
-      if (vendErr) throw vendErr;
-
-      // Formatar vendedoras da tabela pessoas
-      const vendedoras = (pessoasVendedoras || []).map(v => ({ 
-        ...v, 
-        source: 'pessoas',
-        eh_vendedora: true 
-      }));
+      let vendedoras = [];
+      
+      if (vendErr) {
+        console.warn('Erro ao buscar pessoas com papéis:', vendErr);
+        // Fallback: buscar pessoas diretamente
+        const { data: pessoasFallback, error: fallbackErr } = await supabase
+          .from('pessoas')
+          .select('id, nome, ativo, cpf_cnpj_normalizado, eh_vendedora')
+          .eq('ativo', true)
+          .eq('eh_vendedora', true);
+        
+        if (fallbackErr) throw fallbackErr;
+        
+        vendedoras = (pessoasFallback || []).map(v => ({ 
+          ...v, 
+          source: 'pessoas',
+          eh_vendedora: true 
+        }));
+      } else {
+        // Filtrar apenas pessoas com papel "vendedora"
+        vendedoras = (pessoasComPapeis || [])
+          .filter(p => p.papeis && p.papeis.includes('vendedora'))
+          .map(v => ({ 
+            ...v, 
+            source: 'pessoas',
+            eh_vendedora: true 
+          }));
+      }
 
       const { data: metas, error: metasErr } = await supabase
         .from('sales_goals')
