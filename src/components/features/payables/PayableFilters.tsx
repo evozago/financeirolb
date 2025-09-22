@@ -203,17 +203,6 @@ export function PayableFilters({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Filtros Avançados</h4>
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="h-auto p-1 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Limpar
-                  </Button>
-                )}
               </div>
 
               {/* Status */}
@@ -237,6 +226,21 @@ export function PayableFilters({
                 </Select>
               </div>
 
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
+
                {/* Credor (PF + PJ) */}
                <div className="space-y-2">
                  <Label>Credor</Label>
@@ -257,6 +261,21 @@ export function PayableFilters({
                    </SelectContent>
                  </Select>
                </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
 
 
               {/* Filial */}
@@ -279,11 +298,41 @@ export function PayableFilters({
                             {formatCNPJ(filial.cnpj)}
                           </span>
                         </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
 
               {/* Conta Bancária */}
               <div className="space-y-2">
@@ -308,11 +357,41 @@ export function PayableFilters({
                             </span>
                           )}
                         </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
 
               {/* Categoria */}
               <div className="space-y-2">
@@ -340,6 +419,21 @@ export function PayableFilters({
                 </Select>
               </div>
 
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
+
               {/* Data de Vencimento */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -355,6 +449,21 @@ export function PayableFilters({
                       onChange={(e) => updateFilter('dueDateFrom', e.target.value)}
                     />
                   </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
                   <div>
                     <Label className="text-xs text-muted-foreground">Até</Label>
                     <Input
@@ -363,8 +472,53 @@ export function PayableFilters({
                       onChange={(e) => updateFilter('dueDateTo', e.target.value)}
                     />
                   </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
                 </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
               </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
 
               {/* Valor */}
               <div className="space-y-2">
@@ -383,6 +537,21 @@ export function PayableFilters({
                       onChange={(e) => updateFilter('amountFrom', e.target.value ? parseFloat(e.target.value) : undefined)}
                     />
                   </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
                   <div>
                     <Label className="text-xs text-muted-foreground">Máx.</Label>
                     <Input
@@ -393,12 +562,73 @@ export function PayableFilters({
                       onChange={(e) => updateFilter('amountTo', e.target.value ? parseFloat(e.target.value) : undefined)}
                     />
                   </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
                 </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
               </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
             </div>
+
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
+        </div>
+      )}
 
       {/* Filtros ativos */}
       {hasActiveFilters && (
@@ -500,6 +730,21 @@ export function PayableFilters({
               />
             </Badge>
           )}
+        </div>
+      )}
+
+      {/* Botão Limpar Filtros */}
+      {hasActiveFilters && (
+        <div className="flex justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-auto p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Filtros
+          </Button>
         </div>
       )}
     </div>

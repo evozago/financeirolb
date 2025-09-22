@@ -76,9 +76,10 @@ export default function SalespersonPerformance() {
   const fetchVendedoras = async () => {
     try {
       const { data, error } = await supabase
-        .from('vendedoras')
+        .from('pessoas')
         .select('id, nome')
         .eq('ativo', true)
+        .contains('papeis', ['vendedora'])
         .order('nome');
 
       if (error) throw error;
