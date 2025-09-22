@@ -35,8 +35,8 @@ interface OrderData {
 
 interface FilterOptions {
   search: string;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: string;
+  endDate: string;
   marca: string;
   fornecedor: string;
   status: string;
@@ -58,8 +58,8 @@ export default function Orders() {
   // Estados de filtros
   const [filters, setFilters] = useState<FilterOptions>({
     search: '',
-    startDate: null,
-    endDate: null,
+    startDate: '',
+    endDate: '',
     marca: '',
     fornecedor: '',
     status: ''
@@ -117,7 +117,6 @@ export default function Orders() {
     // Filtro por data inicial
     if (filters.startDate) {
       const startDate = new Date(filters.startDate);
-      startDate.setHours(0, 0, 0, 0);
       filtered = filtered.filter(order => {
         const orderDate = new Date(order.data_pedido);
         return orderDate >= startDate;
@@ -127,7 +126,6 @@ export default function Orders() {
     // Filtro por data final
     if (filters.endDate) {
       const endDate = new Date(filters.endDate);
-      endDate.setHours(23, 59, 59, 999);
       filtered = filtered.filter(order => {
         const orderDate = new Date(order.data_pedido);
         return orderDate <= endDate;

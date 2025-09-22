@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Package, DollarSign, ShoppingCart } from 'lucide-react';
+import { Package, DollarSign, ShoppingCart, TrendingUp, BarChart3, PieChart } from 'lucide-react';
 
 interface OrderData {
   id: string;
@@ -25,83 +24,44 @@ interface OrderData {
 
 interface OrderChartsProps {
   orders: OrderData[];
-  className?: string;
 }
 
-const COLORS = [
-  '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-  '#82CA9D', '#FFC658', '#FF7C7C', '#8DD1E1', '#D084D0'
-];
+export function OrderCharts({ orders }: OrderChartsProps) {
+  const statistics = useMemo(() => {
+    const totalPedidos = orders.length;
+    const totalQuantidade = orders.reduce((sum, order) => sum + order.quantidade, 0);
+    const totalValor = orders.reduce((sum, order) => sum + order.valor_total_liquido, 0);
+    const valorMedio = totalPedidos > 0 ? totalValor / totalPedidos : 0;
 
-export function OrderCharts({ orders, className }: OrderChartsProps) {
-  // Dados agregados por marca
-  const brandData = useMemo(() => {
-    const brandMap = new Map<string, {
-      nome: string;
-      quantidade: number;
-      valor: number;
-      pedidos: number;
-    }>();
-
-    orders.forEach(order => {
-      const brandName = order.marcas?.nome || 'Sem marca';
-      const existing = brandMap.get(brandName) || {
-        nome: brandName,
-        quantidade: 0,
-        valor: 0,
-        pedidos: 0
-      };
-
-      existing.quantidade += order.quantidade;
-      existing.valor += order.valor_total_liquido || 0;
-      existing.pedidos += 1;
-
-      brandMap.set(brandName, existing);
-    });
-
-    return Array.from(brandMap.values())
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 10); // Top 10 marcas
+    return {
+      totalPedidos,
+      totalQuantidade,
+      totalValor,
+      valorMedio
+    };
   }, [orders]);
 
-  // Dados por período (últimos 6 meses)
-  const periodData = useMemo(() => {
-    const periodMap = new Map<string, {
-      periodo: string;
-      quantidade: number;
-      valor: number;
-      pedidos: number;
-    }>();
-
+  const marcaStats = useMemo(() => {
+    const marcaMap = new Map<string, { pedidos: number; quantidade: number; valor: number }>();
+    
     orders.forEach(order => {
-      const date = new Date(order.data_pedido);
-      const periodo = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      const marcaNome = order.marcas?.nome || 'Sem marca';
+      const existing = marcaMap.get(marcaNome) || { pedidos: 0, quantidade: 0, valor: 0 };
       
-      const existing = periodMap.get(periodo) || {
-        periodo,
-        quantidade: 0,
-        valor: 0,
-        pedidos: 0
-      };
-
-      existing.quantidade += order.quantidade;
-      existing.valor += order.valor_total_liquido || 0;
-      existing.pedidos += 1;
-
-      periodMap.set(periodo, existing);
+      marcaMap.set(marcaNome, {
+        pedidos: existing.pedidos + 1,
+        quantidade: existing.quantidade + order.quantidade,
+        valor: existing.valor + order.valor_total_liquido
+      });
     });
 
-    return Array.from(periodMap.values())
-      .sort((a, b) => {
-        const [monthA, yearA] = a.periodo.split('/').map(Number);
-        const [monthB, yearB] = b.periodo.split('/').map(Number);
-        return new Date(yearA, monthA - 1).getTime() - new Date(yearB, monthB - 1).getTime();
-      })
-      .slice(-6); // Últimos 6 meses
+    return Array.from(marcaMap.entries())
+      .map(([nome, stats]) => ({ nome, ...stats }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 10);
   }, [orders]);
 
-  // Dados por status
-  const statusData = useMemo(() => {
+  const statusStats = useMemo(() => {
     const statusMap = new Map<string, number>();
     
     orders.forEach(order => {
@@ -109,26 +69,9 @@ export function OrderCharts({ orders, className }: OrderChartsProps) {
       statusMap.set(status, (statusMap.get(status) || 0) + 1);
     });
 
-    return Array.from(statusMap.entries()).map(([status, count]) => ({
-      status,
-      count,
-      percentage: ((count / orders.length) * 100).toFixed(1)
-    }));
-  }, [orders]);
-
-  // Estatísticas gerais
-  const stats = useMemo(() => {
-    const totalQuantidade = orders.reduce((sum, order) => sum + order.quantidade, 0);
-    const totalValor = orders.reduce((sum, order) => sum + (order.valor_total_liquido || 0), 0);
-    const totalPedidos = orders.length;
-    const valorMedio = totalPedidos > 0 ? totalValor / totalPedidos : 0;
-
-    return {
-      totalQuantidade,
-      totalValor,
-      totalPedidos,
-      valorMedio
-    };
+    return Array.from(statusMap.entries())
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count);
   }, [orders]);
 
   const formatCurrency = (value: number) => {
@@ -142,208 +85,190 @@ export function OrderCharts({ orders, className }: OrderChartsProps) {
     return new Intl.NumberFormat('pt-BR').format(value);
   };
 
+  const getStatusColor = (status: string) => {
+    const colors = {
+      'pendente': 'bg-yellow-100 text-yellow-800',
+      'processando': 'bg-blue-100 text-blue-800',
+      'enviado': 'bg-purple-100 text-purple-800',
+      'entregue': 'bg-green-100 text-green-800',
+      'cancelado': 'bg-red-100 text-red-800'
+    };
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
   return (
-    <div className={className}>
+    <div className="space-y-6">
       {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Pedidos</p>
-                <p className="text-2xl font-bold">{formatNumber(stats.totalPedidos)}</p>
-              </div>
-              <ShoppingCart className="h-8 w-8 text-blue-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Pedidos</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNumber(statistics.totalPedidos)}</div>
+            <p className="text-xs text-muted-foreground">
+              Pedidos registrados
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Quantidade Total</p>
-                <p className="text-2xl font-bold">{formatNumber(stats.totalQuantidade)}</p>
-              </div>
-              <Package className="h-8 w-8 text-green-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Quantidade Total</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNumber(statistics.totalQuantidade)}</div>
+            <p className="text-xs text-muted-foreground">
+              Itens pedidos
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.totalValor)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-yellow-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(statistics.totalValor)}</div>
+            <p className="text-xs text-muted-foreground">
+              Valor total dos pedidos
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Valor Médio</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.valorMedio)}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-purple-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Médio</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(statistics.valorMedio)}</div>
+            <p className="text-xs text-muted-foreground">
+              Por pedido
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico por Marca - Valor */}
+        {/* Top 10 Marcas por Valor */}
         <Card>
           <CardHeader>
-            <CardTitle>Top 10 Marcas por Valor</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Top 10 Marcas por Valor
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={brandData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="nome" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  fontSize={12}
-                />
-                <YAxis 
-                  tickFormatter={(value) => formatCurrency(value)}
-                  fontSize={12}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                  labelStyle={{ color: '#000' }}
-                />
-                <Bar dataKey="valor" fill="#0088FE" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              {marcaStats.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhum dado disponível
+                </p>
+              ) : (
+                marcaStats.map((marca, index) => (
+                  <div key={marca.nome} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium">{marca.nome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {marca.pedidos} pedidos • {formatNumber(marca.quantidade)} itens
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{formatCurrency(marca.valor)}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Gráfico por Marca - Quantidade */}
+        {/* Distribuição por Status */}
         <Card>
           <CardHeader>
-            <CardTitle>Top 10 Marcas por Quantidade</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5" />
+              Distribuição por Status
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={brandData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="nome" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  fontSize={12}
-                />
-                <YAxis 
-                  tickFormatter={(value) => formatNumber(value)}
-                  fontSize={12}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatNumber(value), 'Quantidade']}
-                  labelStyle={{ color: '#000' }}
-                />
-                <Bar dataKey="quantidade" fill="#00C49F" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico por Período */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Evolução por Período</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={periodData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="periodo" fontSize={12} />
-                <YAxis 
-                  tickFormatter={(value) => formatCurrency(value)}
-                  fontSize={12}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                  labelStyle={{ color: '#000' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="valor" 
-                  stroke="#8884d8" 
-                  strokeWidth={2}
-                  dot={{ fill: '#8884d8' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico por Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribuição por Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ status, percentage }) => `${status} (${percentage}%)`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              {statusStats.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhum dado disponível
+                </p>
+              ) : (
+                statusStats.map((item) => {
+                  const percentage = statistics.totalPedidos > 0 
+                    ? (item.count / statistics.totalPedidos * 100).toFixed(1)
+                    : '0';
+                  
+                  return (
+                    <div key={item.status} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge className={getStatusColor(item.status)}>
+                          {item.status || 'Indefinido'}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{item.count} pedidos</p>
+                        <p className="text-sm text-muted-foreground">{percentage}%</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabela de Resumo por Marca */}
-      <Card className="mt-6">
+      {/* Resumo por Marca - Tabela */}
+      <Card>
         <CardHeader>
-          <CardTitle>Resumo por Marca</CardTitle>
+          <CardTitle>Resumo Detalhado por Marca</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2">Marca</th>
-                  <th className="text-right p-2">Pedidos</th>
-                  <th className="text-right p-2">Quantidade</th>
-                  <th className="text-right p-2">Valor Total</th>
-                  <th className="text-right p-2">Valor Médio</th>
+                  <th className="text-left py-2">Marca</th>
+                  <th className="text-right py-2">Pedidos</th>
+                  <th className="text-right py-2">Quantidade</th>
+                  <th className="text-right py-2">Valor Total</th>
+                  <th className="text-right py-2">Valor Médio</th>
                 </tr>
               </thead>
               <tbody>
-                {brandData.map((brand, index) => (
-                  <tr key={brand.nome} className="border-b hover:bg-muted/50">
-                    <td className="p-2 font-medium">{brand.nome}</td>
-                    <td className="p-2 text-right">{formatNumber(brand.pedidos)}</td>
-                    <td className="p-2 text-right">{formatNumber(brand.quantidade)}</td>
-                    <td className="p-2 text-right">{formatCurrency(brand.valor)}</td>
-                    <td className="p-2 text-right">
-                      {formatCurrency(brand.pedidos > 0 ? brand.valor / brand.pedidos : 0)}
+                {marcaStats.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                      Nenhum dado disponível
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  marcaStats.map((marca) => (
+                    <tr key={marca.nome} className="border-b">
+                      <td className="py-2 font-medium">{marca.nome}</td>
+                      <td className="py-2 text-right">{formatNumber(marca.pedidos)}</td>
+                      <td className="py-2 text-right">{formatNumber(marca.quantidade)}</td>
+                      <td className="py-2 text-right font-mono">{formatCurrency(marca.valor)}</td>
+                      <td className="py-2 text-right font-mono">
+                        {formatCurrency(marca.pedidos > 0 ? marca.valor / marca.pedidos : 0)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

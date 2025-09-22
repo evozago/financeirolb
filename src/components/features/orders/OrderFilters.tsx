@@ -4,18 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Filter, X, Search } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { Filter, X, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FilterOptions {
   search: string;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: string;
+  endDate: string;
   marca: string;
   fornecedor: string;
   status: string;
@@ -91,8 +86,8 @@ export function OrderFilters({ filters, onFiltersChange, className }: OrderFilte
   const clearFilters = () => {
     onFiltersChange({
       search: '',
-      startDate: null,
-      endDate: null,
+      startDate: '',
+      endDate: '',
       marca: '',
       fornecedor: '',
       status: ''
@@ -146,65 +141,23 @@ export function OrderFilters({ filters, onFiltersChange, className }: OrderFilte
         {/* Filtros de data */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Data Inicial</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !filters.startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.startDate ? (
-                    format(filters.startDate, "dd/MM/yyyy", { locale: ptBR })
-                  ) : (
-                    "Selecionar data"
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={filters.startDate || undefined}
-                  onSelect={(date) => updateFilter('startDate', date || null)}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="startDate">Data Inicial</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => updateFilter('startDate', e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
-            <Label>Data Final</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !filters.endDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.endDate ? (
-                    format(filters.endDate, "dd/MM/yyyy", { locale: ptBR })
-                  ) : (
-                    "Selecionar data"
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={filters.endDate || undefined}
-                  onSelect={(date) => updateFilter('endDate', date || null)}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="endDate">Data Final</Label>
+            <Input
+              id="endDate"
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => updateFilter('endDate', e.target.value)}
+            />
           </div>
         </div>
 
