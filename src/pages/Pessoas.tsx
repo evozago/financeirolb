@@ -860,7 +860,7 @@ export default function Pessoas() {
             loading={loading}
             selectedItems={selectedItems}
             onSelectionChange={setSelectedItems}
-            onRowClick={(pessoa) => {}} // Pode implementar navegação para detalhes
+            onRowClick={(pessoa) => navigate(`/pessoas/${pessoa.id}`)} // Navegar para detalhes
             onEdit={handleEdit}
             onDelete={handleDelete}
             onView={(pessoa) => {}} // Pode implementar visualização

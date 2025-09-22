@@ -23,6 +23,7 @@ import SupplierDetail from "./pages/SupplierDetail";
 import NewSupplier from "./pages/NewSupplier";
 import EditSupplier from "./pages/EditSupplier";
 import Pessoas from "./pages/Pessoas";
+import PersonDetail from "./pages/PersonDetail";
 import Cadastros from "./pages/Cadastros";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
@@ -109,6 +110,7 @@ function AppContent() {
             <Route path="/recurring-bills" element={<RecurringBills />} />
                 <Route path="/filiais" element={<ManageFiliais />} />
                 <Route path="/pessoas" element={<Pessoas />} />
+                <Route path="/pessoas/:id" element={<PersonDetail />} />
             <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/cadastros" element={<Cadastros />} />

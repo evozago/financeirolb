@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { EntityHistory } from '@/components/common/EntityHistory';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -366,6 +367,7 @@ export default function SupplierDetail() {
             <TabsList>
               <TabsTrigger value="info">Informações</TabsTrigger>
               <TabsTrigger value="bills">Contas a Pagar ({stats.totalBills})</TabsTrigger>
+              <TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info">
@@ -471,6 +473,14 @@ export default function SupplierDetail() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="history">
+              <EntityHistory 
+                recordId={id!}
+                tableName="fornecedores"
+                entityName="Fornecedor"
+              />
             </TabsContent>
           </Tabs>
         </div>
