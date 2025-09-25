@@ -75,59 +75,28 @@ export function SalespersonPanel() {
     supermetaRate: undefined as number | undefined
   });
 
-  // Load existing employees from fornecedores and entidades_corporativas
+  // Load existing employees from pessoas table
   const loadExistingEmployees = async () => {
     try {
-      // 1) Fornecedores (legado)
-      const { data: fornecedores, error: fornError } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cpf, cnpj_cpf, email, telefone, salario, tipo_pessoa, cpf_cnpj_normalizado')
+      // Buscar pessoas ativas
+      const { data: pessoas, error: pessoasError } = await supabase
+        .from('pessoas')
+        .select('id, nome, cpf, cnpj, email, telefone, tipo_pessoa, cpf_cnpj_normalizado, dados_vendedora')
         .eq('ativo', true)
         .order('nome');
-      if (fornError) throw fornError;
+      if (pessoasError) throw pessoasError;
 
-      // 2) Entidades Corporativas (novo)
-      const { data: entidades, error: entError } = await supabase
-        .from('entidades_corporativas')
-        .select('id, nome_razao_social, cpf_cnpj, cpf_cnpj_normalizado, email, telefone, tipo_pessoa, ativo')
-        .eq('ativo', true)
-        .order('nome_razao_social');
-      if (entError) throw entError;
+      // Converter para formato esperado
+      const employees: ExistingEmployee[] = (pessoas || []).map((p) => ({
+        id: p.id || '',
+        nome: p.nome || '',
+        cpf: p.cpf || p.cnpj || undefined,
+        email: p.email || undefined,
+        telefone: p.telefone || undefined,
+        salario: p.dados_vendedora?.salario_base ? Number(p.dados_vendedora.salario_base) : undefined,
+      }));
 
-      // Unificar por nome+documento
-      const unique = new Map<string, ExistingEmployee>();
-
-      (fornecedores || []).forEach((f) => {
-        const doc = (f.tipo_pessoa === 'pessoa_fisica' ? (f.cpf || '') : (f.cnpj_cpf || '')) as string;
-        const key = `${(f.nome || '').trim().toUpperCase()}-${(f.cpf_cnpj_normalizado || doc || '').trim()}`;
-        if (!unique.has(key)) {
-          unique.set(key, {
-            id: f.id || '',
-            nome: f.nome || '',
-            cpf: doc || undefined,
-            email: f.email || undefined,
-            telefone: f.telefone || undefined,
-            salario: f.salario ? Number(f.salario) : undefined,
-          });
-        }
-      });
-
-      (entidades || []).forEach((e: any) => {
-        const doc = e.cpf_cnpj || '';
-        const key = `${(e.nome_razao_social || '').trim().toUpperCase()}-${(e.cpf_cnpj_normalizado || doc || '').trim()}`;
-        if (!unique.has(key)) {
-          unique.set(key, {
-            id: `entidade:${e.id}`,
-            nome: e.nome_razao_social || '',
-            cpf: doc || undefined,
-            email: e.email || undefined,
-            telefone: e.telefone || undefined,
-            salario: undefined,
-          });
-        }
-      });
-
-      setExistingEmployees(Array.from(unique.values()));
+      setExistingEmployees(employees);
     } catch (error) {
       console.error('Error loading existing employees:', error);
       toast.error('Erro ao carregar funcionários/vendedoras');
@@ -163,95 +132,80 @@ export function SalespersonPanel() {
     }
 
     try {
+      const vendedoraPapelId = 'e63522f6-da7e-49fe-884e-2b65b82e8456'; // ID do papel vendedora
+      
       if (selectedEmployee) {
-        if (selectedEmployee.startsWith('entidade:')) {
-          // Criar/atualizar registro em fornecedores a partir de uma entidade corporativa
-          const entidadeId = selectedEmployee.split(':')[1];
-          const { data: ent, error: entErr } = await supabase
-            .from('entidades_corporativas')
-            .select('id, nome_razao_social, cpf_cnpj, cpf_cnpj_normalizado, email, telefone, tipo_pessoa')
-            .eq('id', entidadeId)
-            .maybeSingle();
-          if (entErr) throw entErr;
+        // Atualizar pessoa existente
+        const dadosVendedora = {
+          salario_base: newSalesperson.baseSalary || null,
+          comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+          comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+          meta_mensal: newSalesperson.metaBase || null,
+        };
 
-          const normDoc = ent?.cpf_cnpj_normalizado || (ent?.cpf_cnpj ? String(ent.cpf_cnpj).replace(/\D/g, '') : null);
-          let fornecedorId: string | null = null;
+        // Atualizar dados da pessoa
+        const { error: updateError } = await supabase
+          .from('pessoas')
+          .update({
+            nome: newSalesperson.name,
+            dados_vendedora: dadosVendedora,
+          })
+          .eq('id', selectedEmployee);
+        if (updateError) throw updateError;
 
-          if (normDoc) {
-            const { data: fornExistente } = await supabase
-              .from('fornecedores')
-              .select('id')
-              .eq('cpf_cnpj_normalizado', normDoc)
-              .maybeSingle();
-            fornecedorId = fornExistente?.id ?? null;
-          }
+        // Verificar se já tem papel de vendedora
+        const { data: existingRole } = await supabase
+          .from('papeis_pessoa')
+          .select('id')
+          .eq('pessoa_id', selectedEmployee)
+          .eq('papel_id', vendedoraPapelId)
+          .eq('ativo', true)
+          .maybeSingle();
 
-          if (fornecedorId) {
-            const { error } = await supabase
-              .from('fornecedores')
-              .update({
-                eh_vendedora: true,
-                nome: newSalesperson.name,
-                salario: newSalesperson.baseSalary ?? null,
-                comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
-                comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
-                meta_mensal: newSalesperson.metaBase ?? null,
-              })
-              .eq('id', fornecedorId);
-            if (error) throw error;
-          } else {
-            const { error } = await supabase
-              .from('fornecedores')
-              .insert([{ 
-                nome: newSalesperson.name || ent?.nome_razao_social || '',
-                tipo_pessoa: ent?.tipo_pessoa || 'pessoa_fisica',
-                ativo: true,
-                eh_vendedora: true,
-                salario: newSalesperson.baseSalary ?? null,
-                comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
-                comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
-                meta_mensal: newSalesperson.metaBase ?? null,
-                cnpj_cpf: ent?.cpf_cnpj || null,
-                cpf_cnpj_normalizado: normDoc || null,
-                email: ent?.email || null,
-                telefone: ent?.telefone || null,
-              }]);
-            if (error) throw error;
-          }
-        } else {
-          // Marcar fornecedor existente como vendedora e atualizar dados principais
-          const { error } = await supabase
-            .from('fornecedores')
-            .update({
-              eh_vendedora: true,
-              nome: newSalesperson.name,
-              salario: newSalesperson.baseSalary ?? null,
-              comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
-              comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
-              meta_mensal: newSalesperson.metaBase ?? null,
-            })
-            .eq('id', selectedEmployee);
-          if (error) throw error;
+        // Se não tem papel, adicionar
+        if (!existingRole) {
+          const { error: roleError } = await supabase
+            .from('papeis_pessoa')
+            .insert([{
+              pessoa_id: selectedEmployee,
+              papel_id: vendedoraPapelId,
+              ativo: true,
+            }]);
+          if (roleError) throw roleError;
         }
       } else {
-        // Criar novo cadastro mínimo na tabela fornecedores (legado)
-        const { error } = await supabase
-          .from('fornecedores')
-          .insert([{ 
+        // Criar nova pessoa
+        const dadosVendedora = {
+          salario_base: newSalesperson.baseSalary || null,
+          comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+          comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+          meta_mensal: newSalesperson.metaBase || null,
+        };
+
+        const { data: newPerson, error: insertError } = await supabase
+          .from('pessoas')
+          .insert([{
             nome: newSalesperson.name,
             tipo_pessoa: 'pessoa_fisica',
             ativo: true,
-            eh_vendedora: true,
-            salario: newSalesperson.baseSalary ?? null,
-            comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
-            comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
-            meta_mensal: newSalesperson.metaBase ?? null,
+            dados_vendedora: dadosVendedora,
+          }])
+          .select('id')
+          .single();
+        if (insertError) throw insertError;
+
+        // Adicionar papel de vendedora
+        const { error: roleError } = await supabase
+          .from('papeis_pessoa')
+          .insert([{
+            pessoa_id: newPerson.id,
+            papel_id: vendedoraPapelId,
+            ativo: true,
           }]);
-        if (error) throw error;
+        if (roleError) throw roleError;
       }
 
       // Atualizar lista
-      await loadExistingEmployees();
       await loadExistingEmployees();
 
       // Resetar form
@@ -267,21 +221,31 @@ export function SalespersonPanel() {
 
   const editSalesperson = async (person: Salesperson) => {
     try {
-      // Load current data from fornecedores
+      // Load current data from pessoas
       const { data, error } = await supabase
-        .from('fornecedores')
-        .select('id, nome, salario, comissao_padrao, comissao_supermeta, meta_mensal')
+        .from('pessoas')
+        .select('id, nome, dados_vendedora')
         .eq('id', person.id)
         .single();
       if (error) throw error;
 
-      setEditingSalesperson({ id: data.id, name: data.nome, baseSalary: Number(data.salario || 0), commissionRate: Number(data.comissao_padrao || 0) / 100, metaBase: Number(data.meta_mensal || 0), supermetaRate: Number(data.comissao_supermeta || 0) / 100 });
+      const dadosVendedora = data.dados_vendedora || {};
+      
+      setEditingSalesperson({ 
+        id: data.id, 
+        name: data.nome, 
+        baseSalary: Number(dadosVendedora.salario_base || 0), 
+        commissionRate: Number(dadosVendedora.comissao_padrao || 0) / 100, 
+        metaBase: Number(dadosVendedora.meta_mensal || 0), 
+        supermetaRate: Number(dadosVendedora.comissao_supermeta || 0) / 100 
+      });
+      
       setNewSalesperson({
         name: data.nome || '',
-        baseSalary: data.salario ? Number(data.salario) : undefined,
-        commissionRate: data.comissao_padrao != null ? Number(data.comissao_padrao) / 100 : undefined,
-        metaBase: data.meta_mensal ? Number(data.meta_mensal) : undefined,
-        supermetaRate: data.comissao_supermeta != null ? Number(data.comissao_supermeta) / 100 : undefined,
+        baseSalary: dadosVendedora.salario_base ? Number(dadosVendedora.salario_base) : undefined,
+        commissionRate: dadosVendedora.comissao_padrao != null ? Number(dadosVendedora.comissao_padrao) / 100 : undefined,
+        metaBase: dadosVendedora.meta_mensal ? Number(dadosVendedora.meta_mensal) : undefined,
+        supermetaRate: dadosVendedora.comissao_supermeta != null ? Number(dadosVendedora.comissao_supermeta) / 100 : undefined,
       });
     } catch (e: any) {
       console.error('Erro ao carregar vendedora:', e);
@@ -295,14 +259,18 @@ export function SalespersonPanel() {
       return;
     }
     try {
+      const dadosVendedora = {
+        salario_base: newSalesperson.baseSalary || null,
+        comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
+        comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
+        meta_mensal: newSalesperson.metaBase || null,
+      };
+
       const { error } = await supabase
-        .from('fornecedores')
+        .from('pessoas')
         .update({
           nome: newSalesperson.name,
-          salario: newSalesperson.baseSalary ?? null,
-          comissao_padrao: newSalesperson.commissionRate != null ? newSalesperson.commissionRate * 100 : null,
-          comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
-          meta_mensal: newSalesperson.metaBase ?? null,
+          dados_vendedora: dadosVendedora,
         })
         .eq('id', editingSalesperson.id);
       if (error) throw error;
@@ -320,10 +288,14 @@ export function SalespersonPanel() {
 
   const deleteSalesperson = async (id: string) => {
     try {
+      const vendedoraPapelId = 'e63522f6-da7e-49fe-884e-2b65b82e8456'; // ID do papel vendedora
+      
+      // Desativar papel de vendedora
       const { error } = await supabase
-        .from('fornecedores')
-        .update({ eh_vendedora: false })
-        .eq('id', id);
+        .from('papeis_pessoa')
+        .update({ ativo: false })
+        .eq('pessoa_id', id)
+        .eq('papel_id', vendedoraPapelId);
       if (error) throw error;
 
       setRemovedIds((prev) => [...prev, id]);
