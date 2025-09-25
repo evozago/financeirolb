@@ -163,10 +163,14 @@ export function SalespersonPanel() {
     }
 
     try {
+      console.log('Adicionando vendedora:', newSalesperson.name);
+      
       if (selectedEmployee) {
         if (selectedEmployee.startsWith('entidade:')) {
-          // Criar/atualizar registro em fornecedores a partir de uma entidade corporativa
+          // Criar/atualizar registro a partir de uma entidade corporativa
           const entidadeId = selectedEmployee.split(':')[1];
+          console.log('Buscando entidade:', entidadeId);
+          
           const { data: ent, error: entErr } = await supabase
             .from('entidades_corporativas')
             .select('id, nome_razao_social, cpf_cnpj, cpf_cnpj_normalizado, email, telefone, tipo_pessoa')
@@ -174,6 +178,46 @@ export function SalespersonPanel() {
             .maybeSingle();
           if (entErr) throw entErr;
 
+          console.log('Entidade encontrada:', ent);
+
+          // Adicionar papel de vendedora à entidade corporativa
+          const { data: papelVendedora, error: papelErr } = await supabase
+            .from('papeis')
+            .select('id')
+            .ilike('nome', 'vendedor%')
+            .maybeSingle();
+            
+          if (papelErr) throw papelErr;
+          
+          if (papelVendedora) {
+            console.log('Adicionando papel de vendedora:', papelVendedora.id);
+            
+            // Verificar se já tem o papel
+            const { data: existingRole } = await supabase
+              .from('entidade_papeis')
+              .select('id')
+              .eq('entidade_id', entidadeId)
+              .eq('papel_id', papelVendedora.id)
+              .eq('ativo', true)
+              .maybeSingle();
+
+            if (!existingRole) {
+              const { error: roleError } = await supabase
+                .from('entidade_papeis')
+                .insert({
+                  entidade_id: entidadeId,
+                  papel_id: papelVendedora.id,
+                  data_inicio: new Date().toISOString().split('T')[0],
+                  ativo: true,
+                });
+              
+              if (roleError) {
+                console.error('Erro ao adicionar papel de vendedora:', roleError);
+              }
+            }
+          }
+
+          // Também manter a compatibilidade com a tabela fornecedores (legado)
           const normDoc = ent?.cpf_cnpj_normalizado || (ent?.cpf_cnpj ? String(ent.cpf_cnpj).replace(/\D/g, '') : null);
           let fornecedorId: string | null = null;
 
@@ -219,7 +263,9 @@ export function SalespersonPanel() {
             if (error) throw error;
           }
         } else {
-          // Marcar fornecedor existente como vendedora e atualizar dados principais
+          // Marcar fornecedor existente como vendedora
+          console.log('Atualizando fornecedor existente:', selectedEmployee);
+          
           const { error } = await supabase
             .from('fornecedores')
             .update({
@@ -234,8 +280,48 @@ export function SalespersonPanel() {
           if (error) throw error;
         }
       } else {
-        // Criar novo cadastro mínimo na tabela fornecedores (legado)
-        const { error } = await supabase
+        // Criar nova pessoa e definir como vendedora
+        console.log('Criando nova pessoa como vendedora');
+        
+        // 1. Criar na tabela entidades_corporativas
+        const { data: novaEntidade, error: entidadeError } = await supabase
+          .from('entidades_corporativas')
+          .insert({
+            nome_razao_social: newSalesperson.name,
+            tipo_pessoa: 'pessoa_fisica',
+            ativo: true,
+          })
+          .select()
+          .single();
+          
+        if (entidadeError) throw entidadeError;
+        
+        console.log('Nova entidade criada:', novaEntidade);
+        
+        // 2. Adicionar papel de vendedora
+        const { data: papelVendedora, error: papelErr } = await supabase
+          .from('papeis')
+          .select('id')
+          .ilike('nome', 'vendedor%')
+          .maybeSingle();
+          
+        if (papelVendedora) {
+          const { error: roleError } = await supabase
+            .from('entidade_papeis')
+            .insert({
+              entidade_id: novaEntidade.id,
+              papel_id: papelVendedora.id,
+              data_inicio: new Date().toISOString().split('T')[0],
+              ativo: true,
+            });
+            
+          if (roleError) {
+            console.error('Erro ao adicionar papel de vendedora:', roleError);
+          }
+        }
+
+        // 3. Também criar na tabela fornecedores para compatibilidade
+        const { error: fornecedorError } = await supabase
           .from('fornecedores')
           .insert([{ 
             nome: newSalesperson.name,
@@ -247,11 +333,12 @@ export function SalespersonPanel() {
             comissao_supermeta: newSalesperson.supermetaRate != null ? newSalesperson.supermetaRate * 100 : null,
             meta_mensal: newSalesperson.metaBase ?? null,
           }]);
-        if (error) throw error;
+        if (fornecedorError) {
+          console.warn('Erro ao criar na tabela fornecedores (legado):', fornecedorError);
+        }
       }
 
-      // Atualizar lista
-      await loadExistingEmployees();
+      // Atualizar listas
       await loadExistingEmployees();
 
       // Resetar form
