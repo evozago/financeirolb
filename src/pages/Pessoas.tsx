@@ -228,38 +228,67 @@ export default function Pessoas() {
         }
       }
 
-      // Gerenciar papéis (roles) - sempre limpar papéis existentes primeiro
-      await supabase
+      // Gerenciar papéis de forma mais robusta
+      console.log('Salvando papéis:', formData.categorias);
+      console.log('Papéis disponíveis:', papeis);
+      
+      // 1. Primeiro desativar todos os papéis existentes
+      const { error: deactivateError } = await supabase
         .from('entidade_papeis')
-        .update({ ativo: false, data_fim: new Date().toISOString().split('T')[0] })
+        .update({ 
+          ativo: false, 
+          data_fim: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
         .eq('entidade_id', entidadeId)
         .eq('ativo', true);
 
-      // Aguardar um momento para garantir que a desativação foi processada
-      await new Promise(resolve => setTimeout(resolve, 100));
+      if (deactivateError) {
+        console.error('Erro ao desativar papéis existentes:', deactivateError);
+      }
+
+      // 2. Aguardar propagação
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Adicionar novos papéis
+      // 3. Adicionar novos papéis selecionados
       if (formData.categorias.length > 0) {
-        for (const categoria of formData.categorias) {
-          const papel = papeis.find(p => p.nome === categoria);
+        console.log('Adicionando papéis:', formData.categorias);
+        
+        for (const categoriaNome of formData.categorias) {
+          // Buscar papel por nome (case-insensitive e flexível)
+          const papel = papeis.find(p => 
+            p.nome.toLowerCase().trim() === categoriaNome.toLowerCase().trim() ||
+            p.nome === categoriaNome ||
+            (categoriaNome === 'vendedora' && (p.nome === 'vendedora' || p.nome === 'vendedor')) ||
+            (categoriaNome === 'vendedor' && (p.nome === 'vendedora' || p.nome === 'vendedor'))
+          );
+          
           if (papel) {
             try {
-              // Inserir diretamente pois já desativamos todos os papéis anteriores
-              const { error: insertError } = await supabase
+              console.log(`Inserindo papel: ${papel.nome} (${papel.id}) para entidade ${entidadeId}`);
+              
+              const { data: insertData, error: insertError } = await supabase
                 .from('entidade_papeis')
-                .insert([{
+                .insert({
                   entidade_id: entidadeId,
                   papel_id: papel.id,
                   data_inicio: new Date().toISOString().split('T')[0],
                   ativo: true,
-                }]);
+                })
+                .select();
 
               if (insertError) {
-                console.warn(`Erro ao adicionar papel ${categoria}:`, insertError);
+                console.error(`Erro ao inserir papel ${categoriaNome}:`, insertError);
+                throw insertError;
               }
+              
+              console.log(`Papel ${categoriaNome} inserido com sucesso:`, insertData);
             } catch (papelError) {
-              console.warn(`Erro ao adicionar papel ${categoria}:`, papelError);
+              console.error(`Falha ao adicionar papel ${categoriaNome}:`, papelError);
+              // Não pare o processo por um erro de papel
             }
+          } else {
+            console.warn(`Papel não encontrado: ${categoriaNome}. Papéis disponíveis:`, papeis.map(p => p.nome));
           }
         }
       }
