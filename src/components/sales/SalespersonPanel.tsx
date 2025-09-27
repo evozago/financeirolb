@@ -42,23 +42,90 @@ interface SalesData {
   };
 }
 
-const fetchSalespersonRole = async (): Promise<{ id: string }> => {
-  const { data: roles, error } = await supabase
-    .from('papeis')
-    .select<{ id: string; nome: string }>('id, nome')
-    .in('nome', ['vendedora', 'vendedor']);
+const normalizeDocument = (value?: string | null) => {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  return digits.length > 0 ? digits : null;
+};
 
-  if (error) throw error;
-
-  const preferredRole = roles?.find((item) => item.nome === 'vendedora');
-  const fallbackRole = roles?.find((item) => item.nome === 'vendedor');
-  const selectedRole = preferredRole ?? fallbackRole;
-
-  if (!selectedRole) {
-    throw new Error('Papel de vendedora não encontrado');
+const ensurePessoaRecord = async (
+  params: {
+    id: string;
+    nome: string;
+    tipo_pessoa?: string | null;
+    documento?: string | null;
+    email?: string | null;
+    telefone?: string | null;
+    markFornecedor?: boolean;
+    markFuncionario?: boolean;
+  }
+) => {
+  if (!params.id || !params.nome) {
+    return;
   }
 
-  return { id: selectedRole.id };
+  if (params.tipo_pessoa && params.tipo_pessoa !== 'pessoa_fisica') {
+    return;
+  }
+
+  const payload: Record<string, any> = {
+    id: params.id,
+    nome: params.nome,
+    email: params.email ?? null,
+    telefone: params.telefone ?? null,
+    tipo_pessoa: 'pessoa_fisica',
+    ativo: true,
+    eh_vendedora: true,
+  };
+
+  const normalizedDoc = normalizeDocument(params.documento);
+  if (normalizedDoc) {
+    payload.cpf = normalizedDoc;
+  }
+
+  if (params.markFornecedor) {
+    payload.eh_fornecedor = true;
+  }
+
+  if (params.markFuncionario) {
+    payload.eh_funcionario = true;
+  }
+
+  const { error: pessoaError } = await supabase
+    .from('pessoas')
+    .upsert(payload, { onConflict: 'id' });
+
+  if (pessoaError) throw pessoaError;
+};
+
+const ensurePessoaRoleVendedora = async (pessoaId: string) => {
+  const papelVendedora = await fetchSalespersonRole();
+
+  const { error } = await supabase
+    .from('papeis_pessoa')
+    .upsert(
+      {
+        pessoa_id: pessoaId,
+        papel_id: papelVendedora.id,
+        ativo: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'pessoa_id,papel_id' }
+    );
+
+  if (error) throw error;
+};
+
+const deactivatePessoaRoleVendedora = async (pessoaId: string) => {
+  const papelVendedora = await fetchSalespersonRole();
+
+  const { error } = await supabase
+    .from('papeis_pessoa')
+    .update({ ativo: false, updated_at: new Date().toISOString() })
+    .eq('pessoa_id', pessoaId)
+    .eq('papel_id', papelVendedora.id);
+
+  if (error) throw error;
 };
 
 export function SalespersonPanel() {
@@ -115,6 +182,14 @@ export function SalespersonPanel() {
         .order('nome_razao_social');
       if (entError) throw entError;
 
+      // 3) Pessoas consolidadas
+      const { data: pessoas, error: pessoasError } = await supabase
+        .from('pessoas')
+        .select('id, nome, cpf, email, telefone, ativo, salario, eh_funcionario, eh_fornecedor')
+        .eq('ativo', true)
+        .order('nome');
+      if (pessoasError) throw pessoasError;
+
       // Unificar por nome+documento
       const unique = new Map<string, ExistingEmployee>();
 
@@ -144,6 +219,21 @@ export function SalespersonPanel() {
             email: e.email || undefined,
             telefone: e.telefone || undefined,
             salario: undefined,
+          });
+        }
+      });
+
+      (pessoas || []).forEach((p: any) => {
+        const doc = normalizeDocument(p.cpf || undefined) || '';
+        const key = `${(p.nome || '').trim().toUpperCase()}-${doc}`;
+        if (!unique.has(key)) {
+          unique.set(key, {
+            id: p.id || '',
+            nome: p.nome || '',
+            cpf: doc || undefined,
+            email: p.email || undefined,
+            telefone: p.telefone || undefined,
+            salario: p.salario ? Number(p.salario) : undefined,
           });
         }
       });
@@ -201,6 +291,15 @@ export function SalespersonPanel() {
 
           console.log('Entidade encontrada:', ent);
 
+          await ensurePessoaRecord({
+            id: entidadeId,
+            nome: ent?.nome_razao_social || newSalesperson.name,
+            tipo_pessoa: ent?.tipo_pessoa,
+            documento: ent?.cpf_cnpj || ent?.cpf_cnpj_normalizado,
+            email: ent?.email,
+            telefone: ent?.telefone,
+          });
+
           // Adicionar papel de vendedora à entidade corporativa
           const papelVendedora = await fetchSalespersonRole();
 
@@ -230,6 +329,8 @@ export function SalespersonPanel() {
             }
           }
 
+          await ensurePessoaRoleVendedora(entidadeId);
+
           // Também manter a compatibilidade com a tabela fornecedores (legado)
           const normDoc = ent?.cpf_cnpj_normalizado || (ent?.cpf_cnpj ? String(ent.cpf_cnpj).replace(/\D/g, '') : null);
           let fornecedorId: string | null = null;
@@ -256,6 +357,24 @@ export function SalespersonPanel() {
               })
               .eq('id', fornecedorId);
             if (error) throw error;
+
+            const { data: fornecedorAtualizado } = await supabase
+              .from('fornecedores')
+              .select('id, nome, cpf, cnpj_cpf, email, telefone, tipo_pessoa')
+              .eq('id', fornecedorId)
+              .maybeSingle();
+
+            await ensurePessoaRecord({
+              id: fornecedorId,
+              nome: newSalesperson.name || fornecedorAtualizado?.nome || '',
+              tipo_pessoa: fornecedorAtualizado?.tipo_pessoa ?? 'pessoa_fisica',
+              documento: fornecedorAtualizado?.cpf || fornecedorAtualizado?.cnpj_cpf,
+              email: fornecedorAtualizado?.email,
+              telefone: fornecedorAtualizado?.telefone,
+              markFornecedor: true,
+            });
+
+            await ensurePessoaRoleVendedora(fornecedorId);
           } else {
             const { error } = await supabase
               .from('fornecedores')
@@ -274,10 +393,30 @@ export function SalespersonPanel() {
                 telefone: ent?.telefone || null,
               }]);
             if (error) throw error;
+
+            if (entidadeId) {
+              await ensurePessoaRecord({
+                id: entidadeId,
+                nome: newSalesperson.name || ent?.nome_razao_social || '',
+                tipo_pessoa: 'pessoa_fisica',
+                documento: ent?.cpf_cnpj || normDoc,
+                email: ent?.email,
+                telefone: ent?.telefone,
+                markFornecedor: true,
+              });
+
+              await ensurePessoaRoleVendedora(entidadeId);
+            }
           }
         } else {
           // Marcar fornecedor existente como vendedora
           console.log('Atualizando fornecedor existente:', selectedEmployee);
+
+          const { data: fornecedorAtual } = await supabase
+            .from('fornecedores')
+            .select('id, nome, cpf, cnpj_cpf, email, telefone, tipo_pessoa')
+            .eq('id', selectedEmployee)
+            .maybeSingle();
 
           const { error } = await supabase
             .from('fornecedores')
@@ -291,6 +430,18 @@ export function SalespersonPanel() {
             })
             .eq('id', selectedEmployee);
           if (error) throw error;
+
+          await ensurePessoaRecord({
+            id: selectedEmployee,
+            nome: newSalesperson.name || fornecedorAtual?.nome || '',
+            tipo_pessoa: fornecedorAtual?.tipo_pessoa ?? 'pessoa_fisica',
+            documento: fornecedorAtual?.cpf || fornecedorAtual?.cnpj_cpf,
+            email: fornecedorAtual?.email,
+            telefone: fornecedorAtual?.telefone,
+            markFornecedor: true,
+          });
+
+          await ensurePessoaRoleVendedora(selectedEmployee);
         }
       } else {
         // Criar nova pessoa e definir como vendedora
@@ -311,6 +462,15 @@ export function SalespersonPanel() {
 
         console.log('Nova entidade criada:', novaEntidade);
 
+        await ensurePessoaRecord({
+          id: novaEntidade.id,
+          nome: newSalesperson.name,
+          tipo_pessoa: 'pessoa_fisica',
+          documento: null,
+          email: novaEntidade.email,
+          telefone: novaEntidade.telefone,
+        });
+
         // 2. Adicionar papel de vendedora
         const papelVendedora = await fetchSalespersonRole();
         const { error: roleError } = await supabase
@@ -325,6 +485,8 @@ export function SalespersonPanel() {
         if (roleError) {
           console.error('Erro ao adicionar papel de vendedora:', roleError);
         }
+
+        await ensurePessoaRoleVendedora(novaEntidade.id);
 
         // 3. Também criar na tabela fornecedores para compatibilidade
         const { error: fornecedorError } = await supabase
@@ -402,6 +564,18 @@ export function SalespersonPanel() {
         .eq('id', editingSalesperson.id);
       if (error) throw error;
 
+      const { error: pessoaUpdateError } = await supabase
+        .from('pessoas')
+        .update({
+          nome: newSalesperson.name,
+          salario: newSalesperson.baseSalary ?? null,
+        })
+        .eq('id', editingSalesperson.id);
+
+      if (pessoaUpdateError) {
+        console.warn('Não foi possível atualizar o registro em pessoas ao salvar edição:', pessoaUpdateError);
+      }
+
       setEditedNames((prev) => ({ ...prev, [editingSalesperson.id]: newSalesperson.name }));
 
       setEditingSalesperson(null);
@@ -422,6 +596,12 @@ export function SalespersonPanel() {
         .update({ eh_vendedora: false })
         .eq('id', id);
       if (error) throw error;
+
+      try {
+        await deactivatePessoaRoleVendedora(id);
+      } catch (roleError) {
+        console.warn('Não foi possível atualizar papéis da pessoa ao remover vendedora:', roleError);
+      }
 
       setRemovedIds((prev) => [...prev, id]);
       await refreshData();
