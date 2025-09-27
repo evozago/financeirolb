@@ -29,6 +29,7 @@ import { PeopleTable } from "@/components/features/people/PeopleTable";
 import { PersonBulkEditModal, PersonBulkEditData } from "@/components/features/people/PersonBulkEditModal";
 import { useUndoActions } from "@/hooks/useUndoActions";
 import { fetchSalespersonRole } from "@/utils/salespersonRole";
+import { normalizeRoleName } from "@/utils/normalizeRoleName";
 
 interface PessoaData {
   id: string;
@@ -42,6 +43,7 @@ interface PessoaData {
   created_at: string;
   updated_at: string;
   papeis?: string[];
+  papeis_slug?: string[];
 }
 
 interface Cargo {
@@ -143,7 +145,34 @@ export default function Pessoas() {
       if (setoresRes.error) throw setoresRes.error;
       if (filiaisRes.error) throw filiaisRes.error;
 
-      setPessoas(pessoasRes.data || []);
+      const rawPessoas = (pessoasRes.data ?? []) as PessoaData[];
+      const pessoasData = rawPessoas.map((pessoa) => {
+        const normalizedRoles: { nome: string; slug: string }[] = [];
+        const seen = new Set<string>();
+
+        (Array.isArray(pessoa.papeis) ? pessoa.papeis : []).forEach((papel) => {
+          if (!papel) return;
+          const slug = normalizeRoleName(papel);
+
+          if (slug && seen.has(slug)) {
+            return;
+          }
+
+          if (slug) {
+            seen.add(slug);
+          }
+
+          normalizedRoles.push({ nome: papel, slug });
+        });
+
+        return {
+          ...pessoa,
+          papeis: normalizedRoles.map((role) => role.nome),
+          papeis_slug: normalizedRoles.map((role) => role.slug),
+        };
+      });
+
+      setPessoas(pessoasData);
       setCargos(cargosRes.data || []);
       setSetores(setoresRes.data || []);
       setFiliais(filiaisRes.data || []);
@@ -631,7 +660,10 @@ export default function Pessoas() {
 
   const filteredPessoas = pessoas.filter(pessoa => {
     const matchesTipo = filterTipo === "all" || pessoa.tipo_pessoa === filterTipo;
-    const matchesCategoria = filterCategoria === "all" || (pessoa.papeis && pessoa.papeis.includes(filterCategoria));
+    const matchesCategoria =
+      filterCategoria === "all" ||
+      pessoa.papeis_slug?.includes(filterCategoria) ||
+      (filterCategoria === "vendedor" && pessoa.papeis_slug?.includes("vendedora"));
     // Search is already handled by RPC function
     return matchesTipo && matchesCategoria;
   });

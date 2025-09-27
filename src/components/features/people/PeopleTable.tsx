@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { normalizeRoleName } from '@/utils/normalizeRoleName';
 
 interface PessoaData {
   id: string;
@@ -34,6 +35,7 @@ interface PessoaData {
   created_at: string;
   updated_at: string;
   papeis?: string[];
+  papeis_slug?: string[];
 }
 
 interface PeopleTableProps {
@@ -74,20 +76,25 @@ export function PeopleTable({
     return cpfCnpj;
   };
 
-  const getCategoriasBadges = (papeis: string[] | undefined) => {
+  const getCategoriasBadges = (papeis: string[] | undefined, papeisSlug?: string[]) => {
     const colors: Record<string, string> = {
       funcionario: "bg-blue-100 text-blue-800",
-      vendedor: "bg-green-100 text-green-800", 
+      vendedor: "bg-green-100 text-green-800",
       vendedora: "bg-green-100 text-green-800",
       fornecedor: "bg-purple-100 text-purple-800",
       cliente: "bg-orange-100 text-orange-800"
     };
 
-    return papeis?.filter(papel => papel).map((papel, index) => (
-      <Badge key={`${papel}-${index}`} className={colors[papel] || "bg-gray-100 text-gray-800"}>
-        {papel}
-      </Badge>
-    ));
+    return papeis?.filter(papel => papel).map((papel, index) => {
+      const slug = papeisSlug?.[index] || normalizeRoleName(papel);
+      const color = colors[slug] || "bg-gray-100 text-gray-800";
+
+      return (
+        <Badge key={`${papel}-${index}`} className={color}>
+          {papel}
+        </Badge>
+      );
+    });
   };
 
   const ActionDropdown = ({ item }: { item: PessoaData }) => (
@@ -187,7 +194,7 @@ export function PeopleTable({
       header: 'Papéis',
       cell: (item) => (
         <div className="flex flex-wrap gap-1">
-          {getCategoriasBadges(item.papeis)}
+          {getCategoriasBadges(item.papeis, item.papeis_slug)}
         </div>
       ),
     },
