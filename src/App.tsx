@@ -12,6 +12,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { StatePersistenceProvider } from "@/contexts/StatePersistenceContext";
 import { UndoRedoManager } from "@/components/ui/undo-redo-manager";
 import { useIsMobile } from "@/hooks/use-mobile";
+
 import EntidadesCorporativas from "./pages/EntidadesCorporativas";
 import DashboardPayables from "./pages/DashboardPayables";
 import AccountsPayable from "./pages/AccountsPayable";
@@ -36,6 +37,9 @@ import EditOrder from "./pages/EditOrder";
 import ManageFiliais from "./pages/ManageFiliais";
 import RecurringBills from "./pages/RecurringBills";
 import NotFound from "./pages/NotFound";
+
+// IMPORTA a nova página
+import AdminRoles from "./pages/AdminRoles";
 
 // Dashboard variants
 const DashboardSales = React.lazy(() => import("./pages/DashboardSales"));
@@ -65,51 +69,53 @@ function AppContent() {
   return (
     <BrowserRouter>
       <StatePersistenceProvider>
-        <SidebarProvider 
-          defaultOpen={!isMobile} 
-          open={undefined}
-        >
+        <SidebarProvider defaultOpen={!isMobile} open={undefined}>
           <div className="min-h-screen flex w-full bg-background">
             <AppSidebar />
             <SidebarInset className="flex-1">
               <AppHeader />
               <main className="flex-1 p-4 md:p-6">
-                <React.Suspense fallback={
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-                  </div>
-                }>
+                <React.Suspense
+                  fallback={
+                    <div className="min-h-screen flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+                    </div>
+                  }
+                >
                   <Routes>
-            <Route path="/" element={<DashboardPayables />} />
-            <Route path="/dashboard/financial" element={<DashboardFinancial />} />
-            
-            <Route path="/dashboard/sales" element={<DashboardSales />} />
-            <Route path="/salesperson-performance" element={<SalespersonPerformance />} />
-            <Route path="/sales-management" element={<SalesManagement />} />
-            <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
-            <Route path="/accounts-payable" element={<AccountsPayable />} />
-            <Route path="/accounts-payable/new" element={<NewBill />} />
-            <Route path="/bills/:id" element={<BillDetail />} />
-            <Route path="/bills/:id/edit" element={<EditBill />} />
-            <Route path="/suppliers" element={<Suppliers />} />
-            <Route path="/suppliers/new" element={<NewSupplier />} />
-            <Route path="/suppliers/:id" element={<SupplierDetail />} />
-            <Route path="/suppliers/:id/edit" element={<EditSupplier />} />
-            <Route path="/bank-accounts" element={<BankAccounts />} />
-            <Route path="/bank-accounts/new" element={<NewBankAccount />} />
-            <Route path="/bank-accounts/:id" element={<BankAccountDetail />} />
-            <Route path="/bank-accounts/:id/edit" element={<EditBankAccount />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/orders/new" element={<NewOrder />} />
-            <Route path="/orders/:id" element={<OrderDetail />} />
-            <Route path="/orders/:id/edit" element={<EditOrder />} />
-            <Route path="/recurring-bills" element={<RecurringBills />} />
-                <Route path="/filiais" element={<ManageFiliais />} />
-                <Route path="/pessoas" element={<Pessoas />} />
-            <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
-            <Route path="/settings" element={<Cadastros />} />
-                <Route path="/reports" element={<Reports />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="/" element={<DashboardPayables />} />
+                    <Route path="/dashboard/financial" element={<DashboardFinancial />} />
+                    <Route path="/dashboard/sales" element={<DashboardSales />} />
+                    <Route path="/salesperson-performance" element={<SalespersonPerformance />} />
+                    <Route path="/sales-management" element={<SalesManagement />} />
+                    <Route path="/dashboard/purchases" element={<DashboardPurchases />} />
+                    <Route path="/accounts-payable" element={<AccountsPayable />} />
+                    <Route path="/accounts-payable/new" element={<NewBill />} />
+                    <Route path="/bills/:id" element={<BillDetail />} />
+                    <Route path="/bills/:id/edit" element={<EditBill />} />
+                    <Route path="/suppliers" element={<Suppliers />} />
+                    <Route path="/suppliers/new" element={<NewSupplier />} />
+                    <Route path="/suppliers/:id" element={<SupplierDetail />} />
+                    <Route path="/suppliers/:id/edit" element={<EditSupplier />} />
+                    <Route path="/bank-accounts" element={<BankAccounts />} />
+                    <Route path="/bank-accounts/new" element={<NewBankAccount />} />
+                    <Route path="/bank-accounts/:id" element={<BankAccountDetail />} />
+                    <Route path="/bank-accounts/:id/edit" element={<EditBankAccount />} />
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/orders/new" element={<NewOrder />} />
+                    <Route path="/orders/:id" element={<OrderDetail />} />
+                    <Route path="/orders/:id/edit" element={<EditOrder />} />
+                    <Route path="/recurring-bills" element={<RecurringBills />} />
+                    <Route path="/filiais" element={<ManageFiliais />} />
+                    <Route path="/pessoas" element={<Pessoas />} />
+                    <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
+                    <Route path="/settings" element={<Cadastros />} />
+                    <Route path="/reports" element={<Reports />} />
+
+                    {/* 🚀 nova rota de papéis */}
+                    <Route path="/admin/roles" element={<AdminRoles />} />
+
+                    {/* catch-all */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </React.Suspense>
