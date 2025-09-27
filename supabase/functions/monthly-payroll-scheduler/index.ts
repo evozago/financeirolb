@@ -129,13 +129,13 @@ serve(async (req) => {
       }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in monthly payroll scheduler:', error)
     
     return new Response(
       JSON.stringify({
         error: 'Internal server error',
-        message: error.message
+        message: error?.message || String(error)
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
