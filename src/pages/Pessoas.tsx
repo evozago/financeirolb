@@ -324,24 +324,37 @@ export default function Pessoas() {
           processedRoleIds.add(papelId);
 
           try {
-            console.log(`Inserindo papel: ${papelNome} (${papelId}) para entidade ${entidadeId}`);
-
-            const { data: insertData, error: insertError } = await supabase
+            // Upsert seguro: reativar se já existir relação (evita conflito de unique)
+            const { data: existing } = await supabase
               .from('entidade_papeis')
-              .insert({
-                entidade_id: entidadeId,
-                papel_id: papelId,
-                data_inicio: new Date().toISOString().split('T')[0],
-                ativo: true,
-              })
-              .select();
+              .select('id, ativo')
+              .eq('entidade_id', entidadeId)
+              .eq('papel_id', papelId)
+              .maybeSingle();
 
-            if (insertError) {
-              console.error(`Erro ao inserir papel ${categoriaNome}:`, insertError);
-              throw insertError;
+            if (existing) {
+              const { error: updError } = await supabase
+                .from('entidade_papeis')
+                .update({
+                  ativo: true,
+                  data_inicio: new Date().toISOString().split('T')[0],
+                  data_fim: null,
+                })
+                .eq('id', existing.id);
+              if (updError) throw updError;
+              console.log(`Papel ${categoriaNome} reativado para a entidade ${entidadeId}`);
+            } else {
+              const { error: insError } = await supabase
+                .from('entidade_papeis')
+                .insert({
+                  entidade_id: entidadeId,
+                  papel_id: papelId,
+                  data_inicio: new Date().toISOString().split('T')[0],
+                  ativo: true,
+                });
+              if (insError) throw insError;
+              console.log(`Papel ${categoriaNome} inserido para a entidade ${entidadeId}`);
             }
-
-            console.log(`Papel ${categoriaNome} inserido com sucesso:`, insertData);
           } catch (papelError) {
             console.error(`Falha ao adicionar papel ${categoriaNome}:`, papelError);
             // Não pare o processo por um erro de papel
@@ -571,16 +584,27 @@ export default function Pessoas() {
           if (papelIdsToAdd.length > 0) {
             for (const papelId of papelIdsToAdd) {
               try {
-                // Verificar se já existe uma relação ativa
+                // Reativar se já existir relação (ativa ou inativa); caso contrário, inserir
                 const { data: existingRole } = await supabase
                   .from('entidade_papeis')
-                  .select('id')
+                  .select('id, ativo')
                   .eq('entidade_id', pessoaId)
                   .eq('papel_id', papelId)
-                  .eq('ativo', true)
                   .maybeSingle();
 
-                if (!existingRole) {
+                if (existingRole) {
+                  const { error: updError } = await supabase
+                    .from('entidade_papeis')
+                    .update({
+                      ativo: true,
+                      data_inicio: new Date().toISOString().split('T')[0],
+                      data_fim: null,
+                    })
+                    .eq('id', existingRole.id);
+                  if (updError) {
+                    console.warn(`Erro ao reativar papel ${papelId} para ${pessoaId}:`, updError);
+                  }
+                } else {
                   const { error: insertError } = await supabase
                     .from('entidade_papeis')
                     .insert({
@@ -589,7 +613,6 @@ export default function Pessoas() {
                       data_inicio: new Date().toISOString().split('T')[0],
                       ativo: true,
                     });
-
                   if (insertError) {
                     console.warn(`Erro ao adicionar papel ${papelId} para ${pessoaId}:`, insertError);
                   }

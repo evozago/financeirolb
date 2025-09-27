@@ -3,7 +3,7 @@
 // Route: POST /export-db-csvs?token=LB-temp-Export-123!&include=a,b&exclude=x,y
 // Body (optional JSON): { "include": ["table1"], "exclude": ["table2"] }
 
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.56.0";
 
 // Hardcoded config (no secrets page needed)
 const SUPABASE_URL = "https://mnxemxgcucfuoedqkygw.supabase.co";

@@ -8,13 +8,14 @@ interface SalespersonRole {
 export const fetchSalespersonRole = async (): Promise<{ id: string }> => {
   const { data, error } = await supabase
     .from('papeis')
-    .select<SalespersonRole>('id, nome')
+    .select('id, nome')
     .ilike('nome', 'vendedor%');
 
   if (error) throw error;
 
-  const role = data?.find((papel) => papel.nome.toLowerCase() === 'vendedora')
-    ?? data?.find((papel) => papel.nome.toLowerCase() === 'vendedor');
+  const roles = (data ?? []) as SalespersonRole[];
+  const role = roles.find((papel) => papel.nome.toLowerCase() === 'vendedora')
+    ?? roles.find((papel) => papel.nome.toLowerCase() === 'vendedor');
 
   if (!role) {
     throw new Error('Papel de vendedora/vendedor não encontrado');
