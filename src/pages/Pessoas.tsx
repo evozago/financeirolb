@@ -211,7 +211,7 @@ export default function Pessoas() {
         pessoaId = data.id;
       }
 
-      // Garantir que a pessoa existe em entidades_corporativas
+      // Garantir que a pessoa existe em entidades_corporativas (sem sincronizar papéis ainda)
       await supabase.rpc('ensure_pessoa_in_entidades_corporativas', {
         p_pessoa_id: pessoaId
       });
