@@ -125,60 +125,111 @@ export default function Pessoas() {
     try {
       const cpfCnpjValue = formData.tipo_pessoa === 'pessoa_fisica' ? formData.cpf : formData.cnpj;
       const pessoaData = {
-        nome: formData.nome, email: formData.email || null, telefone: formData.telefone || null,
-        endereco: formData.endereco || null, tipo_pessoa: formData.tipo_pessoa,
+        nome: formData.nome, 
+        email: formData.email || null, 
+        telefone: formData.telefone || null,
+        endereco: formData.endereco || null, 
+        tipo_pessoa: formData.tipo_pessoa,
         cpf: formData.tipo_pessoa === 'pessoa_fisica' ? cpfCnpjValue : null,
         cnpj: formData.tipo_pessoa === 'pessoa_juridica' ? cpfCnpjValue : null,
         razao_social: formData.tipo_pessoa === 'pessoa_juridica' ? formData.nome : null,
         nome_fantasia: formData.tipo_pessoa === 'pessoa_juridica' ? formData.nome : null,
-        cargo_id: formData.cargo_id || null, setor_id: formData.setor_id || null, filial_id: formData.filial_id || null,
+        cargo_id: formData.cargo_id || null, 
+        setor_id: formData.setor_id || null, 
+        filial_id: formData.filial_id || null,
         ativo: true,
       };
 
       let pessoaId: string;
       if (editingPessoa) {
         const { error } = await supabase.from('pessoas').update(pessoaData).eq('id', editingPessoa.id);
-        if (error) throw error; pessoaId = editingPessoa.id;
+        if (error) throw error; 
+        pessoaId = editingPessoa.id;
       } else {
         const { data, error } = await supabase.from('pessoas').insert([pessoaData]).select().single();
-        if (error) throw error; pessoaId = data.id;
+        if (error) throw error; 
+        pessoaId = data.id;
       }
 
-      // garantir existência da entidade com o mesmo id
-      await supabase.rpc('ensure_pessoa_in_entidades_corporativas', { p_pessoa_id: pessoaId });
+      // Garantir existência da entidade com o mesmo id
+      try {
+        await supabase.rpc('ensure_pessoa_in_entidades_corporativas', { p_pessoa_id: pessoaId });
+      } catch (e) {
+        console.warn('Erro ao garantir entidade corporativa:', e);
+      }
 
-      // === Gerenciar papéis (via RPC, sem 409) ===
-      const { data: entidade } = await supabase
-        .from('entidades_corporativas')
-        .select('id')
-        .eq('id', pessoaId)
-        .maybeSingle();
+      // === Gerenciar papéis usando as funções RPC corrigidas ===
+      const entidadeId = pessoaId; // Usar o mesmo ID da pessoa
 
-      const entidadeId = entidade?.id || pessoaId;
-
-      // papéis atuais ativos
-      const { data: current } = await supabase
+      // Buscar papéis atuais ativos (de ambas as tabelas para compatibilidade)
+      const { data: currentEntidade } = await supabase
         .from('entidade_papeis')
-        .select('papeis(nome), ativo')
+        .select('papeis(nome)')
         .eq('entidade_id', entidadeId)
         .eq('ativo', true);
 
-      const ativos = (current || []).map((r: any) => r.papeis?.nome).filter(Boolean);
-      const desejados = (formData.categorias || []).map(n => n.trim());
+      const { data: currentPessoa } = await supabase
+        .from('papeis_pessoa')
+        .select('papeis(nome)')
+        .eq('pessoa_id', entidadeId)
+        .eq('ativo', true);
+
+      // Combinar papéis de ambas as fontes
+      const ativosEntidade = (currentEntidade || []).map((r: any) => r.papeis?.nome).filter(Boolean);
+      const ativosPessoa = (currentPessoa || []).map((r: any) => r.papeis?.nome).filter(Boolean);
+      const ativos = [...new Set([...ativosEntidade, ...ativosPessoa])];
+      
+      const desejados = (formData.categorias || []).map(n => n.trim()).filter(Boolean);
 
       const toAdd = desejados.filter(n => !ativos.includes(n));
       const toRemove = ativos.filter(n => !desejados.includes(n));
 
-      for (const nome of toAdd) { try { await addRole(entidadeId, nome); } catch (e) { console.warn('role add fail', nome, e); } }
-      for (const nome of toRemove) { try { await removeRole(entidadeId, nome); } catch (e) { console.warn('role remove fail', nome, e); } }
+      // Adicionar novos papéis
+      for (const nome of toAdd) { 
+        try { 
+          await addRole(entidadeId, nome); 
+          console.log(`Papel '${nome}' adicionado com sucesso`);
+        } catch (e) { 
+          console.warn(`Falha ao adicionar papel '${nome}':`, e); 
+          toast({ 
+            title: 'Aviso', 
+            description: `Não foi possível adicionar o papel '${nome}'`, 
+            variant: 'destructive' 
+          });
+        } 
+      }
 
-      toast({ title: 'Sucesso', description: editingPessoa ? 'Pessoa atualizada com sucesso.' : 'Pessoa criada com sucesso.' });
-      setDialogOpen(false); setEditingPessoa(null); resetForm(); loadData();
+      // Remover papéis desnecessários
+      for (const nome of toRemove) { 
+        try { 
+          await removeRole(entidadeId, nome); 
+          console.log(`Papel '${nome}' removido com sucesso`);
+        } catch (e) { 
+          console.warn(`Falha ao remover papel '${nome}':`, e); 
+        } 
+      }
+
+      toast({ 
+        title: 'Sucesso', 
+        description: editingPessoa ? 'Pessoa atualizada com sucesso.' : 'Pessoa criada com sucesso.' 
+      });
+      
+      setDialogOpen(false); 
+      setEditingPessoa(null); 
+      resetForm(); 
+      loadData();
 
     } catch (error) {
       console.error('Error saving pessoa:', error);
-      toast({ title: 'Erro ao salvar', description: 'Não foi possível salvar a pessoa.', variant: 'destructive' });
-    } finally { setLoading(false); }
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast({ 
+        title: 'Erro ao salvar', 
+        description: `Não foi possível salvar a pessoa: ${errorMessage}`, 
+        variant: 'destructive' 
+      });
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const resetForm = () => {
@@ -254,20 +305,46 @@ export default function Pessoas() {
         if (error) throw error;
       }
 
-      // Gerenciar papéis em massa (opcional: manter via RPC também)
+      // Gerenciar papéis em massa usando as funções RPC corrigidas
       if (updates.papeis) {
-        const all = [...updates.papeis.add, ...updates.papeis.remove];
+        const all = [...(updates.papeis.add || []), ...(updates.papeis.remove || [])];
         if (all.length) {
+          // Verificar se os papéis existem
           const { data: papeisData, error: papeisError } = await supabase
-            .from('papeis').select('id, nome').in('nome', all);
+            .from('papeis')
+            .select('id, nome')
+            .in('nome', all)
+            .eq('ativo', true);
+          
           if (papeisError) throw papeisError;
-
+          
+          const papeisExistentes = papeisData?.map(p => p.nome) || [];
+          
           for (const pessoaId of pessoaIds) {
+            // Adicionar papéis
             for (const nome of (updates.papeis.add || [])) {
-              try { await addRole(pessoaId, nome); } catch {}
+              if (papeisExistentes.includes(nome)) {
+                try { 
+                  await addRole(pessoaId, nome); 
+                  console.log(`Papel '${nome}' adicionado para pessoa ${pessoaId}`);
+                } catch (e) { 
+                  console.warn(`Falha ao adicionar papel '${nome}' para pessoa ${pessoaId}:`, e); 
+                }
+              } else {
+                console.warn(`Papel '${nome}' não encontrado ou inativo`);
+              }
             }
+            
+            // Remover papéis
             for (const nome of (updates.papeis.remove || [])) {
-              try { await removeRole(pessoaId, nome); } catch {}
+              if (papeisExistentes.includes(nome)) {
+                try { 
+                  await removeRole(pessoaId, nome); 
+                  console.log(`Papel '${nome}' removido para pessoa ${pessoaId}`);
+                } catch (e) { 
+                  console.warn(`Falha ao remover papel '${nome}' para pessoa ${pessoaId}:`, e); 
+                }
+              }
             }
           }
         }
