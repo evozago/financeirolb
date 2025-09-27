@@ -42,6 +42,25 @@ interface SalesData {
   };
 }
 
+const fetchSalespersonRole = async (): Promise<{ id: string }> => {
+  const { data: roles, error } = await supabase
+    .from('papeis')
+    .select<{ id: string; nome: string }>('id, nome')
+    .in('nome', ['vendedora', 'vendedor']);
+
+  if (error) throw error;
+
+  const preferredRole = roles?.find((item) => item.nome === 'vendedora');
+  const fallbackRole = roles?.find((item) => item.nome === 'vendedor');
+  const selectedRole = preferredRole ?? fallbackRole;
+
+  if (!selectedRole) {
+    throw new Error('Papel de vendedora não encontrado');
+  }
+
+  return { id: selectedRole.id };
+};
+
 export function SalespersonPanel() {
   const {
     loading,
