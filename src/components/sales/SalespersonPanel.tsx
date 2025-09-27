@@ -12,6 +12,7 @@ import { Plus, Download, Upload, Save, Target, Edit, Trash2 } from "lucide-react
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchSalespersonRole } from "@/utils/salespersonRole";
 import { useSalesData } from "@/hooks/useSalesData";
 
 interface Salesperson {
@@ -42,22 +43,22 @@ interface SalesData {
 }
 
 const fetchSalespersonRole = async (): Promise<{ id: string }> => {
-  const { data, error } = await supabase
+  const { data: roles, error } = await supabase
     .from('papeis')
-    .select<{ id: string }>('id')
-    .ilike('nome', 'vendedor%')
-    .order('nome', { ascending: true })
-    .limit(1);
+    .select<{ id: string; nome: string }>('id, nome')
+    .in('nome', ['vendedora', 'vendedor']);
 
   if (error) throw error;
 
-  const role = data?.[0];
+  const preferredRole = roles?.find((item) => item.nome === 'vendedora');
+  const fallbackRole = roles?.find((item) => item.nome === 'vendedor');
+  const selectedRole = preferredRole ?? fallbackRole;
 
-  if (!role) {
+  if (!selectedRole) {
     throw new Error('Papel de vendedora não encontrado');
   }
 
-  return role;
+  return { id: selectedRole.id };
 };
 
 export function SalespersonPanel() {
@@ -65,8 +66,8 @@ export function SalespersonPanel() {
     loading,
     currentYear,
     setCurrentYear,
-    salespersonData, 
-    updateSalespersonGoal, 
+    salespersonData,
+    updateSalespersonGoal,
     updateSalespersonSales,
     saveAllData,
     hasEntity,
@@ -78,11 +79,11 @@ export function SalespersonPanel() {
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
   const [existingEmployees, setExistingEmployees] = useState<ExistingEmployee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
-  
+
   // Local overrides to reflect edits/deletes immediately
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [editedNames, setEditedNames] = useState<Record<string, string>>({});
-  
+
   // Local salespeople data (legacy - not used for rendering, kept for form state)
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
 
@@ -184,13 +185,13 @@ export function SalespersonPanel() {
 
     try {
       console.log('Adicionando vendedora:', newSalesperson.name);
-      
+
       if (selectedEmployee) {
         if (selectedEmployee.startsWith('entidade:')) {
           // Criar/atualizar registro a partir de uma entidade corporativa
           const entidadeId = selectedEmployee.split(':')[1];
           console.log('Buscando entidade:', entidadeId);
-          
+
           const { data: ent, error: entErr } = await supabase
             .from('entidades_corporativas')
             .select('id, nome_razao_social, cpf_cnpj, cpf_cnpj_normalizado, email, telefone, tipo_pessoa')
@@ -258,7 +259,7 @@ export function SalespersonPanel() {
           } else {
             const { error } = await supabase
               .from('fornecedores')
-              .insert([{ 
+              .insert([{
                 nome: newSalesperson.name || ent?.nome_razao_social || '',
                 tipo_pessoa: ent?.tipo_pessoa || 'pessoa_fisica',
                 ativo: true,
@@ -277,7 +278,7 @@ export function SalespersonPanel() {
         } else {
           // Marcar fornecedor existente como vendedora
           console.log('Atualizando fornecedor existente:', selectedEmployee);
-          
+
           const { error } = await supabase
             .from('fornecedores')
             .update({
@@ -294,7 +295,7 @@ export function SalespersonPanel() {
       } else {
         // Criar nova pessoa e definir como vendedora
         console.log('Criando nova pessoa como vendedora');
-        
+
         // 1. Criar na tabela entidades_corporativas
         const { data: novaEntidade, error: entidadeError } = await supabase
           .from('entidades_corporativas')
@@ -305,11 +306,11 @@ export function SalespersonPanel() {
           })
           .select()
           .single();
-          
+
         if (entidadeError) throw entidadeError;
-        
+
         console.log('Nova entidade criada:', novaEntidade);
-        
+
         // 2. Adicionar papel de vendedora
         const papelVendedora = await fetchSalespersonRole();
         const { error: roleError } = await supabase
@@ -328,7 +329,7 @@ export function SalespersonPanel() {
         // 3. Também criar na tabela fornecedores para compatibilidade
         const { error: fornecedorError } = await supabase
           .from('fornecedores')
-          .insert([{ 
+          .insert([{
             nome: newSalesperson.name,
             tipo_pessoa: 'pessoa_fisica',
             ativo: true,
@@ -547,7 +548,7 @@ export function SalespersonPanel() {
                 const monthlyGoal = person.monthly_goals[selectedMonth] || '';
                 const progress = typeof monthlyGoal === 'number' && monthlyGoal > 0 ? 50 : 0; // Placeholder
                 const displayName = editedNames[person.salesperson_id] ?? person.salesperson_name;
-                
+
                 return (
                   <Card key={person.salesperson_id}>
                     <CardHeader>
@@ -561,8 +562,8 @@ export function SalespersonPanel() {
                           </CardDescription>
                         </div>
                         <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => editSalesperson({
                               id: person.salesperson_id,
@@ -575,8 +576,8 @@ export function SalespersonPanel() {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => {
                               if (confirm(`Tem certeza que deseja remover ${displayName}?`)) {
@@ -601,7 +602,7 @@ export function SalespersonPanel() {
                             placeholder="R$ 0,00"
                           />
                         </div>
-                        
+
                         <div>
                           <Label htmlFor={`sales-${person.salesperson_id}`} className="text-sm">
                             Vendas Realizadas - {months.find(m => m.value === selectedMonth)?.label}
@@ -613,7 +614,7 @@ export function SalespersonPanel() {
                           />
                         </div>
                       </div>
-                      
+
                       <div className="flex justify-between items-center pt-2">
                         <Badge variant={progress >= 100 ? "default" : "secondary"}>
                           <Target className="w-3 h-3 mr-1" />
@@ -680,7 +681,7 @@ export function SalespersonPanel() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="name">Nome</Label>
                   <Input
@@ -713,9 +714,9 @@ export function SalespersonPanel() {
                     <Label htmlFor="commissionRate">Comissão Base (%)</Label>
                     <NumberInput
                       value={newSalesperson.commissionRate ? newSalesperson.commissionRate * 100 : undefined}
-                      onValueChange={(value) => setNewSalesperson(prev => ({ 
-                        ...prev, 
-                        commissionRate: value ? value / 100 : undefined 
+                      onValueChange={(value) => setNewSalesperson(prev => ({
+                        ...prev,
+                        commissionRate: value ? value / 100 : undefined
                       }))}
                       decimals={2}
                       min={0}
@@ -727,9 +728,9 @@ export function SalespersonPanel() {
                     <Label htmlFor="supermetaRate">Super Meta (%)</Label>
                     <NumberInput
                       value={newSalesperson.supermetaRate ? newSalesperson.supermetaRate * 100 : undefined}
-                      onValueChange={(value) => setNewSalesperson(prev => ({ 
-                        ...prev, 
-                        supermetaRate: value ? value / 100 : undefined 
+                      onValueChange={(value) => setNewSalesperson(prev => ({
+                        ...prev,
+                        supermetaRate: value ? value / 100 : undefined
                       }))}
                       decimals={2}
                       min={0}
