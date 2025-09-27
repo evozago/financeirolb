@@ -42,22 +42,22 @@ interface SalesData {
 }
 
 const fetchSalespersonRole = async (): Promise<{ id: string }> => {
-  const { data, error } = await supabase
+  const { data: roles, error } = await supabase
     .from('papeis')
-    .select<{ id: string }>('id')
-    .ilike('nome', 'vendedor%')
-    .order('nome', { ascending: true })
-    .limit(1);
+    .select<{ id: string; nome: string }>('id, nome')
+    .in('nome', ['vendedora', 'vendedor']);
 
   if (error) throw error;
 
-  const role = data?.[0];
+  const preferredRole = roles?.find((item) => item.nome === 'vendedora');
+  const fallbackRole = roles?.find((item) => item.nome === 'vendedor');
+  const selectedRole = preferredRole ?? fallbackRole;
 
-  if (!role) {
+  if (!selectedRole) {
     throw new Error('Papel de vendedora não encontrado');
   }
 
-  return role;
+  return { id: selectedRole.id };
 };
 
 export function SalespersonPanel() {
