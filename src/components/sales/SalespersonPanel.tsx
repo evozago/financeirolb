@@ -305,16 +305,28 @@ export function SalespersonPanel() {
 
           console.log('Adicionando papel de vendedora:', papelVendedora.id);
 
-          // Verificar se já tem o papel
+          // Verificar se já existe relação (ativa ou inativa)
           const { data: existingRole } = await supabase
             .from('entidade_papeis')
-            .select('id')
+            .select('id, ativo')
             .eq('entidade_id', entidadeId)
             .eq('papel_id', papelVendedora.id)
-            .eq('ativo', true)
             .maybeSingle();
 
-          if (!existingRole) {
+          if (existingRole) {
+            // Reativar se necessário
+            const { error: updRoleErr } = await supabase
+              .from('entidade_papeis')
+              .update({
+                ativo: true,
+                data_inicio: new Date().toISOString().split('T')[0],
+                data_fim: null,
+              })
+              .eq('id', existingRole.id);
+            if (updRoleErr) {
+              console.error('Erro ao reativar papel de vendedora:', updRoleErr);
+            }
+          } else {
             const { error: roleError } = await supabase
               .from('entidade_papeis')
               .insert({
@@ -473,17 +485,37 @@ export function SalespersonPanel() {
 
         // 2. Adicionar papel de vendedora
         const papelVendedora = await fetchSalespersonRole();
-        const { error: roleError } = await supabase
+        // Reativar relação existente ou inserir
+        const { data: existingRole2 } = await supabase
           .from('entidade_papeis')
-          .insert({
-            entidade_id: novaEntidade.id,
-            papel_id: papelVendedora.id,
-            data_inicio: new Date().toISOString().split('T')[0],
-            ativo: true,
-          });
-
-        if (roleError) {
-          console.error('Erro ao adicionar papel de vendedora:', roleError);
+          .select('id, ativo')
+          .eq('entidade_id', novaEntidade.id)
+          .eq('papel_id', papelVendedora.id)
+          .maybeSingle();
+        if (existingRole2) {
+          const { error: updErr2 } = await supabase
+            .from('entidade_papeis')
+            .update({
+              ativo: true,
+              data_inicio: new Date().toISOString().split('T')[0],
+              data_fim: null,
+            })
+            .eq('id', existingRole2.id);
+          if (updErr2) {
+            console.error('Erro ao reativar papel de vendedora:', updErr2);
+          }
+        } else {
+          const { error: roleError } = await supabase
+            .from('entidade_papeis')
+            .insert({
+              entidade_id: novaEntidade.id,
+              papel_id: papelVendedora.id,
+              data_inicio: new Date().toISOString().split('T')[0],
+              ativo: true,
+            });
+          if (roleError) {
+            console.error('Erro ao adicionar papel de vendedora:', roleError);
+          }
         }
 
         await ensurePessoaRoleVendedora(novaEntidade.id);
