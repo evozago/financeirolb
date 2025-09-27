@@ -12,6 +12,7 @@ import { Plus, Download, Upload, Save, Target, Edit, Trash2 } from "lucide-react
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchSalespersonRole } from "@/utils/salespersonRole";
 import { useSalesData } from "@/hooks/useSalesData";
 
 interface Salesperson {
@@ -40,25 +41,6 @@ interface SalesData {
     goal: number;
   };
 }
-
-const fetchSalespersonRole = async (): Promise<{ id: string }> => {
-  const { data, error } = await supabase
-    .from('papeis')
-    .select<{ id: string }>('id')
-    .ilike('nome', 'vendedor%')
-    .order('nome', { ascending: true })
-    .limit(1);
-
-  if (error) throw error;
-
-  const role = data?.[0];
-
-  if (!role) {
-    throw new Error('Papel de vendedora não encontrado');
-  }
-
-  return role;
-};
 
 export function SalespersonPanel() {
   const {

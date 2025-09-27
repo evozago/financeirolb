@@ -28,6 +28,7 @@ import { useEntidadesCorporativas } from "@/hooks/useEntidadesCorporativas";
 import { PeopleTable } from "@/components/features/people/PeopleTable";
 import { PersonBulkEditModal, PersonBulkEditData } from "@/components/features/people/PersonBulkEditModal";
 import { useUndoActions } from "@/hooks/useUndoActions";
+import { fetchSalespersonRole } from "@/utils/salespersonRole";
 
 interface PessoaData {
   id: string;
@@ -253,42 +254,68 @@ export default function Pessoas() {
       // 3. Adicionar novos papéis selecionados
       if (formData.categorias.length > 0) {
         console.log('Adicionando papéis:', formData.categorias);
-        
-        for (const categoriaNome of formData.categorias) {
-          // Buscar papel por nome (case-insensitive e flexível)
-          const papel = papeis.find(p => 
-            p.nome.toLowerCase().trim() === categoriaNome.toLowerCase().trim() ||
-            p.nome === categoriaNome ||
-            (categoriaNome === 'vendedora' && (p.nome === 'vendedora' || p.nome === 'vendedor')) ||
-            (categoriaNome === 'vendedor' && (p.nome === 'vendedora' || p.nome === 'vendedor'))
-          );
-          
-          if (papel) {
-            try {
-              console.log(`Inserindo papel: ${papel.nome} (${papel.id}) para entidade ${entidadeId}`);
-              
-              const { data: insertData, error: insertError } = await supabase
-                .from('entidade_papeis')
-                .insert({
-                  entidade_id: entidadeId,
-                  papel_id: papel.id,
-                  data_inicio: new Date().toISOString().split('T')[0],
-                  ativo: true,
-                })
-                .select();
 
-              if (insertError) {
-                console.error(`Erro ao inserir papel ${categoriaNome}:`, insertError);
-                throw insertError;
-              }
-              
-              console.log(`Papel ${categoriaNome} inserido com sucesso:`, insertData);
-            } catch (papelError) {
-              console.error(`Falha ao adicionar papel ${categoriaNome}:`, papelError);
-              // Não pare o processo por um erro de papel
+        const shouldAttachSalespersonRole = formData.categorias.some(
+          categoria => categoria === 'vendedora' || categoria === 'vendedor'
+        );
+        const salespersonRole = shouldAttachSalespersonRole ? await fetchSalespersonRole() : null;
+        const processedRoleIds = new Set<string>();
+
+        for (const categoriaNome of formData.categorias) {
+          const isSalespersonCategory = categoriaNome === 'vendedora' || categoriaNome === 'vendedor';
+          let papelId: string | undefined;
+          let papelNome = categoriaNome;
+
+          if (isSalespersonCategory) {
+            if (!salespersonRole) {
+              console.warn('Papel de vendedora/vendedor não encontrado para anexar.');
+              continue;
             }
+            papelId = salespersonRole.id;
+            papelNome = 'vendedora';
           } else {
+            const papel = papeis.find(p =>
+              p.nome.toLowerCase().trim() === categoriaNome.toLowerCase().trim() ||
+              p.nome === categoriaNome
+            );
+            papelId = papel?.id;
+            papelNome = papel?.nome ?? categoriaNome;
+          }
+
+          if (!papelId) {
             console.warn(`Papel não encontrado: ${categoriaNome}. Papéis disponíveis:`, papeis.map(p => p.nome));
+            continue;
+          }
+
+          if (processedRoleIds.has(papelId)) {
+            console.log(`Papel ${papelNome} já inserido para a entidade ${entidadeId}, ignorando duplicata.`);
+            continue;
+          }
+
+          processedRoleIds.add(papelId);
+
+          try {
+            console.log(`Inserindo papel: ${papelNome} (${papelId}) para entidade ${entidadeId}`);
+
+            const { data: insertData, error: insertError } = await supabase
+              .from('entidade_papeis')
+              .insert({
+                entidade_id: entidadeId,
+                papel_id: papelId,
+                data_inicio: new Date().toISOString().split('T')[0],
+                ativo: true,
+              })
+              .select();
+
+            if (insertError) {
+              console.error(`Erro ao inserir papel ${categoriaNome}:`, insertError);
+              throw insertError;
+            }
+
+            console.log(`Papel ${categoriaNome} inserido com sucesso:`, insertData);
+          } catch (papelError) {
+            console.error(`Falha ao adicionar papel ${categoriaNome}:`, papelError);
+            // Não pare o processo por um erro de papel
           }
         }
       }
