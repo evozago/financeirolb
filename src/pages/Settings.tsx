@@ -83,27 +83,27 @@ export default function Settings() {
         .from('marcas')
         .select(`
           *,
-          fornecedores!marcas_fornecedor_id_fkey(nome)
+          entidades_corporativas!marcas_fornecedor_id_fkey(nome)
         `)
         .order('nome');
       
       if (brandsError) throw brandsError;
       
-      // Load suppliers
+      // Load suppliers from entidades_corporativas with papel fornecedor  
       const { data: suppliersData, error: suppliersError } = await supabase
-        .from('pessoas')
-        .select('id, nome').contains('categorias', ['fornecedor'])
-        .eq('ativo', true)
-        .order('nome');
+        .rpc('search_entidades_fornecedores', { p_limit: 50 });
       
       if (suppliersError) throw suppliersError;
       
       setCategories(categoriesData || []);
       setBrands((brandsData || []).map(brand => ({
         ...brand,
-        fornecedor_nome: brand.fornecedores?.nome
+        fornecedor_nome: brand.entidades_corporativas?.nome
       })));
-      setSuppliers(suppliersData || []);
+      setSuppliers((suppliersData || []).map(supplier => ({
+        id: supplier.id,
+        nome: supplier.nome_razao_social
+      })));
       
     } catch (error) {
       console.error('Error loading data:', error);
