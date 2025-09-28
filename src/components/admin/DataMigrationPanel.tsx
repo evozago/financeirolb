@@ -39,7 +39,7 @@ export function DataMigrationPanel() {
       // Query direta para verificar duplicatas
       const { data, error } = await supabase
         .from('pessoas')
-        .select('nome')
+        .select('nome').contains('categorias', ['fornecedor'])
         .eq('ativo', true);
       
       if (error) throw error;
@@ -62,7 +62,7 @@ export function DataMigrationPanel() {
       for (const nome of duplicateNames) {
         const { data: pessoasData, error: pessoasError } = await supabase
           .from('pessoas')
-          .select('id')
+          .select('id').contains('categorias', ['fornecedor'])
           .eq('nome', nome)
           .eq('ativo', true);
           

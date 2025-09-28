@@ -85,8 +85,8 @@ export default function Cadastros() {
       
       // Load suppliers
       const { data: suppliersData, error: suppliersError } = await supabase
-        .from('fornecedores')
-        .select('id, nome')
+        .from('pessoas')
+        .select('id, nome').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
       
@@ -113,7 +113,7 @@ export default function Cadastros() {
 
   const handleCreateSupplier = async (data: Record<string, string>) => {
     const { data: newSupplier, error } = await supabase
-      .from('fornecedores')
+      .from('pessoas')
       .insert({ nome: data.name.trim() })
       .select('id, nome')
       .single();

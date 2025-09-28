@@ -128,7 +128,7 @@ export function useSalesData() {
         // Fallback: buscar pessoas diretamente
         const { data: pessoasFallback, error: fallbackErr } = await supabase
           .from('pessoas')
-          .select('id, nome, ativo, cpf_cnpj_normalizado, eh_vendedora')
+          .select('id, nome, ativo, cpf_cnpj_normalizado, eh_vendedora').contains('categorias', ['fornecedor'])
           .eq('ativo', true)
           .eq('eh_vendedora', true);
         

@@ -61,15 +61,15 @@ export default function NewBill() {
     try {
       // Buscar fornecedores (PJ)
       const { data: fornecedores, error: errorFornecedores } = await supabase
-        .from('fornecedores')
-        .select('id, nome, tipo_pessoa')
+        .from('pessoas')
+        .select('id, nome, tipo_pessoa').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
 
       // Buscar pessoas (PF)
       const { data: pessoas, error: errorPessoas } = await supabase
         .from('pessoas')
-        .select('id, nome, tipo_pessoa')
+        .select('id, nome, tipo_pessoa').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
 

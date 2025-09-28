@@ -41,7 +41,7 @@ export function useDashboardSalesData(year: number, month: number) {
       // Buscar vendedoras reais da tabela pessoas (onde estão realmente cadastradas)
       const { data: pessoas, error: pessoasError } = await supabase
         .from('pessoas')
-        .select('id, nome, ativo, papeis')
+        .select('id, nome, ativo, papeis').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .contains('papeis', ['vendedora'])
         .limit(10);

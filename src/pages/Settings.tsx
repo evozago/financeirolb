@@ -91,8 +91,8 @@ export default function Settings() {
       
       // Load suppliers
       const { data: suppliersData, error: suppliersError } = await supabase
-        .from('fornecedores')
-        .select('id, nome')
+        .from('pessoas')
+        .select('id, nome').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
       

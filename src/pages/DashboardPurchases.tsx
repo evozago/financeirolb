@@ -50,8 +50,8 @@ export default function DashboardPurchases() {
 
       // Load suppliers statistics
       const { data: suppliersData, error: suppliersError } = await supabase
-        .from('fornecedores')
-        .select('ativo');
+        .from('pessoas')
+        .select('ativo').contains('categorias', ['fornecedor']);
 
       if (suppliersError) throw suppliersError;
 

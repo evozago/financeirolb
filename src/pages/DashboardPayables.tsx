@@ -209,14 +209,14 @@ export default function DashboardPayables() {
             let entidadeId = null;
             const {
               data: existingFornecedor
-            } = await supabase.from('fornecedores').select('id').eq('cnpj_cpf', cnpj).single();
+            } = await supabase.from('pessoas').select('id').contains('categorias', ['fornecedor']).eq('cnpj_cpf', cnpj).single();
             if (existingFornecedor) {
               entidadeId = existingFornecedor.id;
             } else {
               const {
                 data: newFornecedor,
                 error: fornecedorError
-              } = await supabase.from('fornecedores').insert({
+              } = await supabase.from('pessoas').insert({
                 nome: supplierName,
                 cnpj_cpf: cnpj,
                 ativo: true

@@ -152,8 +152,8 @@ export default function EditOrder() {
 
   const loadSuppliers = async () => {
     const { data, error } = await supabase
-      .from('fornecedores')
-      .select('id, nome')
+      .from('pessoas')
+      .select('id, nome').contains('categorias', ['fornecedor'])
       .eq('ativo', true)
       .order('nome');
 

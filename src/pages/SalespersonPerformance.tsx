@@ -77,7 +77,7 @@ export default function SalespersonPerformance() {
     try {
       const { data, error } = await supabase
         .from('pessoas')
-        .select('id, nome')
+        .select('id, nome').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .contains('papeis', ['vendedora'])
         .order('nome');

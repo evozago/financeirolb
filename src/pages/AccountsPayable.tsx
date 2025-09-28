@@ -288,15 +288,15 @@ export default function AccountsPayable() {
     try {
       // Buscar fornecedores (PJ)
       const { data: fornecedores, error: errorFornecedores } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cnpj_cpf')
+        .from('pessoas')
+        .select('id, nome, cnpj_cpf').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
       
       // Buscar pessoas (PF)
       const { data: pessoas, error: errorPessoas } = await supabase
         .from('pessoas')
-        .select('id, nome, cpf')
+        .select('id, nome, cpf').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
       
@@ -866,7 +866,7 @@ export default function AccountsPayable() {
               
               // Também criar na tabela fornecedores para compatibilidade
               await supabase
-                .from('fornecedores')
+                .from('pessoas')
                 .insert({
                   nome: supplierName,
                   cnpj_cpf: cnpj,

@@ -163,13 +163,13 @@ export function SalespersonPanel() {
     supermetaRate: undefined as number | undefined
   });
 
-  // Load existing employees from fornecedores and entidades_corporativas
+  // Load from pessoas (unified table) and entidades_corporativas
   const loadExistingEmployees = async () => {
     try {
       // 1) Fornecedores (legado)
       const { data: fornecedores, error: fornError } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cpf, cnpj_cpf, email, telefone, salario, tipo_pessoa, cpf_cnpj_normalizado')
+        .from('pessoas')
+        .select('id, nome, cpf, cnpj_cpf, email, telefone, salario, tipo_pessoa, cpf_cnpj_normalizado').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
       if (fornError) throw fornError;
@@ -185,7 +185,7 @@ export function SalespersonPanel() {
       // 3) Pessoas consolidadas
       const { data: pessoas, error: pessoasError } = await supabase
         .from('pessoas')
-        .select('id, nome, cpf, email, telefone, ativo, salario, eh_funcionario, eh_fornecedor')
+        .select('id, nome, cpf, email, telefone, ativo, salario, eh_funcionario, eh_fornecedor').contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
       if (pessoasError) throw pessoasError;
@@ -349,8 +349,8 @@ export function SalespersonPanel() {
 
           if (normDoc) {
             const { data: fornExistente } = await supabase
-              .from('fornecedores')
-              .select('id')
+              .from('pessoas')
+              .select('id').contains('categorias', ['fornecedor'])
               .eq('cpf_cnpj_normalizado', normDoc)
               .maybeSingle();
             fornecedorId = fornExistente?.id ?? null;
@@ -358,7 +358,7 @@ export function SalespersonPanel() {
 
           if (fornecedorId) {
             const { error } = await supabase
-              .from('fornecedores')
+              .from('pessoas')
               .update({
                 eh_vendedora: true,
                 nome: newSalesperson.name,
@@ -371,8 +371,8 @@ export function SalespersonPanel() {
             if (error) throw error;
 
             const { data: fornecedorAtualizado } = await supabase
-              .from('fornecedores')
-              .select('id, nome, cpf, cnpj_cpf, email, telefone, tipo_pessoa')
+              .from('pessoas')
+              .select('id, nome, cpf, cnpj_cpf, email, telefone, tipo_pessoa').contains('categorias', ['fornecedor'])
               .eq('id', fornecedorId)
               .maybeSingle();
 
@@ -389,7 +389,7 @@ export function SalespersonPanel() {
             await ensurePessoaRoleVendedora(fornecedorId);
           } else {
             const { error } = await supabase
-              .from('fornecedores')
+              .from('pessoas')
               .insert([{
                 nome: newSalesperson.name || ent?.nome_razao_social || '',
                 tipo_pessoa: ent?.tipo_pessoa || 'pessoa_fisica',
@@ -425,13 +425,13 @@ export function SalespersonPanel() {
           console.log('Atualizando fornecedor existente:', selectedEmployee);
 
           const { data: fornecedorAtual } = await supabase
-            .from('fornecedores')
-            .select('id, nome, cpf, cnpj_cpf, email, telefone, tipo_pessoa')
+            .from('pessoas')
+            .select('id, nome, cpf, cnpj_cpf, email, telefone, tipo_pessoa').contains('categorias', ['fornecedor'])
             .eq('id', selectedEmployee)
             .maybeSingle();
 
           const { error } = await supabase
-            .from('fornecedores')
+            .from('pessoas')
             .update({
               eh_vendedora: true,
               nome: newSalesperson.name,
@@ -522,7 +522,7 @@ export function SalespersonPanel() {
 
         // 3. Também criar na tabela fornecedores para compatibilidade
         const { error: fornecedorError } = await supabase
-          .from('fornecedores')
+          .from('pessoas')
           .insert([{
             nome: newSalesperson.name,
             tipo_pessoa: 'pessoa_fisica',
@@ -556,10 +556,10 @@ export function SalespersonPanel() {
 
   const editSalesperson = async (person: Salesperson) => {
     try {
-      // Load current data from fornecedores
+      // Load from pessoas (unified table)
       const { data, error } = await supabase
-        .from('fornecedores')
-        .select('id, nome, salario, comissao_padrao, comissao_supermeta, meta_mensal')
+        .from('pessoas')
+        .select('id, nome, salario, comissao_padrao, comissao_supermeta, meta_mensal').contains('categorias', ['fornecedor'])
         .eq('id', person.id)
         .single();
       if (error) throw error;
@@ -585,7 +585,7 @@ export function SalespersonPanel() {
     }
     try {
       const { error } = await supabase
-        .from('fornecedores')
+        .from('pessoas')
         .update({
           nome: newSalesperson.name,
           salario: newSalesperson.baseSalary ?? null,
@@ -624,7 +624,7 @@ export function SalespersonPanel() {
   const deleteSalesperson = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('fornecedores')
+        .from('pessoas')
         .update({ eh_vendedora: false })
         .eq('id', id);
       if (error) throw error;

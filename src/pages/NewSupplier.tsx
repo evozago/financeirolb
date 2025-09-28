@@ -167,7 +167,7 @@ export default function NewSupplier() {
     try {
       // First, create the supplier
       const { data: supplierData, error: supplierError } = await supabase
-        .from('fornecedores')
+        .from('pessoas')
         .insert({
           nome: formData.nome.trim(),
           cnpj_cpf: formData.cnpj_cpf.replace(/\D/g, '') || null,

@@ -51,42 +51,26 @@ export function EntitySelector({
 
   const loadEntities = async () => {
     try {
-      // Buscar fornecedores (PJ)
-      const { data: fornecedores, error: errorFornecedores } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cnpj_cpf, tipo_pessoa')
-        .eq('ativo', true)
-        .order('nome');
-
-      // Buscar pessoas (PF)
-      const { data: pessoas, error: errorPessoas } = await supabase
+      // Buscar todas as pessoas que têm papel de fornecedor
+      const { data: pessoas, error } = await supabase
         .from('pessoas')
-        .select('id, nome, cpf, tipo_pessoa')
+        .select('id, nome, cpf, cnpj, tipo_pessoa, categorias')
+        .contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
 
-      if (errorFornecedores) {
-        console.error('Erro ao carregar fornecedores:', errorFornecedores);
-      }
-      if (errorPessoas) {
-        console.error('Erro ao carregar pessoas:', errorPessoas);
+      if (error) {
+        console.error('Erro ao carregar pessoas:', error);
+        return;
       }
 
-      // Unificar dados: PJ e PF juntos
-      const allEntities = [
-        ...(fornecedores || []).map(f => ({
-          id: f.id,
-          nome: `${f.nome} (PJ)`,
-          cnpj_cpf: f.cnpj_cpf,
-          tipo: 'PJ'
-        })),
-        ...(pessoas || []).map(p => ({
-          id: p.id,
-          nome: `${p.nome} (PF)`,
-          cnpj_cpf: p.cpf,
-          tipo: 'PF'
-        }))
-      ].sort((a, b) => a.nome.localeCompare(b.nome));
+      // Mapear dados unificados
+      const allEntities = (pessoas || []).map(p => ({
+        id: p.id,
+        nome: `${p.nome} (${p.tipo_pessoa === 'pessoa_fisica' ? 'PF' : 'PJ'})`,
+        cnpj_cpf: p.tipo_pessoa === 'pessoa_fisica' ? p.cpf : p.cnpj,
+        tipo: p.tipo_pessoa === 'pessoa_fisica' ? 'PF' : 'PJ'
+      }));
 
       setEntities(allEntities);
     } catch (error) {

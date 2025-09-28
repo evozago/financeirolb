@@ -112,8 +112,8 @@ export default function EditSupplier() {
   const loadSupplier = async () => {
     try {
       const { data, error } = await supabase
-        .from('fornecedores')
-        .select('*')
+        .from('pessoas')
+        .select('*').contains('categorias', ['fornecedor'])
         .eq('id', id)
         .single();
 
@@ -238,7 +238,7 @@ export default function EditSupplier() {
     
     try {
       const { error } = await supabase
-        .from('fornecedores')
+        .from('pessoas')
         .update({
           nome: formData.nome.trim(),
           cnpj_cpf: formData.cnpj_cpf.replace(/\D/g, '') || null,

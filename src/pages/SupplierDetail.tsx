@@ -66,8 +66,8 @@ export default function SupplierDetail() {
       
       // Carregar dados do fornecedor
       const { data: supplierData, error: supplierError } = await supabase
-        .from('fornecedores')
-        .select('*')
+        .from('pessoas')
+        .select('*').contains('categorias', ['fornecedor'])
         .eq('id', id)
         .single();
       
@@ -132,7 +132,7 @@ export default function SupplierDetail() {
     
     try {
       const { error } = await supabase
-        .from('fornecedores')
+        .from('pessoas')
         .delete()
         .eq('id', supplier.id);
 

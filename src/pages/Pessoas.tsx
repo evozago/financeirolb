@@ -435,13 +435,13 @@ export default function Pessoas() {
 
         // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
         await supabase
-          .from('fornecedores')
+          .from('pessoas')
           .delete()
           .eq('id', pessoa.id);
 
         if (normDoc) {
           await supabase
-            .from('fornecedores')
+            .from('pessoas')
             .delete()
             .eq('cpf_cnpj_normalizado', normDoc);
         }
@@ -543,7 +543,7 @@ export default function Pessoas() {
 
         // Atualizar na fornecedores (legado)
         const { error: errorFornecedores } = await supabase
-          .from('fornecedores')
+          .from('pessoas')
           .update(updateData)
           .in('id', pessoaIds);
 
