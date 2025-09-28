@@ -35,6 +35,7 @@ import OrderDetail from "./pages/OrderDetail";
 import EditOrder from "./pages/EditOrder";
 import ManageFiliais from "./pages/ManageFiliais";
 import RecurringBills from "./pages/RecurringBills";
+import GerenciarPapeis from "./pages/GerenciarPapeis";
 import NotFound from "./pages/NotFound";
 
 // Dashboard variants
@@ -107,6 +108,7 @@ function AppContent() {
                 <Route path="/filiais" element={<ManageFiliais />} />
                 <Route path="/pessoas" element={<Pessoas />} />
             <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
+            <Route path="/papeis" element={<GerenciarPapeis />} />
             <Route path="/settings" element={<Cadastros />} />
                 <Route path="/reports" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

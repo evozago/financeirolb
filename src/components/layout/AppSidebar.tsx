@@ -126,6 +126,12 @@ const navigationGroups: NavigationGroup[] = [
         icon: Building2,
         description: 'Pessoas físicas/jurídicas'
       },
+      {
+        href: '/papeis',
+        label: 'Papéis/Categorias',
+        icon: UserCheck,
+        description: 'Gerenciar papéis de pessoas'
+      },
     ]
   },
   {
