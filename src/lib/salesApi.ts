@@ -1,29 +1,30 @@
-import type { UUID } from "./types";
+// /src/lib/salesApi.ts
+export type UUID = string;
 
-export async function apiAssignVendedora(pessoaId: UUID, entidadeId: UUID) {
-  const res = await fetch("/functions/v1/sales-assign-vendedora", {
+async function postJSON(path: string, body: unknown) {
+  const res = await fetch(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ pessoaId, entidadeId }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const j = await res.json().catch(() => ({}));
-    throw new Error(j?.error || `Erro HTTP ${res.status}`);
-  }
+  const text = await res.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch { /* noop */ }
+  if (!res.ok) throw new Error(data?.error || `Erro HTTP ${res.status}`);
+  return data;
+}
+
+/** Vincula Pessoa existente como Vendedora para a entidade (sem criar pessoa nova) */
+export async function apiAssignVendedora(pessoaId: UUID, entidadeId: UUID) {
+  await postJSON("/functions/v1/sales-assign-vendedora", { pessoaId, entidadeId });
   return true;
 }
 
+/** Atualiza ativa/metas/preferência na vendedora_config (chave: pessoa_id+entidade_id) */
 export async function apiSetVendedoraConfig(opts: {
-  pessoaId: UUID; entidadeId: UUID; ativa?: boolean; metas?: any; preferencia?: any;
+  pessoaId: UUID; entidadeId: UUID;
+  ativa?: boolean; metas?: any; preferencia?: any;
 }) {
-  const res = await fetch("/functions/v1/sales-set-vendedora-config", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(opts),
-  });
-  if (!res.ok) {
-    const j = await res.json().catch(() => ({}));
-    throw new Error(j?.error || `Erro HTTP ${res.status}`);
-  }
+  await postJSON("/functions/v1/sales-set-vendedora-config", opts);
   return true;
 }
