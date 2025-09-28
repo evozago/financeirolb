@@ -10,9 +10,10 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, Users, Tag } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Tag, AlertTriangle } from 'lucide-react';
 import { usePapeisManagement, PapelFormData, PapelHierarquico } from '@/hooks/usePapeisManagement';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PapelFormDialogProps {
   papel?: PapelHierarquico;
@@ -219,6 +220,8 @@ export default function PapeisManagement() {
 
   const [formDialog, setFormDialog] = useState({ open: false, papel: undefined as PapelHierarquico | undefined });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, papel: undefined as PapelHierarquico | undefined });
+  const [clearMappingsDialog, setClearMappingsDialog] = useState(false);
+  const [clearingMappings, setClearingMappings] = useState(false);
 
   const handleCreatePapel = () => {
     setFormDialog({ open: true, papel: undefined });
@@ -251,6 +254,27 @@ export default function PapeisManagement() {
     }
   };
 
+  const handleClearAllMappings = async () => {
+    setClearingMappings(true);
+    
+    try {
+      const { data, error } = await supabase.rpc('clear_all_papel_mappings');
+      
+      if (error) throw error;
+      
+      toast.success(data.message, {
+        description: `Total de relacionamentos removidos: ${data.cleared_counts.total}`,
+      });
+      
+      setClearMappingsDialog(false);
+    } catch (error) {
+      console.error('Erro ao limpar mapeamentos:', error);
+      toast.error('Erro ao limpar mapeamentos de papéis');
+    } finally {
+      setClearingMappings(false);
+    }
+  };
+
   const papeisRaiz = getPapeisRaiz();
 
   return (
@@ -262,10 +286,21 @@ export default function PapeisManagement() {
             Gerencie os papéis e categorias das entidades do sistema
           </p>
         </div>
-        <Button onClick={handleCreatePapel} disabled={loading}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Papel
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={() => setClearMappingsDialog(true)}
+            disabled={loading}
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Zerar Mapeamentos
+          </Button>
+          <Button onClick={handleCreatePapel} disabled={loading}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Papel
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -321,6 +356,40 @@ export default function PapeisManagement() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} disabled={loading}>
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={clearMappingsDialog} onOpenChange={setClearMappingsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Zerar Todos os Mapeamentos de Papéis
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                <strong>ATENÇÃO:</strong> Esta ação irá remover TODOS os relacionamentos existentes entre pessoas/entidades e papéis.
+              </p>
+              <p>
+                Isso significa que todas as pessoas e entidades perderão seus papéis atribuídos (cliente, fornecedor, funcionário, etc.).
+              </p>
+              <p className="text-destructive font-medium">
+                Esta ação não pode ser desfeita!
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearingMappings}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleClearAllMappings} 
+              disabled={clearingMappings}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {clearingMappings ? 'Limpando...' : 'Confirmar Limpeza'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
