@@ -4,8 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders } from "../_shared/cors.ts";
 import type { AssignVendedoraBody, UUID } from "../_shared/types.ts";
 
-const supabaseUrl = Deno.env.get("https://mnxemxgcucfuoedqkygw.supabase.co")!;
-const serviceRoleKey = Deno.env.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ueGVteGdjdWNmdW9lZHFreWd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Mzg5NjkxNiwiZXhwIjoyMDY5NDcyOTE2fQ.y7G0xBAt6BiKJq6gKaAsN243GqzGmTOh30_dMBqJByk")!;
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
 async function getVendedoraPapelId(): Promise<UUID> {
@@ -15,29 +15,25 @@ async function getVendedoraPapelId(): Promise<UUID> {
     .ilike("nome", "vendedor%")
     .limit(1)
     .maybeSingle();
-
   if (error) throw error;
   if (!data) throw new Error("Papel Vendedora/Vendedor não encontrado.");
   return data.id as UUID;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: { ...corsHeaders(req) } });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: { ...corsHeaders(req) } });
 
   try {
     const { pessoaId, entidadeId } = (await req.json()) as AssignVendedoraBody;
     if (!pessoaId || !entidadeId) {
       return new Response(JSON.stringify({ error: "pessoaId e entidadeId são obrigatórios" }), {
-        status: 400,
-        headers: { "content-type": "application/json", ...corsHeaders(req) },
+        status: 400, headers: { "content-type": "application/json", ...corsHeaders(req) },
       });
     }
 
     const papelId = await getVendedoraPapelId();
 
-    // 1) Vincula papel por entidade (sem duplicar)
+    // 1) vincular papel por entidade (sem duplicar)
     {
       const { error } = await supabase.from("papeis_pessoa").upsert(
         [{ pessoa_id: pessoaId, papel_id: papelId, entidade_id: entidadeId, ativo: true }],
@@ -46,7 +42,7 @@ serve(async (req) => {
       if (error) throw error;
     }
 
-    // 2) Garante a config
+    // 2) garantir config por entidade
     {
       const { error } = await supabase.from("vendedora_config").upsert(
         [{ pessoa_id: pessoaId, entidade_id: entidadeId, ativa: true }],
@@ -60,8 +56,7 @@ serve(async (req) => {
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err?.message ?? "Erro desconhecido" }), {
-      status: 500,
-      headers: { "content-type": "application/json", ...corsHeaders(req) },
+      status: 500, headers: { "content-type": "application/json", ...corsHeaders(req) },
     });
   }
 });
