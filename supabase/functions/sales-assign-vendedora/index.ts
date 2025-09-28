@@ -4,8 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders } from "../_shared/cors.ts";
 import type { AssignVendedoraBody, UUID } from "../_shared/types.ts";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseUrl = Deno.env.get("https://mnxemxgcucfuoedqkygw.supabase.co")!;
+const serviceRoleKey = Deno.env.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ueGVteGdjdWNmdW9lZHFreWd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Mzg5NjkxNiwiZXhwIjoyMDY5NDcyOTE2fQ.y7G0xBAt6BiKJq6gKaAsN243GqzGmTOh30_dMBqJByk")!;
 const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
 async function getVendedoraPapelId(): Promise<UUID> {
