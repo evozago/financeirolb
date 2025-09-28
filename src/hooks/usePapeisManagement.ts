@@ -98,28 +98,17 @@ export function usePapeisManagement() {
     try {
       setLoading(true);
       
-      // Verificar se existem pessoas com esse papel na tabela papeis_pessoa
-      const { data: pessoasComPapel, error: checkPessoasError } = await supabase
-        .from('papeis_pessoa')
-        .select('id')
-        .eq('papel_id', id)
-        .eq('ativo', true);
-      
-      if (checkPessoasError) throw checkPessoasError;
-      
-      // Verificar se existem entidades com esse papel na tabela entidade_papeis
-      const { data: entidadesComPapel, error: checkEntidadesError } = await supabase
+      // Verificar se existem entidades com esse papel
+      const { data: entidadesComPapel, error: checkError } = await supabase
         .from('entidade_papeis')
         .select('id')
         .eq('papel_id', id)
         .eq('ativo', true);
       
-      if (checkEntidadesError) throw checkEntidadesError;
+      if (checkError) throw checkError;
       
-      // Se há pessoas ou entidades usando este papel, não permitir exclusão
-      if ((pessoasComPapel && pessoasComPapel.length > 0) || 
-          (entidadesComPapel && entidadesComPapel.length > 0)) {
-        toast.error('Não é possível excluir um papel que está sendo usado por pessoas ou entidades');
+      if (entidadesComPapel && entidadesComPapel.length > 0) {
+        toast.error('Não é possível excluir um papel que está sendo usado por entidades');
         return;
       }
       
@@ -137,10 +126,9 @@ export function usePapeisManagement() {
         return;
       }
       
-      // Desativar o papel em vez de excluir
       const { error } = await supabase
         .from('papeis')
-        .update({ ativo: false, updated_at: new Date().toISOString() })
+        .update({ ativo: false })
         .eq('id', id);
       
       if (error) throw error;
