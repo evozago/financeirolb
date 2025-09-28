@@ -57,8 +57,6 @@ export default function SalespersonPanel() {
     { ativa: boolean; metas: string; preferencia: string }
   >>({});
 
-  // ————— Helpers —————
-
   async function carregarLista() {
     const entidadeId = window.selectedEntity;
     if (!entidadeId) {
@@ -78,7 +76,6 @@ export default function SalespersonPanel() {
     const arr = (data || []) as VendedoraView[];
     setLista(arr);
 
-    // preparar estado de edição
     const next: typeof edits = {};
     arr.forEach((v) => {
       next[v.pessoa_id] = {
@@ -107,18 +104,11 @@ export default function SalespersonPanel() {
     setPessoas((data || []) as Pessoa[]);
   }
 
-  // ————— Ações —————
-
   async function vincularPessoaComoVendedora() {
     const entidadeId = window.selectedEntity;
-    if (!entidadeId) {
-      toast.error("Selecione uma entidade antes de vincular");
-      return;
-    }
-    if (!pessoaSelecionada) {
-      toast.error("Selecione uma pessoa do cadastro");
-      return;
-    }
+    if (!entidadeId) return toast.error("Selecione uma entidade antes de vincular");
+    if (!pessoaSelecionada) return toast.error("Selecione uma pessoa do cadastro");
+
     setLoading(true);
     try {
       await apiAssignVendedora(pessoaSelecionada, entidadeId);
@@ -136,10 +126,7 @@ export default function SalespersonPanel() {
 
   async function salvarConfig(pessoaId: UUID) {
     const entidadeId = window.selectedEntity;
-    if (!entidadeId) {
-      toast.error("Selecione uma entidade antes de salvar");
-      return;
-    }
+    if (!entidadeId) return toast.error("Selecione uma entidade antes de salvar");
     const row = edits[pessoaId];
     if (!row) return;
 
@@ -148,14 +135,7 @@ export default function SalespersonPanel() {
       const metas = row.metas ? JSON.parse(row.metas) : null;
       const preferencia = row.preferencia ? JSON.parse(row.preferencia) : null;
 
-      await apiSetVendedoraConfig({
-        pessoaId,
-        entidadeId,
-        ativa: !!row.ativa,
-        metas,
-        preferencia,
-      });
-
+      await apiSetVendedoraConfig({ pessoaId, entidadeId, ativa: !!row.ativa, metas, preferencia });
       toast.success("Configuração salva.");
       await carregarLista();
     } catch (e: any) {
@@ -165,32 +145,20 @@ export default function SalespersonPanel() {
     }
   }
 
-  // compatibilidade: salvar tudo via evento global
   const saveAllData = React.useCallback(async () => {
     const entidadeId = window.selectedEntity;
-    if (!entidadeId) {
-      toast.error("Selecione uma entidade antes de salvar");
-      return;
-    }
+    if (!entidadeId) return toast.error("Selecione uma entidade antes de salvar");
+
     setLoading(true);
     try {
       const payloads = Object.entries(edits).map(([pessoaId, row]) => {
-        let metas: any = null;
-        let preferencia: any = null;
+        let metas: any = null, preferencia: any = null;
         try { metas = row.metas ? JSON.parse(row.metas) : null; } catch {}
         try { preferencia = row.preferencia ? JSON.parse(row.preferencia) : null; } catch {}
-        return {
-          pessoaId,
-          entidadeId,
-          ativa: !!row.ativa,
-          metas,
-          preferencia,
-        };
+        return { pessoaId, entidadeId, ativa: !!row.ativa, metas, preferencia };
       });
 
-      for (const p of payloads) {
-        await apiSetVendedoraConfig(p);
-      }
+      for (const p of payloads) await apiSetVendedoraConfig(p);
 
       toast.success("Dados salvos com sucesso!");
       await carregarLista();
@@ -202,22 +170,14 @@ export default function SalespersonPanel() {
     }
   }, [edits]);
 
-  // ————— Effects —————
-  React.useEffect(() => {
-    carregarLista();
-  }, [window.selectedEntity]);
-
-  React.useEffect(() => {
-    carregarPessoas();
-  }, [busca]);
-
+  React.useEffect(() => { carregarLista(); }, [window.selectedEntity]);
+  React.useEffect(() => { carregarPessoas(); }, [busca]);
   React.useEffect(() => {
     const handleSave = () => { void saveAllData(); };
     window.addEventListener("saveAllSalesData", handleSave);
     return () => window.removeEventListener("saveAllSalesData", handleSave);
   }, [saveAllData]);
 
-  // ————— UI —————
   return (
     <div className="space-y-6">
       <Card>
@@ -238,11 +198,7 @@ export default function SalespersonPanel() {
 
               <div className="space-y-3">
                 <Label>Buscar por nome</Label>
-                <Input
-                  placeholder="Digite para buscar…"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
+                <Input placeholder="Digite para buscar…" value={busca} onChange={(e) => setBusca(e.target.value)} />
 
                 <div className="max-h-64 overflow-auto border rounded-md p-2">
                   {pessoas.length === 0 ? (
@@ -250,15 +206,8 @@ export default function SalespersonPanel() {
                   ) : (
                     pessoas.map((p) => (
                       <label key={p.id} className="flex items-center gap-3 py-1 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="pessoa"
-                          checked={pessoaSelecionada === p.id}
-                          onChange={() => setPessoaSelecionada(p.id)}
-                        />
-                        <span className="text-sm">
-                          {p.nome} {p.cpf ? `(${p.cpf})` : ""}
-                        </span>
+                        <input type="radio" name="pessoa" checked={pessoaSelecionada === p.id} onChange={() => setPessoaSelecionada(p.id)} />
+                        <span className="text-sm">{p.nome} {p.cpf ? `(${p.cpf})` : ""}</span>
                       </label>
                     ))
                   )}
@@ -267,14 +216,11 @@ export default function SalespersonPanel() {
 
               <DialogFooter className="pt-3">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={vincularPessoaComoVendedora} disabled={loading}>
-                  Vincular
-                </Button>
+                <Button onClick={vincularPessoaComoVendedora} disabled={loading}>Vincular</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
-          {/* Lista por entidade selecionada */}
           <div className="space-y-3">
             {lista.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma vendedora vinculada para a entidade selecionada.</p>
@@ -287,24 +233,15 @@ export default function SalespersonPanel() {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium">{v.nome}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Pessoa: {v.pessoa_id} · Entidade: {v.entidade_id}
-                          </div>
+                          <div className="text-xs text-muted-foreground">Pessoa: {v.pessoa_id} · Entidade: {v.entidade_id}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Label className="text-sm">Ativa</Label>
                           <Select
                             value={row.ativa ? "true" : "false"}
-                            onValueChange={(val) =>
-                              setEdits((s) => ({
-                                ...s,
-                                [v.pessoa_id]: { ...row, ativa: val === "true" },
-                              }))
-                            }
+                            onValueChange={(val) => setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, ativa: val === "true" } }))}
                           >
-                            <SelectTrigger className="w-[110px]">
-                              <SelectValue />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="true">Ativa</SelectItem>
                               <SelectItem value="false">Inativa</SelectItem>
@@ -320,9 +257,7 @@ export default function SalespersonPanel() {
                             className="font-mono text-xs min-h-[120px]"
                             placeholder='Ex.: {"meta_mensal": 50000}'
                             value={row.metas}
-                            onChange={(e) =>
-                              setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, metas: e.target.value } }))
-                            }
+                            onChange={(e) => setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, metas: e.target.value } }))}
                           />
                         </div>
                         <div>
@@ -331,9 +266,7 @@ export default function SalespersonPanel() {
                             className="font-mono text-xs min-h-[120px]"
                             placeholder='Ex.: {"ordem": "vendas_desc"}'
                             value={row.preferencia}
-                            onChange={(e) =>
-                              setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, preferencia: e.target.value } }))
-                            }
+                            onChange={(e) => setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, preferencia: e.target.value } }))}
                           />
                         </div>
                       </div>
