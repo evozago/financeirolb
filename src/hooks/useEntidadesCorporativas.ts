@@ -157,16 +157,36 @@ export const useEntidadesCorporativas = () => {
 
   const adicionarPapel = async (entidadeId: string, papelId: string) => {
     try {
-      const { error } = await supabase
+      // Verificar se já existe relação (ativa ou inativa)
+      const { data: existing } = await supabase
         .from('entidade_papeis')
-        .insert([{
-          entidade_id: entidadeId,
-          papel_id: papelId,
-          data_inicio: new Date().toISOString().split('T')[0],
-          ativo: true,
-        }]);
+        .select('id, ativo')
+        .eq('entidade_id', entidadeId)
+        .eq('papel_id', papelId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existing) {
+        // Reativar se necessário (evita violar a unique constraint)
+        const { error: updError } = await supabase
+          .from('entidade_papeis')
+          .update({
+            ativo: true,
+            data_inicio: new Date().toISOString().split('T')[0],
+            data_fim: null,
+          })
+          .eq('id', existing.id);
+        if (updError) throw updError;
+      } else {
+        const { error: insError } = await supabase
+          .from('entidade_papeis')
+          .insert({
+            entidade_id: entidadeId,
+            papel_id: papelId,
+            data_inicio: new Date().toISOString().split('T')[0],
+            ativo: true,
+          });
+        if (insError) throw insError;
+      }
 
       toast({
         title: 'Sucesso',

@@ -59,18 +59,42 @@ export default function NewBill() {
 
   const loadSuppliers = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar fornecedores (PJ)
+      const { data: fornecedores, error: errorFornecedores } = await supabase
         .from('fornecedores')
-        .select('id, nome')
+        .select('id, nome, tipo_pessoa')
         .eq('ativo', true)
         .order('nome');
 
-      if (error) {
-        console.error('Error loading suppliers:', error);
-        return;
+      // Buscar pessoas (PF)
+      const { data: pessoas, error: errorPessoas } = await supabase
+        .from('pessoas')
+        .select('id, nome, tipo_pessoa')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (errorFornecedores) {
+        console.error('Error loading fornecedores:', errorFornecedores);
+      }
+      if (errorPessoas) {
+        console.error('Error loading pessoas:', errorPessoas);
       }
 
-      setSuppliers(data || []);
+      // Unificar dados: PJ e PF juntos
+      const allSuppliers = [
+        ...(fornecedores || []).map(f => ({
+          id: f.id,
+          nome: `${f.nome} (PJ)`,
+          tipo: 'fornecedor'
+        })),
+        ...(pessoas || []).map(p => ({
+          id: p.id,
+          nome: `${p.nome} (PF)`,
+          tipo: 'pessoa'
+        }))
+      ].sort((a, b) => a.nome.localeCompare(b.nome));
+
+      setSuppliers(allSuppliers);
     } catch (error) {
       console.error('Error loading suppliers:', error);
     }

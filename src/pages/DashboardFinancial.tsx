@@ -126,10 +126,10 @@ export default function DashboardFinancial() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Breadcrumbs />
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard Financeiro</h1>
-            <p className="text-muted-foreground">Controle financeiro e gestão de pagamentos</p>
+            <h1 className="text-2xl font-bold text-foreground">Dashboard Financeiro</h1>
+            <p className="text-sm text-muted-foreground">Controle financeiro e gestão de pagamentos</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate('/recurring-bills/new')}>
@@ -143,9 +143,9 @@ export default function DashboardFinancial() {
           </div>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {quickStats.map((stat, index) => {
               const Icon = stat.icon;
               return (
@@ -154,19 +154,19 @@ export default function DashboardFinancial() {
                   className="cursor-pointer hover:shadow-md transition-shadow"
                   onClick={stat.onClick}
                 >
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
                       {stat.title}
                     </CardTitle>
                     <div className={`p-2 rounded-full ${stat.bgColor}`}>
                       <Icon className={`h-4 w-4 ${stat.color}`} />
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl font-bold ${stat.color}`}>
+                  <CardContent className="pt-0">
+                    <div className={`text-xl font-bold ${stat.color} mb-1`}>
                       {stat.value}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground">
                       {stat.description}
                     </p>
                   </CardContent>
@@ -179,14 +179,14 @@ export default function DashboardFinancial() {
           <FinancialPanel onCardClick={handleCardClick} />
 
           {/* Charts and Widgets Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Expenses Chart */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               <ExpensesByCategoryChart />
             </div>
 
             {/* Actions and Info */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Recurring Events */}
               <RecurringEventsWidget />
 

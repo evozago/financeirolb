@@ -1,1 +1,50 @@
 project_id = "mnxemxgcucfuoedqkygw"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+port = 54324
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://lovable.dev"]
+jwt_expiry = 3600
+enable_signup = true
+enable_confirmations = false
+
+[db]
+port = 54322
+
+[edge_functions]
+enabled = true
+port = 54323
+
+[functions.contas-pagar-api]
+verify_jwt = false
+
+[functions.export-db-zip]
+verify_jwt = true
+
+[functions.monthly-payroll-scheduler]
+verify_jwt = true
+
+[functions.launch-recurring-bill]
+verify_jwt = true
+
+[storage]
+enabled = true
+port = 54324
+file_size_limit = "50MiB"
+
+[analytics]
+enabled = false
+
+[inbound_smtp]
+enabled = false
+
+[logging]
+level = "info"

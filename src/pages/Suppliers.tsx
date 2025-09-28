@@ -9,36 +9,46 @@ import { ArrowLeft, Search, Plus, Building2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SuppliersTable } from '@/components/features/suppliers/SuppliersTable';
+import { SupplierBulkEditModal, SupplierBulkEditData } from '@/components/features/suppliers/SupplierBulkEditModal';
+import { useUndoActions } from '@/hooks/useUndoActions';
 
 interface SupplierData {
   id: string;
-  nome: string;
-  cnpj_cpf: string | null;
+  nome_razao_social: string;
+  nome_fantasia?: string;
+  cpf_cnpj?: string;
+  email?: string;
+  telefone?: string;
+  tipo_pessoa: string;
   ativo: boolean;
-  contato_representante: string;
-  telefone_representante: string;
-  email_representante: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function Suppliers() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { addUndoAction } = useUndoActions();
   const [search, setSearch] = useState('');
   const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedItems, setSelectedItems] = useState<SupplierData[]>([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
 
-  // Load suppliers from database
+  // Load suppliers from database using unified search
   const loadSuppliers = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('fornecedores')
-        .select('id, nome, cnpj_cpf, ativo, contato_representante, telefone_representante, email_representante')
-        .order('nome', { ascending: true });
+        .rpc('search_entidades_fornecedores', {
+          p_search: search || null,
+          p_limit: 1000,
+          p_offset: 0
+        });
 
       if (error) {
         console.error('Error loading suppliers:', error);
@@ -60,29 +70,180 @@ export default function Suppliers() {
 
   useEffect(() => {
     loadSuppliers();
-  }, []);
+  }, [search]);
 
-  // Filtrar fornecedores baseado na busca
+  // Search is already handled by RPC function
   const filteredSuppliers = useMemo(() => {
-    if (!search) return suppliers;
-    
-    const searchLower = search.toLowerCase();
-    return suppliers.filter(supplier =>
-      supplier.nome.toLowerCase().includes(searchLower) ||
-      (supplier.cnpj_cpf && supplier.cnpj_cpf.includes(search))
-    );
-  }, [search, suppliers]);
+    return suppliers;
+  }, [suppliers]);
 
   const handleRowClick = (supplier: SupplierData) => {
     // Navegação drill-down para detalhes do fornecedor (Nível 3)
     navigate(`/suppliers/${supplier.id}`);
   };
 
-  const formatCNPJ = (cnpj: string | null) => {
+  const handleDelete = async (suppliers: SupplierData[]) => {
+    try {
+      setLoading(true);
+      const supplierIds = suppliers.map(s => s.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = suppliers.map(supplier => ({
+        id: supplier.id,
+        nome_razao_social: supplier.nome_razao_social,
+        ativo: supplier.ativo,
+      }));
+
+      for (const supplier of suppliers) {
+        const normDoc = supplier.cpf_cnpj ? supplier.cpf_cnpj.replace(/\D/g, '') : null;
+
+        // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
+        await supabase
+          .from('entidades_corporativas')
+          .delete()
+          .eq('id', supplier.id);
+
+        if (normDoc) {
+          await supabase
+            .from('entidades_corporativas')
+            .delete()
+            .eq('cpf_cnpj_normalizado', normDoc);
+        }
+
+        // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
+        await supabase
+          .from('fornecedores')
+          .delete()
+          .eq('id', supplier.id);
+
+        if (normDoc) {
+          await supabase
+            .from('fornecedores')
+            .delete()
+            .eq('cpf_cnpj_normalizado', normDoc);
+        }
+      }
+
+      setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `deleteSuppliers-${Date.now()}`,
+        type: 'delete',
+        data: { supplierIds, count: suppliers.length },
+        originalData: { suppliers: originalData },
+      }, () => {
+        loadSuppliers();
+      });
+
+      toast({
+        title: "Sucesso",
+        description: `${suppliers.length} fornecedor${suppliers.length !== 1 ? 'es' : ''} excluído${suppliers.length !== 1 ? 's' : ''} definitivamente`,
+      });
+      
+      loadSuppliers();
+    } catch (error) {
+      console.error('Error deleting suppliers:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao excluir fornecedores",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkEdit = (suppliers: SupplierData[]) => {
+    setBulkEditModalOpen(true);
+  };
+
+  const handleBulkEditSave = async (updates: SupplierBulkEditData) => {
+    try {
+      setBulkEditLoading(true);
+      const supplierIds = selectedItems.map(s => s.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = selectedItems.map(supplier => ({
+        id: supplier.id,
+        ativo: supplier.ativo,
+      }));
+
+      // Preparar dados de atualização
+      const updateData: any = {};
+      if (updates.ativo !== undefined) {
+        updateData.ativo = updates.ativo;
+      }
+
+      // Atualizar na entidades_corporativas
+      const { error: errorEntidades } = await supabase
+        .from('entidades_corporativas')
+        .update(updateData)
+        .in('id', supplierIds);
+
+      if (errorEntidades) {
+        throw errorEntidades;
+      }
+
+      // Atualizar na fornecedores (legado)
+      const { error: errorFornecedores } = await supabase
+        .from('fornecedores')
+        .update(updateData)
+        .in('id', supplierIds);
+
+      if (errorFornecedores) {
+        console.warn('Error updating fornecedores table:', errorFornecedores);
+      }
+
+      setSelectedItems([]);
+      setBulkEditModalOpen(false);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `bulkEditSuppliers-${Date.now()}`,
+        type: 'bulkEdit',
+        data: { supplierIds, count: selectedItems.length },
+        originalData: { suppliers: originalData },
+      }, () => {
+        loadSuppliers();
+      });
+
+      toast({
+        title: "Sucesso",
+        description: `${selectedItems.length} fornecedor${selectedItems.length !== 1 ? 'es' : ''} atualizado${selectedItems.length !== 1 ? 's' : ''} com sucesso`,
+      });
+      
+      loadSuppliers();
+    } catch (error) {
+      console.error('Error bulk editing suppliers:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar fornecedores em massa",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
+  const handleActivate = async (suppliers: SupplierData[]) => {
+    await handleBulkEditSave({ ativo: true });
+  };
+
+  const handleDeactivate = async (suppliers: SupplierData[]) => {
+    await handleBulkEditSave({ ativo: false });
+  };
+
+  const formatCNPJ = (cnpj: string | undefined) => {
     // Formatar CNPJ: 00.000.000/0000-00
     if (!cnpj) return '-';
     const clean = cnpj.replace(/\D/g, '');
-    return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    if (clean.length === 14) {
+      return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    } else if (clean.length === 11) {
+      return clean.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+    }
+    return cnpj;
   };
 
   return (
@@ -146,86 +307,32 @@ export default function Suppliers() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome Fantasia</TableHead>
-                      <TableHead>Razão Social</TableHead>
-                      <TableHead>CNPJ</TableHead>
-                      <TableHead>Representante</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSuppliers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          <div className="flex flex-col items-center gap-2">
-                            <FileText className="h-12 w-12 text-muted-foreground/50" />
-                            <p>Nenhum fornecedor encontrado</p>
-                            {search && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSearch('')}
-                              >
-                                Limpar busca
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredSuppliers.map((supplier) => (
-                        <TableRow
-                          key={supplier.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleRowClick(supplier)}
-                        >
-                          <TableCell className="font-medium">{supplier.nome}</TableCell>
-                          <TableCell>{supplier.nome}</TableCell>
-                          <TableCell className="font-mono text-sm">{formatCNPJ(supplier.cnpj_cpf)}</TableCell>
-                          <TableCell>
-                            {supplier.contato_representante ? (
-                              <div className="text-sm">
-                                <div className="font-medium">{supplier.contato_representante}</div>
-                                {supplier.telefone_representante && (
-                                  <div className="text-muted-foreground">{supplier.telefone_representante}</div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={supplier.ativo ? "default" : "secondary"}>
-                              {supplier.ativo ? "Ativo" : "Inativo"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRowClick(supplier);
-                              }}
-                            >
-                              Ver Detalhes
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <SuppliersTable
+                data={filteredSuppliers}
+                loading={loading}
+                selectedItems={selectedItems}
+                onSelectionChange={setSelectedItems}
+                onRowClick={handleRowClick}
+                onEdit={(supplier) => navigate(`/suppliers/${supplier.id}/edit`)}
+                onDelete={handleDelete}
+                onView={handleRowClick}
+                onBulkEdit={handleBulkEdit}
+                onActivate={handleActivate}
+                onDeactivate={handleDeactivate}
+              />
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Bulk Edit Modal */}
+      <SupplierBulkEditModal
+        open={bulkEditModalOpen}
+        onOpenChange={setBulkEditModalOpen}
+        selectedCount={selectedItems.length}
+        onSave={handleBulkEditSave}
+        loading={bulkEditLoading}
+      />
     </div>
   );
 }

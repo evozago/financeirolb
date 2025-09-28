@@ -88,8 +88,8 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Painel Financeiro - Situação Atual</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-semibold">Resumo Financeiro - Situação Atual</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
@@ -100,10 +100,10 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
                   Vencendo Hoje
                 </p>
-                <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                <p className="text-lg font-bold text-amber-900 dark:text-amber-100">
                   {loading ? '...' : formatCurrency(stats.contas_vencendo_hoje)}
                 </p>
                 <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
@@ -121,10 +121,10 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
                   Pagas Hoje
                 </p>
-                <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+                <p className="text-lg font-bold text-emerald-900 dark:text-emerald-100">
                   {loading ? '...' : formatCurrency(stats.contas_pagas_hoje)}
                 </p>
                 <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
@@ -142,10 +142,10 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
                   Vence até Fim do Mês
                 </p>
-                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
                   {loading ? '...' : formatCurrency(stats.contas_vencendo_ate_fim_mes)}
                 </p>
                 <p className="text-xs text-blue-700/80 dark:text-blue-300/80">
@@ -163,10 +163,10 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                <p className="text-xs font-medium text-red-700 dark:text-red-300">
                   Vencidas
                 </p>
-                <p className="text-2xl font-bold text-red-900 dark:text-red-100">
+                <p className="text-lg font-bold text-red-900 dark:text-red-100">
                   {loading ? '...' : formatCurrency(stats.contas_vencidas)}
                 </p>
                 <p className="text-xs text-red-700/80 dark:text-red-300/80">
@@ -184,10 +184,10 @@ export function FinancialPanel({ onCardClick }: FinancialPanelProps) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
                   Pendentes Não Recorrentes
                 </p>
-                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                <p className="text-lg font-bold text-purple-900 dark:text-purple-100">
                   {loading ? '...' : formatCurrency(stats.contas_pendentes_nao_recorrentes)}
                 </p>
                 <p className="text-xs text-purple-700/80 dark:text-purple-300/80">

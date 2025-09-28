@@ -13,11 +13,18 @@ import { PayablesTable } from '@/components/features/payables/PayablesTable';
 import { PayableFilters } from '@/components/features/payables/PayableFilters';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BulkEditModal, BulkEditData } from '@/components/features/payables/BulkEditModal';
-import { BillToPayInstallment, PayablesFilter, Supplier } from '@/types/payables';
+import { BillToPayInstallment, PayablesFilter } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUndoActions } from '@/hooks/useUndoActions';
 import { BatchPaymentModal, BatchPaymentData } from '@/components/features/payables/BatchPaymentModal';
+import { usePagePersistence } from '@/hooks/usePagePersistence';
+
+interface UnifiedSupplier {
+  id: string;
+  name: string;
+  tipo: 'fornecedor' | 'pessoa';
+}
 
 // Transform Supabase data to app format
 const transformInstallmentData = (data: any[]): BillToPayInstallment[] => {
@@ -70,16 +77,45 @@ export default function AccountsPayable() {
   const { toast } = useToast();
   const { addUndoAction } = useUndoActions();
   
+  // Usar persistência de estado para esta página
+  const {
+    pageState,
+    updateFilters,
+    updateSorting,
+    updateSelection,
+    updateCustomSetting,
+  } = usePagePersistence('/accounts-payable');
+  
   const [installments, setInstallments] = useState<BillToPayInstallment[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Estados persistidos
+  const [filters, setFiltersState] = useState<PayablesFilter>(pageState.filters || {});
   const [selectedItems, setSelectedItems] = useState<BillToPayInstallment[]>([]);
-  const [filters, setFilters] = useState<PayablesFilter>({});
-  // Estados para ordenação
-  const [sortKey, setSortKey] = useState<string>('dueDate');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<string>(pageState.sorting?.column || 'dueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(pageState.sorting?.direction || 'asc');
+  
+  // Função para atualizar filtros com persistência
+  const setFilters = (newFilters: PayablesFilter) => {
+    setFiltersState(newFilters);
+    updateFilters(newFilters);
+  };
+  
+  // Sincronizar estado local com estado persistido quando pageState muda
+  useEffect(() => {
+    if (pageState.filters) {
+      setFiltersState(pageState.filters);
+    }
+    if (pageState.sorting) {
+      setSortKey(pageState.sorting.column);
+      setSortDirection(pageState.sorting.direction);
+    }
+  }, [pageState]);
+  
+  // Estados locais (não persistidos)
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importMode, setImportMode] = useState<'xml' | 'spreadsheet'>('xml');
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<UnifiedSupplier[]>([]);
   const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
   const [batchPaymentModalOpen, setBatchPaymentModalOpen] = useState(false);
@@ -105,6 +141,8 @@ export default function AccountsPayable() {
   const handleSortChange = (key: string, direction: 'asc' | 'desc') => {
     setSortKey(key);
     setSortDirection(direction);
+    // Persistir ordenação
+    updateSorting({ column: key, direction });
   };
 
   // Load installments from Supabase
@@ -245,28 +283,45 @@ export default function AccountsPayable() {
     }
   };
 
-  // Load suppliers from Supabase
+  // Load suppliers from Supabase (PF + PJ)
   const loadSuppliers = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar fornecedores (PJ)
+      const { data: fornecedores, error: errorFornecedores } = await supabase
         .from('fornecedores')
         .select('id, nome, cnpj_cpf')
         .eq('ativo', true)
         .order('nome');
       
-      if (error) {
-        console.error('Error loading suppliers:', error);
-        return;
+      // Buscar pessoas (PF)
+      const { data: pessoas, error: errorPessoas } = await supabase
+        .from('pessoas')
+        .select('id, nome, cpf')
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (errorFornecedores) {
+        console.error('Error loading fornecedores:', errorFornecedores);
+      }
+      if (errorPessoas) {
+        console.error('Error loading pessoas:', errorPessoas);
       }
       
-      const transformedSuppliers: Supplier[] = (data || []).map(supplier => ({
-        id: supplier.id,
-        name: supplier.nome,
-        legalName: supplier.nome,
-        cnpj: supplier.cnpj_cpf || '',
-      }));
+      // Unificar dados: PJ e PF juntos
+      const allSuppliers: UnifiedSupplier[] = [
+        ...(fornecedores || []).map(f => ({
+          id: f.id,
+          name: `${f.nome} (PJ)`,
+          tipo: 'fornecedor' as const
+        })),
+        ...(pessoas || []).map(p => ({
+          id: p.id,
+          name: `${p.nome} (PF)`,
+          tipo: 'pessoa' as const
+        }))
+      ].sort((a, b) => a.name.localeCompare(b.name));
       
-      setSuppliers(transformedSuppliers);
+      setSuppliers(allSuppliers);
     } catch (error) {
       console.error('Error loading suppliers:', error);
     }
@@ -1154,6 +1209,35 @@ export default function AccountsPayable() {
         </div>
 
         <div className="space-y-6">
+          {/* Controles principais */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Controles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedItems.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedItems([])}
+                    className="text-muted-foreground"
+                  >
+                    Limpar Seleção ({selectedItems.length})
+                  </Button>
+                )}
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setFilters({})}
+                  disabled={!Object.keys(filters).some(key => filters[key as keyof PayablesFilter])}
+                  className="text-muted-foreground"
+                >
+                  Limpar Filtros
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Filtros */}
           <Card>
             <CardHeader>

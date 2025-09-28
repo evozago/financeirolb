@@ -643,41 +643,7 @@ export type Database = {
             referencedRelation: "pessoas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_contatos_pessoa"
-            columns: ["pessoa_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
         ]
-      }
-      detalhes_produtos: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          nome: string
-          tipo: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome: string
-          tipo: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome?: string
-          tipo?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       documentos_fiscais: {
         Row: {
@@ -921,13 +887,6 @@ export type Database = {
             referencedRelation: "pessoas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_enderecos_pessoa"
-            columns: ["pessoa_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       entidade_enderecos: {
@@ -1039,9 +998,11 @@ export type Database = {
           ativo: boolean
           cnpj_cpf: string | null
           created_at: string
+          email: string | null
           id: string
           nome: string
           razao_social: string | null
+          telefone: string | null
           tipo: string
           updated_at: string
         }
@@ -1049,9 +1010,11 @@ export type Database = {
           ativo?: boolean
           cnpj_cpf?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           nome: string
           razao_social?: string | null
+          telefone?: string | null
           tipo: string
           updated_at?: string
         }
@@ -1059,9 +1022,11 @@ export type Database = {
           ativo?: boolean
           cnpj_cpf?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           nome?: string
           razao_social?: string | null
+          telefone?: string | null
           tipo?: string
           updated_at?: string
         }
@@ -1175,63 +1140,159 @@ export type Database = {
       fornecedores: {
         Row: {
           ativo: boolean
+          cargo_id: string | null
           categoria_id: string | null
+          categorias: Json | null
+          chave_pix: string | null
           cnpj_cpf: string | null
+          comissao_padrao: number | null
+          comissao_supermeta: number | null
           contato_representante: string | null
+          cpf: string | null
+          cpf_cnpj_normalizado: string | null
           created_at: string
+          data_admissao: string | null
           data_cadastro: string | null
+          data_demissao: string | null
+          data_fundacao: string | null
+          data_nascimento: string | null
+          dias_uteis_mes: number | null
+          eh_fornecedor: boolean | null
+          eh_funcionario: boolean | null
+          eh_vendedora: boolean | null
           email: string | null
+          email_normalizado: string | null
           email_representante: string | null
           endereco: string | null
+          estado_civil: string | null
           filial_id: string | null
+          genero: string | null
           id: string
+          inscricao_estadual: string | null
+          meta_mensal: number | null
+          nacionalidade: string | null
           nome: string
+          nome_fantasia: string | null
+          observacoes: string | null
+          profissao: string | null
           representante_email: string | null
           representante_nome: string | null
           representante_telefone: string | null
+          rg: string | null
+          salario: number | null
+          setor_id: string | null
+          status_funcionario: string | null
           telefone: string | null
           telefone_representante: string | null
+          tipo_chave_pix: string | null
+          tipo_pessoa: string | null
           updated_at: string
+          valor_transporte_dia: number | null
+          valor_transporte_total: number | null
         }
         Insert: {
           ativo?: boolean
+          cargo_id?: string | null
           categoria_id?: string | null
+          categorias?: Json | null
+          chave_pix?: string | null
           cnpj_cpf?: string | null
+          comissao_padrao?: number | null
+          comissao_supermeta?: number | null
           contato_representante?: string | null
+          cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
+          data_admissao?: string | null
           data_cadastro?: string | null
+          data_demissao?: string | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
+          dias_uteis_mes?: number | null
+          eh_fornecedor?: boolean | null
+          eh_funcionario?: boolean | null
+          eh_vendedora?: boolean | null
           email?: string | null
+          email_normalizado?: string | null
           email_representante?: string | null
           endereco?: string | null
+          estado_civil?: string | null
           filial_id?: string | null
+          genero?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          meta_mensal?: number | null
+          nacionalidade?: string | null
           nome: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          profissao?: string | null
           representante_email?: string | null
           representante_nome?: string | null
           representante_telefone?: string | null
+          rg?: string | null
+          salario?: number | null
+          setor_id?: string | null
+          status_funcionario?: string | null
           telefone?: string | null
           telefone_representante?: string | null
+          tipo_chave_pix?: string | null
+          tipo_pessoa?: string | null
           updated_at?: string
+          valor_transporte_dia?: number | null
+          valor_transporte_total?: number | null
         }
         Update: {
           ativo?: boolean
+          cargo_id?: string | null
           categoria_id?: string | null
+          categorias?: Json | null
+          chave_pix?: string | null
           cnpj_cpf?: string | null
+          comissao_padrao?: number | null
+          comissao_supermeta?: number | null
           contato_representante?: string | null
+          cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
+          data_admissao?: string | null
           data_cadastro?: string | null
+          data_demissao?: string | null
+          data_fundacao?: string | null
+          data_nascimento?: string | null
+          dias_uteis_mes?: number | null
+          eh_fornecedor?: boolean | null
+          eh_funcionario?: boolean | null
+          eh_vendedora?: boolean | null
           email?: string | null
+          email_normalizado?: string | null
           email_representante?: string | null
           endereco?: string | null
+          estado_civil?: string | null
           filial_id?: string | null
+          genero?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          meta_mensal?: number | null
+          nacionalidade?: string | null
           nome?: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          profissao?: string | null
           representante_email?: string | null
           representante_nome?: string | null
           representante_telefone?: string | null
+          rg?: string | null
+          salario?: number | null
+          setor_id?: string | null
+          status_funcionario?: string | null
           telefone?: string | null
           telefone_representante?: string | null
+          tipo_chave_pix?: string | null
+          tipo_pessoa?: string | null
           updated_at?: string
+          valor_transporte_dia?: number | null
+          valor_transporte_total?: number | null
         }
         Relationships: [
           {
@@ -2012,15 +2073,7 @@ export type Database = {
           vendas_realizadas?: number | null
           vendedora_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "metas_mensais_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       nfe_data: {
         Row: {
@@ -2089,6 +2142,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          papel_pai_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2097,6 +2151,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          papel_pai_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2105,9 +2160,18 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          papel_pai_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "papeis_papel_pai_id_fkey"
+            columns: ["papel_pai_id"]
+            isOneToOne: false
+            referencedRelation: "papeis"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parcelas_conta_pagar: {
         Row: {
@@ -2322,6 +2386,7 @@ export type Database = {
           categorias: Json
           cnpj: string | null
           cpf: string | null
+          cpf_cnpj_normalizado: string | null
           created_at: string
           dados_fornecedor: Json | null
           dados_funcionario: Json | null
@@ -2353,6 +2418,7 @@ export type Database = {
           categorias?: Json
           cnpj?: string | null
           cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
           dados_fornecedor?: Json | null
           dados_funcionario?: Json | null
@@ -2384,6 +2450,7 @@ export type Database = {
           categorias?: Json
           cnpj?: string | null
           cpf?: string | null
+          cpf_cnpj_normalizado?: string | null
           created_at?: string
           dados_fornecedor?: Json | null
           dados_funcionario?: Json | null
@@ -2570,13 +2637,6 @@ export type Database = {
             referencedRelation: "nfe_data"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "produtos_tipo_manga_id_fkey"
-            columns: ["tipo_manga_id"]
-            isOneToOne: false
-            referencedRelation: "tipos_manga"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
@@ -2674,6 +2734,7 @@ export type Database = {
           name: string
           notes: string | null
           open_ended: boolean
+          recorrente_livre: boolean | null
           supplier_id: string | null
           updated_at: string
         }
@@ -2690,6 +2751,7 @@ export type Database = {
           name: string
           notes?: string | null
           open_ended?: boolean
+          recorrente_livre?: boolean | null
           supplier_id?: string | null
           updated_at?: string
         }
@@ -2706,6 +2768,7 @@ export type Database = {
           name?: string
           notes?: string | null
           open_ended?: boolean
+          recorrente_livre?: boolean | null
           supplier_id?: string | null
           updated_at?: string
         }
@@ -2837,45 +2900,43 @@ export type Database = {
             foreignKeyName: "sales_goals_salesperson_id_fkey"
             columns: ["salesperson_id"]
             isOneToOne: false
-            referencedRelation: "fornecedores_unified"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "fornecedores_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios_unified"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "pessoas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_goals_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras_view"
+            referencedRelation: "fornecedores"
             referencedColumns: ["id"]
           },
         ]
+      }
+      salesperson_sales: {
+        Row: {
+          created_at: string
+          entity_id: string
+          id: string
+          month: number
+          sales_amount: number
+          salesperson_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          month: number
+          sales_amount?: number
+          salesperson_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          month?: number
+          sales_amount?: number
+          salesperson_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
       }
       store_monthly_sales: {
         Row: {
@@ -2946,30 +3007,6 @@ export type Database = {
         }
         Relationships: []
       }
-      tipos_manga: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          nome: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          nome?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       vendas: {
         Row: {
           cliente_nome: string | null
@@ -3004,15 +3041,7 @@ export type Database = {
           valor_venda?: number
           vendedora_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       vendas_corporativas: {
         Row: {
@@ -3191,75 +3220,6 @@ export type Database = {
           tipo_ferias?: string
           updated_at?: string
           vendedora_id?: string
-        }
-        Relationships: []
-      }
-      vendedoras: {
-        Row: {
-          ativo: boolean
-          comissao_padrao: number | null
-          comissao_supermeta: number | null
-          created_at: string
-          email: string | null
-          id: string
-          meta_mensal: number | null
-          nome: string
-          telefone: string | null
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          comissao_padrao?: number | null
-          comissao_supermeta?: number | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          meta_mensal?: number | null
-          nome: string
-          telefone?: string | null
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          comissao_padrao?: number | null
-          comissao_supermeta?: number | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          meta_mensal?: number | null
-          nome?: string
-          telefone?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      vendedoras_completas: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          metas_mensais: Json | null
-          nome: string
-          supermetas_mensais: Json | null
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          metas_mensais?: Json | null
-          nome: string
-          supermetas_mensais?: Json | null
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          metas_mensais?: Json | null
-          nome?: string
-          supermetas_mensais?: Json | null
-          updated_at?: string
         }
         Relationships: []
       }
@@ -3475,43 +3435,6 @@ export type Database = {
           },
         ]
       }
-      sales_monthly_summary: {
-        Row: {
-          ano: number | null
-          mes: number | null
-          meta_mensal: number | null
-          percentual_meta: number | null
-          ticket_medio: number | null
-          total_vendas: number | null
-          total_vendas_count: number | null
-          vendedora_id: string | null
-          vendedora_nome: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_vendedora_id_fkey"
-            columns: ["vendedora_id"]
-            isOneToOne: false
-            referencedRelation: "vendedoras"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vendedoras_view: {
-        Row: {
-          id: string | null
-          nome: string | null
-        }
-        Insert: {
-          id?: string | null
-          nome?: string | null
-        }
-        Update: {
-          id?: string | null
-          nome?: string | null
-        }
-        Relationships: []
-      }
       vw_dim_categorias: {
         Row: {
           ativo: boolean | null
@@ -3560,6 +3483,15 @@ export type Database = {
           nome_razao_social?: string | null
           telefone?: string | null
           tipo_pessoa?: string | null
+        }
+        Relationships: []
+      }
+      vw_entidades_dup_cpf_cnpj: {
+        Row: {
+          cnpj_cpf: string | null
+          ids: string[] | null
+          nomes: string[] | null
+          qtd: number | null
         }
         Relationships: []
       }
@@ -3844,6 +3776,18 @@ export type Database = {
           contas_vencidas_count: number
         }[]
       }
+      get_papeis_hierarquicos: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          ativo: boolean
+          descricao: string
+          id: string
+          nivel: number
+          nome: string
+          papel_pai_id: string
+          papel_pai_nome: string
+        }[]
+      }
       get_sales_kpi_data: {
         Args: { p_month: number; p_year: number }
         Returns: {
@@ -3877,12 +3821,28 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      norm_doc: {
+        Args: { doc: string }
+        Returns: string
+      }
+      norm_email: {
+        Args: { e: string }
+        Returns: string
+      }
+      norm_phone: {
+        Args: { t: string }
+        Returns: string
+      }
       normaliza_cpf_cnpj: {
         Args: { input_text: string }
         Returns: string
       }
       normaliza_email: {
         Args: { input_text: string }
+        Returns: string
+      }
+      normalize_cpf_cnpj: {
+        Args: { doc: string }
         Returns: string
       }
       normalize_installment_info: {
@@ -3941,6 +3901,46 @@ export type Database = {
           papeis: string[]
           telefone: string
           tipo_pessoa: string
+        }[]
+      }
+      search_entidades_fornecedores: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          ativo: boolean
+          cpf_cnpj: string
+          created_at: string
+          email: string
+          id: string
+          nome_fantasia: string
+          nome_razao_social: string
+          telefone: string
+          tipo_pessoa: string
+          updated_at: string
+        }[]
+      }
+      search_entidades_pessoas: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          ativo: boolean
+          cpf_cnpj: string
+          created_at: string
+          email: string
+          id: string
+          nome_fantasia: string
+          nome_razao_social: string
+          papeis: string[]
+          telefone: string
+          tipo_pessoa: string
+          updated_at: string
+        }[]
+      }
+      search_text_in_schema: {
+        Args: { p_schema: string; p_term: string }
+        Returns: {
+          column_name: string
+          row_ctid: unknown
+          schema_name: string
+          table_name: string
         }[]
       }
       update_ap_installments_relationships: {

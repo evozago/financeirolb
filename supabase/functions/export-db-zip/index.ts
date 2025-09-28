@@ -3,7 +3,7 @@
 // Route: POST /export-db-csvs?token=LB-temp-Export-123!&include=a,b&exclude=x,y
 // Body (optional JSON): { "include": ["table1"], "exclude": ["table2"] }
 
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Hardcoded config (no secrets page needed)
 const SUPABASE_URL = "https://mnxemxgcucfuoedqkygw.supabase.co";
@@ -87,13 +87,13 @@ function parseListParam(value: string | null | undefined): string[] | undefined 
   return parts.length ? parts : undefined;
 }
 
-async function countRows(supabase: ReturnType<typeof createClient>, table: string): Promise<number> {
+async function countRows(supabase: any, table: string): Promise<number> {
   const countRes = await supabase.from(table).select("*", { count: "exact", head: true });
   if (countRes.error) throw countRes.error;
   return countRes.count ?? 0;
 }
 
-async function getColumnNames(supabase: ReturnType<typeof createClient>, table: string): Promise<string[]> {
+async function getColumnNames(supabase: any, table: string): Promise<string[]> {
   const { data, error } = await supabase.from(table).select("*").range(0, 0); // first row
   if (error) throw error;
   if (!data || !data.length) return [];
@@ -101,7 +101,7 @@ async function getColumnNames(supabase: ReturnType<typeof createClient>, table: 
 }
 
 async function exportTableToCsvTempFile(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   table: string,
   columns: string[],
   filePath: string,
@@ -210,7 +210,7 @@ Deno.serve(async (req: Request) => {
       tablesExported: files.length,
       totalRows: files.reduce((acc, f) => acc + f.rows, 0),
     }), { status: 200, headers: { "Content-Type": "application/json" } });
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
     return new Response(JSON.stringify({ error: String(e?.message ?? e) }), { status: 500, headers: { "Content-Type": "application/json" } });
   }

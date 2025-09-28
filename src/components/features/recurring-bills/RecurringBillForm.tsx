@@ -3,6 +3,8 @@ import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,11 +43,12 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
     category_id: "",
     closing_day: "",
     due_day: "",
-    expected_amount: "",
+    expected_amount: 0 as number,
     open_ended: true as boolean,
     end_date: "",
     notes: "",
-    filial_id: "" as string | "" // guardamos id da filial (ou vazio)
+    filial_id: "" as string | "", // guardamos id da filial (ou vazio)
+    recorrente_livre: false as boolean // Nova opção para contas que podem ser lançadas múltiplas vezes
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -72,12 +75,13 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
         category_id: bill.category_id || "",
         closing_day: bill.closing_day?.toString() || "",
         due_day: bill.due_day.toString(),
-        expected_amount: bill.expected_amount.toString(),
+        expected_amount: bill.expected_amount,
         open_ended: bill.open_ended,
         end_date: bill.end_date || "",
         notes: bill.notes || "",
         // Se houver campo no tipo RecurringBill, usa; senão, tenta herdar do fornecedor
-        filial_id: (bill as any).filial_id || ""
+        filial_id: (bill as any).filial_id || "",
+        recorrente_livre: (bill as any).recorrente_livre || false
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,14 +100,38 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
 
   const loadSuppliers = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar fornecedores (PJ)
+      const { data: fornecedores, error: errorFornecedores } = await supabase
         .from("fornecedores" as any)
-        .select("id, nome, filial_id")
+        .select("id, nome, filial_id, tipo_pessoa")
         .eq("ativo", true)
         .order("nome");
 
-      if (error) throw error;
-      setSuppliers((data as unknown as Supplier[]) || []);
+      // Buscar pessoas (PF)
+      const { data: pessoas, error: errorPessoas } = await supabase
+        .from("pessoas" as any)
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+
+      if (errorFornecedores) console.error("Error loading fornecedores:", errorFornecedores);
+      if (errorPessoas) console.error("Error loading pessoas:", errorPessoas);
+
+      // Unificar dados: PJ e PF juntos
+      const allSuppliers: Supplier[] = [
+        ...(fornecedores || []).map((f: any) => ({
+          id: f.id,
+          nome: `${f.nome} (PJ)`,
+          filial_id: f.filial_id
+        })),
+        ...(pessoas || []).map((p: any) => ({
+          id: p.id,
+          nome: `${p.nome} (PF)`,
+          filial_id: null
+        }))
+      ].sort((a, b) => a.nome.localeCompare(b.nome));
+
+      setSuppliers(allSuppliers);
     } catch (error) {
       console.error("Error loading suppliers:", error);
     }
@@ -158,10 +186,11 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
       category_id: formData.category_id || null,
       closing_day: formData.closing_day ? parseInt(formData.closing_day) : null,
       due_day: parseInt(formData.due_day),
-      expected_amount: parseFloat(formData.expected_amount),
+      expected_amount: formData.expected_amount,
       open_ended: formData.open_ended,
       end_date: formData.end_date || null,
       notes: formData.notes || null,
+      recorrente_livre: formData.recorrente_livre,
     };
 
     // Tentamos incluir filial_id. Se a coluna não existir no banco,
@@ -360,14 +389,10 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               {/* Valor esperado */}
               <div className="space-y-2">
                 <Label htmlFor="expected_amount">Valor Esperado *</Label>
-                <Input
-                  id="expected_amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.expected_amount}
-                  onChange={(e) => handleInputChange("expected_amount", e.target.value)}
-                  placeholder="0.00"
-                  required
+                <CurrencyInput
+                  value={formData.expected_amount || undefined}
+                  onValueChange={(value) => handleInputChange("expected_amount", value || 0)}
+                  placeholder="R$ 0,00"
                 />
               </div>
 
@@ -401,7 +426,7 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
               </div>
             </div>
 
-            {/* Contínua / Data final / Observações */}
+            {/* Contínua / Data final / Observações / Recorrente Livre */}
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -425,6 +450,19 @@ export const RecurringBillForm: React.FC<RecurringBillFormProps> = ({
                   />
                 </div>
               )}
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="recorrente_livre"
+                  checked={formData.recorrente_livre}
+                  onCheckedChange={(checked) =>
+                    handleInputChange("recorrente_livre", Boolean(checked))
+                  }
+                />
+                <Label htmlFor="recorrente_livre">
+                  Recorrente livre (pode ser lançada múltiplas vezes no mês)
+                </Label>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Observações</Label>

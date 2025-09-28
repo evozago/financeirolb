@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Search, Plus, Eye, Edit2, Users, Phone, Mail } from 'lucide-react';
+import { Building2, Search, Plus, Users } from 'lucide-react';
+import { EntitiesTable } from '@/components/features/entities/EntitiesTable';
+import { EntityBulkEditModal, EntityBulkEditData } from '@/components/features/entities/EntityBulkEditModal';
+import { useUndoActions } from '@/hooks/useUndoActions';
 
 interface Entidade {
   id: string;
@@ -32,7 +34,11 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [papelFilter, setPapelFilter] = useState('all');
-  const [papeis, setPapeis] = useState<{ nome: string }[]>([]);
+  const [papeis, setPapeis] = useState<{ nome: string; id: string }[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Entidade[]>([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
+  const { addUndoAction } = useUndoActions();
 
   useEffect(() => {
     loadPapeis();
@@ -43,7 +49,7 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     try {
       const { data, error } = await supabase
         .from('papeis')
-        .select('nome')
+        .select('id, nome')
         .eq('ativo', true)
         .order('nome');
 
@@ -58,22 +64,223 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     try {
       setLoading(true);
       
-      // Usar a função RPC para buscar entidades com filtros
-      const { data, error } = await supabase.rpc('search_entidades_corporativas', {
-        p_query: searchQuery || null,
-        p_papel: papelFilter === 'all' ? null : papelFilter,
-        p_limite: 100,
-        p_offset: 0
-      });
+      // Buscar entidades corporativas com papéis (com foco em funcionários e empresas)
+      let query = supabase
+        .from('entidades_corporativas')
+        .select(`
+          *,
+          entidade_papeis!inner(
+            papel_id,
+            ativo,
+            papeis(nome)
+          )
+        `)
+        .eq('ativo', true)
+        .eq('entidade_papeis.ativo', true);
+
+      // Filtrar por papel específico ou mostrar pelo menos funcionários
+      if (papelFilter !== 'all') {
+        query = query.eq('entidade_papeis.papeis.nome', papelFilter);
+      } else {
+        // Por padrão, mostrar pessoas com papel de funcionário, empresa ou empresa do grupo
+        query = query.in('entidade_papeis.papeis.nome', ['funcionario', 'empresa', 'empresa do grupo']);
+      }
+
+      // Filtrar por busca
+      if (searchQuery) {
+        query = query.or(
+          `nome_razao_social.ilike.%${searchQuery}%,nome_fantasia.ilike.%${searchQuery}%,cpf_cnpj.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+        );
+      }
+
+      query = query.order('nome_razao_social');
+
+      const { data, error } = await query;
 
       if (error) throw error;
-      setEntidades(data || []);
+
+      // Transformar dados para o formato esperado, agrupando por entidade
+      const entidadesMap = new Map();
+      
+      (data || []).forEach((item: any) => {
+        if (!entidadesMap.has(item.id)) {
+          entidadesMap.set(item.id, {
+            id: item.id,
+            tipo_pessoa: item.tipo_pessoa,
+            nome_razao_social: item.nome_razao_social,
+            nome_fantasia: item.nome_fantasia,
+            cpf_cnpj: item.cpf_cnpj,
+            email: item.email,
+            telefone: item.telefone,
+            papeis: [],
+            ativo: item.ativo,
+          });
+        }
+        
+        const entidade = entidadesMap.get(item.id);
+        const papel = item.entidade_papeis?.[0]?.papeis?.nome;
+        if (papel && !entidade.papeis.includes(papel)) {
+          entidade.papeis.push(papel);
+        }
+      });
+
+      setEntidades(Array.from(entidadesMap.values()));
     } catch (error) {
       console.error('Erro ao carregar entidades:', error);
       toast.error('Erro ao carregar entidades');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async (entidades: Entidade[]) => {
+    try {
+      const entidadeIds = entidades.map(e => e.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = entidades.map(entidade => ({
+        id: entidade.id,
+        nome_razao_social: entidade.nome_razao_social,
+        ativo: entidade.ativo,
+      }));
+
+      for (const entidade of entidades) {
+        const { error } = await supabase
+          .from('entidades_corporativas')
+          .delete()
+          .eq('id', entidade.id);
+
+        if (error) {
+          console.error('Erro ao excluir entidade:', error);
+          toast.error(`Erro ao excluir entidade ${entidade.nome_razao_social}`);
+          continue;
+        }
+      }
+
+      setSelectedItems([]);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `deleteEntities-${Date.now()}`,
+        type: 'delete',
+        data: { entidadeIds, count: entidades.length },
+        originalData: { entidades: originalData },
+      }, () => {
+        loadEntidades();
+      });
+
+      toast.success(`${entidades.length} entidade${entidades.length !== 1 ? 's' : ''} excluída${entidades.length !== 1 ? 's' : ''} definitivamente`);
+      loadEntidades();
+    } catch (error) {
+      console.error('Erro ao excluir entidades:', error);
+      toast.error('Erro ao excluir entidades');
+    }
+  };
+
+  const handleBulkEdit = (entidades: Entidade[]) => {
+    setBulkEditModalOpen(true);
+  };
+
+  const handleBulkEditSave = async (updates: EntityBulkEditData) => {
+    try {
+      setBulkEditLoading(true);
+      const entidadeIds = selectedItems.map(e => e.id);
+      
+      // Armazenar dados originais para undo
+      const originalData = selectedItems.map(entidade => ({
+        id: entidade.id,
+        ativo: entidade.ativo,
+        papeis: entidade.papeis,
+      }));
+
+      // Atualizar status se especificado
+      if (updates.ativo !== undefined) {
+        const updateData = { ativo: updates.ativo };
+
+        const { error } = await supabase
+          .from('entidades_corporativas')
+          .update(updateData)
+          .in('id', entidadeIds);
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      // Gerenciar papéis se especificado
+      if (updates.papeis) {
+        for (const entidadeId of entidadeIds) {
+          // Adicionar papéis
+          if (updates.papeis.add.length > 0) {
+            for (const papelId of updates.papeis.add) {
+              try {
+                const { error: insertError } = await supabase
+                  .from('entidade_papeis')
+                  .upsert({
+                    entidade_id: entidadeId,
+                    papel_id: papelId,
+                    data_inicio: new Date().toISOString().split('T')[0],
+                    ativo: true,
+                  });
+
+                if (insertError) {
+                  console.warn(`Erro ao adicionar papel ${papelId} para ${entidadeId}:`, insertError);
+                }
+              } catch (error) {
+                console.warn(`Erro ao adicionar papel ${papelId}:`, error);
+              }
+            }
+          }
+
+          // Remover papéis
+          if (updates.papeis.remove.length > 0) {
+            const { error: removeError } = await supabase
+              .from('entidade_papeis')
+              .update({ 
+                ativo: false, 
+                data_fim: new Date().toISOString().split('T')[0] 
+              })
+              .eq('entidade_id', entidadeId)
+              .in('papel_id', updates.papeis.remove)
+              .eq('ativo', true);
+
+            if (removeError) {
+              console.warn(`Erro ao remover papéis para ${entidadeId}:`, removeError);
+            }
+          }
+        }
+      }
+
+      setSelectedItems([]);
+      setBulkEditModalOpen(false);
+      
+      // Adicionar ação de undo
+      addUndoAction({
+        id: `bulkEditEntities-${Date.now()}`,
+        type: 'bulkEdit',
+        data: { entidadeIds, count: selectedItems.length },
+        originalData: { entidades: originalData },
+      }, () => {
+        loadEntidades();
+      });
+
+      toast.success(`${selectedItems.length} entidade${selectedItems.length !== 1 ? 's' : ''} atualizada${selectedItems.length !== 1 ? 's' : ''} com sucesso`);
+      
+      loadEntidades();
+    } catch (error) {
+      console.error('Error bulk editing entidades:', error);
+      toast.error('Falha ao atualizar entidades em massa');
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
+  const handleActivate = async (entidades: Entidade[]) => {
+    await handleBulkEditSave({ ativo: true });
+  };
+
+  const handleDeactivate = async (entidades: Entidade[]) => {
+    await handleBulkEditSave({ ativo: false });
   };
 
   const formatCpfCnpj = (cpfCnpj: string) => {
@@ -92,10 +299,15 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            Entidades Corporativas
-          </CardTitle>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Entidades Corporativas
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Funcionários e empresas • Para editar papéis, use a aba "Papéis" ao editar a pessoa
+            </p>
+          </div>
           <Button onClick={onNovaEntidade}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Entidade
@@ -132,110 +344,19 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
         </div>
 
         {/* Tabela */}
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Entidade</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>CPF/CNPJ</TableHead>
-                <TableHead>Contato</TableHead>
-                <TableHead>Papéis</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Carregando entidades...
-                  </TableCell>
-                </TableRow>
-              ) : entidades.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Nenhuma entidade encontrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                entidades.map((entidade) => (
-                  <TableRow key={entidade.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{entidade.nome_razao_social}</div>
-                        {entidade.nome_fantasia && (
-                          <div className="text-sm text-muted-foreground">
-                            {entidade.nome_fantasia}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <Badge variant={entidade.tipo_pessoa === 'fisica' ? 'default' : 'secondary'}>
-                        {entidade.tipo_pessoa === 'fisica' ? 'PF' : 'PJ'}
-                      </Badge>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="font-mono text-sm">
-                        {formatCpfCnpj(entidade.cpf_cnpj)}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="space-y-1">
-                        {entidade.email && (
-                          <div className="flex items-center text-sm">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {entidade.email}
-                          </div>
-                        )}
-                        {entidade.telefone && (
-                          <div className="flex items-center text-sm">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {entidade.telefone}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {entidade.papeis?.map((papel) => (
-                          <Badge key={papel} variant="outline" className="text-xs">
-                            {papel}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEntidadeSelect?.(entidade)}
-                          title="Visualizar ficha 360°"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEditarEntidade?.(entidade)}
-                          title="Editar entidade"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <EntitiesTable
+          data={entidades}
+          loading={loading}
+          selectedItems={selectedItems}
+          onSelectionChange={setSelectedItems}
+          onRowClick={(entidade) => {}} // Pode implementar navegação para detalhes
+          onEdit={onEditarEntidade}
+          onDelete={handleDelete}
+          onView={onEntidadeSelect}
+          onBulkEdit={handleBulkEdit}
+          onActivate={handleActivate}
+          onDeactivate={handleDeactivate}
+        />
 
         {/* Estatísticas */}
         <div className="flex justify-between items-center text-sm text-muted-foreground">
@@ -250,6 +371,16 @@ export function EntidadesList({ onEntidadeSelect, onNovaEntidade, onEditarEntida
           </div>
         </div>
       </CardContent>
+
+      {/* Bulk Edit Modal */}
+      <EntityBulkEditModal
+        open={bulkEditModalOpen}
+        onOpenChange={setBulkEditModalOpen}
+        selectedCount={selectedItems.length}
+        onSave={handleBulkEditSave}
+        loading={bulkEditLoading}
+        availableRoles={papeis}
+      />
     </Card>
   );
 }

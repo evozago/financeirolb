@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,7 +27,7 @@ const formSchema = z.object({
   agencia: z.string().optional(),
   conta: z.string().optional(),
   tipo_conta: z.string().optional(),
-  saldo_atual: z.number().default(0),
+  saldo_atual: z.number().optional(),
   ativo: z.boolean().default(true),
   observacoes: z.string().optional(),
   filial_id: z.string().optional(),
@@ -89,7 +90,7 @@ export function BankAccountForm({
       agencia: initialData?.agencia || '',
       conta: initialData?.conta || '',
       tipo_conta: initialData?.tipo_conta || '',
-      saldo_atual: initialData?.saldo_atual || 0,
+      saldo_atual: initialData?.saldo_atual,
       ativo: initialData?.ativo ?? true,
       observacoes: initialData?.observacoes || '',
       filial_id: initialData?.filial_id || '',
@@ -177,16 +178,14 @@ export function BankAccountForm({
               <FormItem>
                 <FormLabel>Saldo Atual</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    step="0.01" 
-                    placeholder="0,00" 
+                  <CurrencyInput
                     value={field.value}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    onValueChange={field.onChange}
+                    placeholder="R$ 0,00"
                   />
                 </FormControl>
                 <FormDescription>
-                  Informe o saldo atual da conta em R$
+                  Informe o saldo atual da conta
                 </FormDescription>
                 <FormMessage />
               </FormItem>

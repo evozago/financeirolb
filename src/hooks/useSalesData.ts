@@ -38,6 +38,7 @@ export type SalespersonPanelData = {
   salesperson_id: string;
   salesperson_name: string;
   monthly_goals: Record<number, number | ''>;
+  monthly_sales: Record<number, number | ''>;
 };
 
 const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -51,12 +52,13 @@ async function getSingleDefaultEntityId(): Promise<string | null> {
     console.error('Erro ao buscar entidades_corporativas:', error.message);
     return null;
   }
-  if (!data || data.length !== 1) return null;
+  if (!data || data.length === 0) return null;
+  // Use a primeira entidade se houver múltiplas (fallback automático)
   return data[0].id as string;
 }
 
 export function useSalesData() {
-  const { primaryEntity } = useAuth(); // pode estar vazio
+  const { user } = useAuth(); // pode estar vazio
   const [loading, setLoading] = useState(true);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [effectiveEntityId, setEffectiveEntityId] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function useSalesData() {
 
   // Determina a entidade efetiva (contexto OU fallback automático)
   const computeEffectiveEntity = useCallback(async () => {
-    const ctxId = primaryEntity?.id ?? null;
+    const ctxId = null; // sem contexto de entidade por enquanto
     if (ctxId) {
       setEffectiveEntityId(ctxId);
       return ctxId;
@@ -75,7 +77,7 @@ export function useSalesData() {
     const fallbackId = await getSingleDefaultEntityId();
     setEffectiveEntityId(fallbackId);
     return fallbackId;
-  }, [primaryEntity?.id]);
+  }, [user?.id]);
 
   const hasEntity = useMemo(() => !!effectiveEntityId, [effectiveEntityId]);
 
@@ -87,8 +89,9 @@ export function useSalesData() {
         setYearlyData([]);
         setSalespersonData([]);
         toast({
-          title: 'Selecione a Entidade',
-          description: 'Não foi possível determinar automaticamente. Selecione a entidade/filial no topo.',
+          title: 'Nenhuma Entidade Encontrada',
+          description: 'Configure pelo menos uma entidade corporativa no sistema para usar o módulo de vendas.',
+          variant: 'destructive'
         });
         return;
       }
@@ -114,11 +117,38 @@ export function useSalesData() {
       setYearlyData(formattedYearly);
 
       // --- 2) Painel de Vendedoras (tabela direita) ---
-      const { data: vendedoras, error: vendErr } = await supabase
-        .from('vendedoras')
-        .select('id, nome, ativo')
-        .eq('ativo', true);
-      if (vendErr) throw vendErr;
+      // Buscar vendedoras usando a função que retorna pessoas com papéis
+      const { data: pessoasComPapeis, error: vendErr } = await supabase
+        .rpc('get_pessoas_with_papeis');
+      
+      let vendedoras = [];
+      
+      if (vendErr) {
+        console.warn('Erro ao buscar pessoas com papéis:', vendErr);
+        // Fallback: buscar pessoas diretamente
+        const { data: pessoasFallback, error: fallbackErr } = await supabase
+          .from('pessoas')
+          .select('id, nome, ativo, cpf_cnpj_normalizado, eh_vendedora')
+          .eq('ativo', true)
+          .eq('eh_vendedora', true);
+        
+        if (fallbackErr) throw fallbackErr;
+        
+        vendedoras = (pessoasFallback || []).map(v => ({ 
+          ...v, 
+          source: 'pessoas',
+          eh_vendedora: true 
+        }));
+      } else {
+        // Filtrar apenas pessoas com papel "vendedora"
+        vendedoras = (pessoasComPapeis || [])
+          .filter(p => p.papeis && p.papeis.includes('vendedora'))
+          .map(v => ({ 
+            ...v, 
+            source: 'pessoas',
+            eh_vendedora: true 
+          }));
+      }
 
       const { data: metas, error: metasErr } = await supabase
         .from('sales_goals')
@@ -127,20 +157,47 @@ export function useSalesData() {
         .eq('year', currentYear);
       if (metasErr) throw metasErr;
 
-      const map = new Map<string, Record<number, number>>();
+      // Buscar vendas realizadas por vendedora
+      const { data: vendasRealizadas, error: vendasErr } = await supabase
+        .from('salesperson_sales')
+        .select('salesperson_id, month, sales_amount')
+        .eq('entity_id', eid)
+        .eq('year', currentYear);
+      if (vendasErr) throw vendasErr;
+
+      const goalsMap = new Map<string, Record<number, number>>();
       for (const m of metas ?? []) {
         const sid = m.salesperson_id as string;
         const mm = Number(m.month);
         const val = Number(m.goal_amount ?? 0);
-        const cur = map.get(sid) ?? {};
+        const cur = goalsMap.get(sid) ?? {};
         cur[mm] = val;
-        map.set(sid, cur);
+        goalsMap.set(sid, cur);
       }
 
-      const formattedSales: SalespersonPanelData[] = (vendedoras ?? []).map((v: any) => ({
+      const salesMap = new Map<string, Record<number, number>>();
+      for (const v of vendasRealizadas ?? []) {
+        const sid = v.salesperson_id as string;
+        const mm = Number(v.month);
+        const val = Number(v.sales_amount ?? 0);
+        const cur = salesMap.get(sid) ?? {};
+        cur[mm] = val;
+        salesMap.set(sid, cur);
+      }
+
+      // Deduplicate vendedoras by name + normalized document
+      const uniqueVendedoras = new Map<string, any>();
+      (vendedoras ?? []).forEach((v: any) => {
+        const key = `${(v.nome || '').trim().toUpperCase()}-${v.cpf_cnpj_normalizado || ''}`;
+        if (!uniqueVendedoras.has(key)) uniqueVendedoras.set(key, v);
+      });
+      const vendedorasList = Array.from(uniqueVendedoras.values());
+
+      const formattedSales: SalespersonPanelData[] = vendedorasList.map((v: any) => ({
         salesperson_id: v.id,
         salesperson_name: v.nome,
-        monthly_goals: map.get(v.id) ?? {},
+        monthly_goals: goalsMap.get(v.id) ?? {},
+        monthly_sales: salesMap.get(v.id) ?? {}, // Agora carrega os dados reais
       }));
       setSalespersonData(formattedSales);
     } catch (err: any) {
@@ -157,21 +214,32 @@ export function useSalesData() {
 
   // Edição local (comparativo anual)
   const updateYearlySale = (month: number, year: number, value: string) => {
-    setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value } }) : r));
+    setYearlyData((prev) => prev.map((r) => r.month === month ? ({ ...r, years: { ...r.years, [year]: value === '' ? '' : Number(value) } }) : r));
   };
 
   // Edição local (metas por vendedora)
   const updateSalespersonGoal = (salesperson_id: string, month: number, value: string) => {
     setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
-      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value } })
+      ? ({ ...p, monthly_goals: { ...p.monthly_goals, [month]: value === '' ? '' : Number(value) } })
+      : p));
+  };
+
+  // Edição local (vendas realizadas por vendedora)
+  const updateSalespersonSales = (salesperson_id: string, month: number, value: string) => {
+    setSalespersonData((prev) => prev.map((p) => p.salesperson_id === salesperson_id
+      ? ({ ...p, monthly_sales: { ...p.monthly_sales, [month]: value === '' ? '' : Number(value) } })
       : p));
   };
 
   // Persistência (UPERT idempotente)
   const saveAllData = async () => {
-    const eid = primaryEntity?.id ?? effectiveEntityId;
+    const eid = effectiveEntityId;
     if (!eid) {
-      toast({ title: 'Selecione a Entidade', description: 'Escolha a entidade/filial e tente novamente.' });
+      toast({ 
+        title: 'Entidade Não Configurada', 
+        description: 'Configure uma entidade corporativa no sistema primeiro.',
+        variant: 'destructive'
+      });
       return;
     }
     setLoading(true);
@@ -219,6 +287,28 @@ export function useSalesData() {
         if (error) throw error;
       }
 
+      // 3) Vendas realizadas por vendedora
+      const toUpsertSales: any[] = [];
+      salespersonData.forEach((p) => {
+        Object.entries(p.monthly_sales).forEach(([mStr, val]) => {
+          if (val !== '' && val !== null && !Number.isNaN(Number(val))) {
+            toUpsertSales.push({
+              entity_id: eid,
+              salesperson_id: p.salesperson_id,
+              year: currentYear,
+              month: Number(mStr),
+              sales_amount: Number(val),
+            });
+          }
+        });
+      });
+      if (toUpsertSales.length) {
+        const { error } = await supabase
+          .from('salesperson_sales')
+          .upsert(toUpsertSales, { onConflict: 'entity_id, salesperson_id, year, month' });
+        if (error) throw error;
+      }
+
       toast({ title: 'Salvo!', description: 'Vendas e metas persistidas no Supabase.' });
     } catch (err: any) {
       console.error('Erro ao salvar:', err);
@@ -232,8 +322,9 @@ export function useSalesData() {
     loading,
     currentYear, setCurrentYear,
     yearlyData, updateYearlySale,
-    salespersonData, updateSalespersonGoal,
+    salespersonData, updateSalespersonGoal, updateSalespersonSales,
     saveAllData,
     hasEntity, // para a UI saber se temos entidade efetiva
+    refreshData: fetchAllData,
   };
 }

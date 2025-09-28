@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { usePagePersistence } from '@/hooks/usePagePersistence';
 
 interface Entity {
   id: string;
@@ -37,6 +38,12 @@ export function EntitySelector({
 }: EntitySelectorProps) {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Usar persistência para lembrar da última entidade selecionada
+  const { pageState, updateSelectedEntity } = usePagePersistence('global-entity-selector');
+  
+  // Se não há selectedEntityId passado como prop, usar o valor persistido
+  const effectiveSelectedEntityId = selectedEntityId || pageState.selectedEntity;
 
   useEffect(() => {
     loadEntities();
@@ -44,19 +51,44 @@ export function EntitySelector({
 
   const loadEntities = async () => {
     try {
-      const { data, error } = await supabase
-        .from('entidades')
-        .select('id, nome, cnpj_cpf, tipo')
+      // Buscar fornecedores (PJ)
+      const { data: fornecedores, error: errorFornecedores } = await supabase
+        .from('fornecedores')
+        .select('id, nome, cnpj_cpf, tipo_pessoa')
         .eq('ativo', true)
-        .eq('tipo', 'PJ')
         .order('nome');
 
-      if (error) {
-        console.error('Erro ao carregar entidades:', error);
-        return;
+      // Buscar pessoas (PF)
+      const { data: pessoas, error: errorPessoas } = await supabase
+        .from('pessoas')
+        .select('id, nome, cpf, tipo_pessoa')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (errorFornecedores) {
+        console.error('Erro ao carregar fornecedores:', errorFornecedores);
+      }
+      if (errorPessoas) {
+        console.error('Erro ao carregar pessoas:', errorPessoas);
       }
 
-      setEntities(data || []);
+      // Unificar dados: PJ e PF juntos
+      const allEntities = [
+        ...(fornecedores || []).map(f => ({
+          id: f.id,
+          nome: `${f.nome} (PJ)`,
+          cnpj_cpf: f.cnpj_cpf,
+          tipo: 'PJ'
+        })),
+        ...(pessoas || []).map(p => ({
+          id: p.id,
+          nome: `${p.nome} (PF)`,
+          cnpj_cpf: p.cpf,
+          tipo: 'PF'
+        }))
+      ].sort((a, b) => a.nome.localeCompare(b.nome));
+
+      setEntities(allEntities);
     } catch (error) {
       console.error('Erro ao carregar entidades:', error);
     } finally {
@@ -69,7 +101,7 @@ export function EntitySelector({
     return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   };
 
-  const selectedEntity = entities.find(e => e.id === selectedEntityId);
+  const selectedEntity = entities.find(e => e.id === effectiveSelectedEntityId);
 
   return (
     <div className={className}>
@@ -79,8 +111,15 @@ export function EntitySelector({
       </div>
       
       <Select 
-        value={selectedEntityId || 'all'} 
-        onValueChange={(value) => onEntityChange(value === 'all' ? null : value)}
+        value={effectiveSelectedEntityId || 'all'} 
+        onValueChange={(value) => {
+          const entityId = value === 'all' ? null : value;
+          onEntityChange(entityId);
+          // Persistir seleção apenas se não foi passada como prop
+          if (!selectedEntityId) {
+            updateSelectedEntity(entityId || '');
+          }
+        }}
         disabled={loading}
       >
         <SelectTrigger className="w-full">

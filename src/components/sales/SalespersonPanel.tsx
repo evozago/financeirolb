@@ -1,446 +1,409 @@
-import { useState } from "react";
 import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Download, Upload, Save, Target, Edit, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Plus, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-// Add selectedEntity to window type
+/**
+ * NOVO Painel de Vendedoras
+ * - Lista por view v_vendedoras (Pessoa + Papel + Config por entidade)
+ * - Não cria Pessoa aqui. Apenas vincula Pessoa existente como Vendedora.
+ * - Salva "ativa", "metas" e "preferencia" em vendedora_config.
+ * - Mantém compatibilidade com window.selectedEntity e evento saveAllSalesData.
+ */
+
 declare global {
   interface Window {
     selectedEntity?: string;
   }
 }
 
-interface Salesperson {
-  id: string;
-  name: string;
-  baseSalary: number;
-  commissionRate: number;
-  metaBase: number;
-  supermetaRate: number;
-  currentSales?: number;
-  currentGoal?: number;
-}
+type UUID = string;
 
-interface SalesData {
-  [key: string]: {
-    sales: number;
-    goal: number;
-  };
-}
+type Pessoa = {
+  id: UUID;
+  nome: string;
+  cpf: string | null;
+  email: string | null;
+  telefone: string | null;
+  ativo: boolean;
+};
+
+type VendedoraView = {
+  pessoa_id: UUID;
+  nome: string;
+  cpf: string | null;
+  email: string | null;
+  telefone: string | null;
+  pessoa_ativa: boolean;
+  entidade_id: UUID;
+  vendedora_ativa: boolean;
+  metas: any | null;
+  preferencia: any | null;
+};
 
 export function SalespersonPanel() {
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
-  
-  // Editable salespeople data
-  const [salespeople, setSalespeople] = useState<Salesperson[]>([
-    { id: '1', name: 'Maria Silva', baseSalary: 2000, commissionRate: 0.03, metaBase: 15000, supermetaRate: 0.05 },
-    { id: '2', name: 'Ana Costa', baseSalary: 2000, commissionRate: 0.03, metaBase: 15000, supermetaRate: 0.05 },
-  ]);
+  const [lista, setLista] = React.useState<VendedoraView[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
-  // Sales data for current month/year
-  const [salesData, setSalesData] = useState<SalesData>({
-    '1': { sales: 18000, goal: 15000 },
-    '2': { sales: 12000, goal: 15000 },
-  });
+  // busca/vinculação de Pessoa existente
+  const [busca, setBusca] = React.useState("");
+  const [pessoas, setPessoas] = React.useState<Pessoa[]>([]);
+  const [pessoaSelecionada, setPessoaSelecionada] = React.useState<UUID | null>(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
 
-  // New salesperson form
-  const [newSalesperson, setNewSalesperson] = useState({
-    name: '',
-    baseSalary: 2000,
-    commissionRate: 0.03,
-    metaBase: 15000,
-    supermetaRate: 0.05
-  });
+  // edição de config por pessoa
+  const [edits, setEdits] = React.useState<Record<
+    UUID,
+    { ativa: boolean; metas: string; preferencia: string }
+  >>({});
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+  // ————— Helpers —————
 
-  const calculateCommission = (sales: number, goal: number, person: Salesperson) => {
-    if (sales >= goal) {
-      return sales * person.supermetaRate; // Super meta rate
-    }
-    return sales * person.commissionRate; // Base commission rate
-  };
+  async function getVendedoraPapelId(): Promise<UUID> {
+    const { data, error } = await supabase
+      .from("papeis")
+      .select("id, nome")
+      .ilike("nome", "vendedor%")
+      .limit(1)
+      .maybeSingle();
 
-  const calculateProgress = (sales: number, goal: number) => {
-    return goal > 0 ? Math.min((sales / goal) * 100, 100) : 0;
-  };
+    if (error) throw error;
+    if (!data) throw new Error("Papel Vendedora/Vendedor não encontrado em 'papeis'.");
+    return data.id as UUID;
+  }
 
-  const addSalesperson = () => {
-    if (!newSalesperson.name.trim()) {
-      toast.error("Nome é obrigatório!");
+  async function carregarLista() {
+    const entidadeId = window.selectedEntity;
+    if (!entidadeId) {
+      setLista([]);
       return;
     }
+    const { data, error } = await supabase
+      .from("v_vendedoras")
+      .select("*")
+      .eq("entidade_id", entidadeId)
+      .order("nome", { ascending: true });
 
-    const id = Date.now().toString();
-    setSalespeople(prev => [...prev, { ...newSalesperson, id }]);
-    setSalesData(prev => ({ ...prev, [id]: { sales: 0, goal: newSalesperson.metaBase } }));
-    
-    setNewSalesperson({
-      name: '',
-      baseSalary: 2000,
-      commissionRate: 0.03,
-      metaBase: 15000,
-      supermetaRate: 0.05
-    });
-    
-    setIsAddDialogOpen(false);
-    toast.success("Vendedora adicionada com sucesso!");
-  };
-
-  const editSalesperson = (person: Salesperson) => {
-    setEditingSalesperson(person);
-    setNewSalesperson({
-      name: person.name,
-      baseSalary: person.baseSalary,
-      commissionRate: person.commissionRate,
-      metaBase: person.metaBase,
-      supermetaRate: person.supermetaRate
-    });
-  };
-
-  const saveEditSalesperson = () => {
-    if (!editingSalesperson || !newSalesperson.name.trim()) {
-      toast.error("Nome é obrigatório!");
+    if (error) {
+      toast.error(error.message || "Erro ao carregar vendedoras");
       return;
     }
+    const arr = (data || []) as VendedoraView[];
+    setLista(arr);
 
-    setSalespeople(prev => prev.map(p => 
-      p.id === editingSalesperson.id 
-        ? { ...p, ...newSalesperson }
-        : p
-    ));
-    
-    setEditingSalesperson(null);
-    setNewSalesperson({
-      name: '',
-      baseSalary: 2000,
-      commissionRate: 0.03,
-      metaBase: 15000,
-      supermetaRate: 0.05
+    // preparar estado de edição
+    const next: typeof edits = {};
+    arr.forEach((v) => {
+      next[v.pessoa_id] = {
+        ativa: !!v.vendedora_ativa,
+        metas: v.metas ? JSON.stringify(v.metas, null, 2) : "",
+        preferencia: v.preferencia ? JSON.stringify(v.preferencia, null, 2) : "",
+      };
     });
-    
-    toast.success("Vendedora atualizada com sucesso!");
-  };
+    setEdits(next);
+  }
 
-  const deleteSalesperson = (id: string) => {
-    setSalespeople(prev => prev.filter(p => p.id !== id));
-    setSalesData(prev => {
-      const updated = { ...prev };
-      delete updated[id];
-      return updated;
-    });
-    toast.success("Vendedora removida com sucesso!");
-  };
+  async function carregarPessoas() {
+    const q = busca?.trim();
+    let sel = supabase.from("pessoas")
+      .select("id, nome, cpf, email, telefone, ativo")
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
 
-  const updateSalesData = (salespersonId: string, field: 'sales' | 'goal', value: number) => {
-    setSalesData(prev => ({
-      ...prev,
-      [salespersonId]: {
-        ...prev[salespersonId],
-        [field]: value
+    if (q) sel = sel.ilike("nome", `%${q}%`);
+
+    const { data, error } = await sel;
+    if (error) {
+      toast.error(error.message || "Erro ao buscar pessoas");
+      return;
+    }
+    setPessoas((data || []) as Pessoa[]);
+  }
+
+  // ————— Ações —————
+
+  async function vincularPessoaComoVendedora() {
+    const entidadeId = window.selectedEntity;
+    if (!entidadeId) {
+      toast.error("Selecione uma entidade antes de vincular");
+      return;
+    }
+    if (!pessoaSelecionada) {
+      toast.error("Selecione uma pessoa do cadastro");
+      return;
+    }
+    setLoading(true);
+    try {
+      const papelId = await getVendedoraPapelId();
+
+      // 1) upsert em papeis_pessoa (único por pessoa/papel/entidade)
+      {
+        const { error } = await supabase.from("papeis_pessoa").upsert(
+          [{
+            pessoa_id: pessoaSelecionada,
+            papel_id: papelId,
+            entidade_id: entidadeId,
+            ativo: true,
+          }],
+          { onConflict: "pessoa_id,papel_id,entidade_id", ignoreDuplicates: false }
+        );
+        if (error) throw error;
       }
-    }));
-  };
 
-  const saveAllData = async () => {
-    if (!window.selectedEntity) {
+      // 2) garantir registro em vendedora_config
+      {
+        const { error } = await supabase.from("vendedora_config").upsert(
+          [{ pessoa_id: pessoaSelecionada, entidade_id: entidadeId, ativa: true }],
+          { onConflict: "pessoa_id,entidade_id", ignoreDuplicates: false }
+        );
+        if (error) throw error;
+      }
+
+      toast.success("Pessoa vinculada como vendedora.");
+      setDialogOpen(false);
+      setPessoaSelecionada(null);
+      setBusca("");
+      await carregarLista();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao vincular vendedora");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function salvarConfig(pessoaId: UUID) {
+    const entidadeId = window.selectedEntity;
+    if (!entidadeId) {
       toast.error("Selecione uma entidade antes de salvar");
       return;
     }
+    const row = edits[pessoaId];
+    if (!row) return;
 
+    setLoading(true);
     try {
-      const entityId = window.selectedEntity;
-      
-      // Save sales goals for all salespeople
-      const goalPromises = salespeople.map(person => {
-        const personData = salesData[person.id] || { sales: 0, goal: person.metaBase };
-        return supabase.from('sales_goals').upsert({
-          entity_id: entityId,
-          salesperson_id: person.id,
-          year: selectedYear,
-          month: selectedMonth,
-          goal_amount: personData.goal
-        }, { onConflict: 'salesperson_id,entity_id,year,month' });
+      const metas = row.metas ? JSON.parse(row.metas) : null;
+      const preferencia = row.preferencia ? JSON.parse(row.preferencia) : null;
+
+      const { error } = await supabase.from("vendedora_config").upsert(
+        [{
+          pessoa_id: pessoaId,
+          entidade_id: entidadeId,
+          ativa: !!row.ativa,
+          metas,
+          preferencia,
+        }],
+        { onConflict: "pessoa_id,entidade_id", ignoreDuplicates: false }
+      );
+      if (error) throw error;
+
+      toast.success("Configuração salva.");
+      await carregarLista();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao salvar configuração");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // compatibilidade: salvar tudo via evento global
+  const saveAllData = React.useCallback(async () => {
+    const entidadeId = window.selectedEntity;
+    if (!entidadeId) {
+      toast.error("Selecione uma entidade antes de salvar");
+      return;
+    }
+    // salva todas as linhas em edição
+    setLoading(true);
+    try {
+      const payloads = Object.entries(edits).map(([pessoaId, row]) => {
+        let metas: any = null;
+        let preferencia: any = null;
+        try { metas = row.metas ? JSON.parse(row.metas) : null; } catch {}
+        try { preferencia = row.preferencia ? JSON.parse(row.preferencia) : null; } catch {}
+        return {
+          pessoa_id: pessoaId,
+          entidade_id: entidadeId,
+          ativa: !!row.ativa,
+          metas,
+          preferencia,
+        };
       });
 
-      await Promise.all(goalPromises);
+      if (payloads.length > 0) {
+        const { error } = await supabase.from("vendedora_config").upsert(
+          payloads,
+          { onConflict: "pessoa_id,entidade_id", ignoreDuplicates: false }
+        );
+        if (error) throw error;
+      }
+
       toast.success("Dados salvos com sucesso!");
-    } catch (error) {
-      console.error('Error saving data:', error);
-      toast.error("Erro ao salvar dados");
+      await carregarLista();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Erro ao salvar dados");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [edits]);
 
-  // Listen for save event from main page
+  // ————— Effects —————
   React.useEffect(() => {
-    const handleSave = () => saveAllData();
-    window.addEventListener('saveAllSalesData', handleSave);
-    return () => window.removeEventListener('saveAllSalesData', handleSave);
-  }, []);
+    carregarLista();
+  }, [window.selectedEntity]);
 
-  const months = [
-    { value: 1, label: "Janeiro" },
-    { value: 2, label: "Fevereiro" },
-    { value: 3, label: "Março" },
-    { value: 4, label: "Abril" },
-    { value: 5, label: "Maio" },
-    { value: 6, label: "Junho" },
-    { value: 7, label: "Julho" },
-    { value: 8, label: "Agosto" },
-    { value: 9, label: "Setembro" },
-    { value: 10, label: "Outubro" },
-    { value: 11, label: "Novembro" },
-    { value: 12, label: "Dezembro" },
-  ];
+  React.useEffect(() => {
+    carregarPessoas();
+  }, [busca]);
 
+  // Listener compatível com a página SalesManagement
+  React.useEffect(() => {
+    const handleSave = () => { void saveAllData(); };
+    window.addEventListener("saveAllSalesData", handleSave);
+    return () => window.removeEventListener("saveAllSalesData", handleSave);
+  }, [saveAllData]);
+
+  // ————— UI —————
   return (
     <div className="space-y-6">
+      {/* Vincular Pessoa existente */}
       <Card>
         <CardHeader>
-          <CardTitle>Painel de Vendedoras</CardTitle>
-          <CardDescription>
-            Gerencie informações das vendedoras, metas e comissões
-          </CardDescription>
+          <CardTitle>Vendedoras</CardTitle>
+          <CardDescription>Vincule pessoas existentes e gerencie status/metas por entidade.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Controls */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-2">
-              <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {months.map((month) => (
-                    <SelectItem key={month.value} value={month.value.toString()}>
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Upload className="w-4 h-4 mr-2" />
-                Importar
-              </Button>
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Exportar
-              </Button>
-              <Button size="sm" onClick={saveAllData}>
-                <Save className="w-4 h-4 mr-2" />
-                Salvar
-              </Button>
-            </div>
-          </div>
-
-          {/* Salespeople List */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {salespeople.map((person) => {
-              const personData = salesData[person.id] || { sales: 0, goal: person.metaBase };
-              const progress = calculateProgress(personData.sales, personData.goal);
-              const commission = calculateCommission(personData.sales, personData.goal, person);
-              
-              return (
-                <Card key={person.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{person.name}</CardTitle>
-                        <CardDescription>
-                          Meta Base: {formatCurrency(person.metaBase)} | Comissão: {(person.commissionRate * 100).toFixed(1)}%
-                        </CardDescription>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => editSalesperson(person)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteSalesperson(person.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor={`sales-${person.id}`} className="text-sm">
-                          Vendas do Mês
-                        </Label>
-                        <Input
-                          id={`sales-${person.id}`}
-                          type="number"
-                          value={personData.sales}
-                          onChange={(e) => updateSalesData(person.id, 'sales', parseInt(e.target.value) || 0)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`goal-${person.id}`} className="text-sm">
-                          Meta Mensal
-                        </Label>
-                        <Input
-                          id={`goal-${person.id}`}
-                          type="number"
-                          value={personData.goal}
-                          onChange={(e) => updateSalesData(person.id, 'goal', parseInt(e.target.value) || 0)}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-between items-center pt-2">
-                      <Badge variant={progress >= 100 ? "default" : "secondary"}>
-                        <Target className="w-3 h-3 mr-1" />
-                        {progress.toFixed(0)}% da meta
-                      </Badge>
-                      <span className="text-sm font-medium">
-                        Comissão: {formatCurrency(commission)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          <Dialog open={isAddDialogOpen || !!editingSalesperson} onOpenChange={(open) => {
-            if (!open) {
-              setIsAddDialogOpen(false);
-              setEditingSalesperson(null);
-              setNewSalesperson({
-                name: '',
-                baseSalary: 2000,
-                commissionRate: 0.03,
-                metaBase: 15000,
-                supermetaRate: 0.05
-              });
-            }
-          }}>
+        <CardContent className="space-y-4">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full" onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Nova Vendedora
-              </Button>
+              <Button><Plus className="mr-2 h-4 w-4" /> Vincular pessoa existente</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
-                <DialogTitle>
-                  {editingSalesperson ? 'Editar Vendedora' : 'Adicionar Nova Vendedora'}
-                </DialogTitle>
-                <DialogDescription>
-                  Preencha os dados da vendedora
-                </DialogDescription>
+                <DialogTitle>Vincular Pessoa como Vendedora</DialogTitle>
+                <DialogDescription>Selecione uma pessoa já cadastrada.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nome</Label>
-                  <Input
-                    id="name"
-                    value={newSalesperson.name}
-                    onChange={(e) => setNewSalesperson(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Digite o nome"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="baseSalary">Salário Base</Label>
-                    <Input
-                      id="baseSalary"
-                      type="number"
-                      value={newSalesperson.baseSalary}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, baseSalary: parseFloat(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="metaBase">Meta Base</Label>
-                    <Input
-                      id="metaBase"
-                      type="number"
-                      value={newSalesperson.metaBase}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, metaBase: parseFloat(e.target.value) || 0 }))}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="commissionRate">Comissão Base (%)</Label>
-                    <Input
-                      id="commissionRate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={newSalesperson.commissionRate * 100}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, commissionRate: (parseFloat(e.target.value) || 0) / 100 }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="supermetaRate">Super Meta (%)</Label>
-                    <Input
-                      id="supermetaRate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={newSalesperson.supermetaRate * 100}
-                      onChange={(e) => setNewSalesperson(prev => ({ ...prev, supermetaRate: (parseFloat(e.target.value) || 0) / 100 }))}
-                    />
-                  </div>
+
+              <div className="space-y-3">
+                <Label>Buscar por nome</Label>
+                <Input
+                  placeholder="Digite para buscar…"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+
+                <div className="max-h-64 overflow-auto border rounded-md p-2">
+                  {pessoas.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhuma pessoa encontrada.</p>
+                  ) : (
+                    pessoas.map((p) => (
+                      <label key={p.id} className="flex items-center gap-3 py-1 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="pessoa"
+                          checked={pessoaSelecionada === p.id}
+                          onChange={() => setPessoaSelecionada(p.id)}
+                        />
+                        <span className="text-sm">
+                          {p.nome} {p.cpf ? `(${p.cpf})` : ""}
+                        </span>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => {
-                  setIsAddDialogOpen(false);
-                  setEditingSalesperson(null);
-                }}>
-                  Cancelar
-                </Button>
-                <Button onClick={editingSalesperson ? saveEditSalesperson : addSalesperson}>
-                  {editingSalesperson ? 'Salvar' : 'Adicionar'}
+
+              <DialogFooter className="pt-3">
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={vincularPessoaComoVendedora} disabled={loading}>
+                  Vincular
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Lista da entidade atual */}
+          <div className="space-y-3">
+            {lista.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma vendedora vinculada para a entidade selecionada.</p>
+            ) : (
+              <div className="space-y-4">
+                {lista.map((v) => {
+                  const row = edits[v.pessoa_id] ?? { ativa: true, metas: "", preferencia: "" };
+                  return (
+                    <div key={`${v.pessoa_id}-${v.entidade_id}`} className="border rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{v.nome}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Pessoa: {v.pessoa_id} · Entidade: {v.entidade_id}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm">Ativa</Label>
+                          <Select
+                            value={row.ativa ? "true" : "false"}
+                            onValueChange={(val) =>
+                              setEdits((s) => ({
+                                ...s,
+                                [v.pessoa_id]: { ...row, ativa: val === "true" },
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="w-[110px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Ativa</SelectItem>
+                              <SelectItem value="false">Inativa</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <Label>Metas (JSON)</Label>
+                          <Textarea
+                            className="font-mono text-xs min-h-[120px]"
+                            placeholder='Ex.: {"meta_mensal": 50000}'
+                            value={row.metas}
+                            onChange={(e) =>
+                              setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, metas: e.target.value } }))
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Preferências (JSON)</Label>
+                          <Textarea
+                            className="font-mono text-xs min-h-[120px]"
+                            placeholder='Ex.: {"ordem": "vendas_desc"}'
+                            value={row.preferencia}
+                            onChange={(e) =>
+                              setEdits((s) => ({ ...s, [v.pessoa_id]: { ...row, preferencia: e.target.value } }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button onClick={() => salvarConfig(v.pessoa_id)} disabled={loading}>
+                          <Save className="mr-2 h-4 w-4" /> Salvar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
