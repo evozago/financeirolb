@@ -28,13 +28,10 @@ import { useEntidadesCorporativas } from "@/hooks/useEntidadesCorporativas";
 import { PeopleTable } from "@/components/features/people/PeopleTable";
 import { PersonBulkEditModal, PersonBulkEditData } from "@/components/features/people/PersonBulkEditModal";
 import { useUndoActions } from "@/hooks/useUndoActions";
-import { fetchSalespersonRole } from "@/utils/salespersonRole";
-import { normalizeRoleName } from "@/utils/normalizeRoleName";
 
 interface PessoaData {
   id: string;
-  nome_razao_social: string;
-  nome_fantasia?: string;
+  nome: string;
   email?: string;
   telefone?: string;
   cpf_cnpj?: string;
@@ -43,7 +40,6 @@ interface PessoaData {
   created_at: string;
   updated_at: string;
   papeis?: string[];
-  papeis_slug?: string[];
 }
 
 interface Cargo {
@@ -84,10 +80,6 @@ export default function Pessoas() {
   const {
     papeis,
     carregarPapeis,
-    criarEntidade,
-    atualizarEntidade,
-    adicionarPapel,
-    removerPapel,
     loading: entidadeLoading
   } = useEntidadesCorporativas();
 
@@ -103,13 +95,6 @@ export default function Pessoas() {
     cargo_id: "",
     setor_id: "",
     filial_id: "",
-    // Dados específicos
-    salario: "",
-    data_admissao: "",
-    meta_mensal: "",
-    comissao_padrao: "3.0",
-    comissao_supermeta: "5.0",
-    categoria_id: "",
   });
 
   useEffect(() => {
@@ -130,7 +115,7 @@ export default function Pessoas() {
       setLoading(true);
       
       const [pessoasRes, cargosRes, setoresRes, filiaisRes] = await Promise.all([
-        supabase.rpc('search_entidades_pessoas', {
+        supabase.rpc('get_pessoas_with_papeis', {
           p_search: searchTerm || null,
           p_limit: 1000,
           p_offset: 0
@@ -140,39 +125,30 @@ export default function Pessoas() {
         supabase.from('filiais').select('*').eq('ativo', true).order('nome'),
       ]);
 
-      if (pessoasRes.error) throw pessoasRes.error;
+      if (pessoasRes.error) {
+        console.error('Erro ao buscar pessoas:', pessoasRes.error);
+        // Fallback para a função antiga se a nova não existir
+        const fallbackRes = await supabase.rpc('search_entidades_pessoas', {
+          p_search: searchTerm || null,
+          p_limit: 1000,
+          p_offset: 0
+        });
+        
+        if (fallbackRes.error) throw fallbackRes.error;
+        
+        setPessoas(fallbackRes.data?.map((pessoa: any) => ({
+          ...pessoa,
+          nome: pessoa.nome_razao_social || pessoa.nome,
+          cpf_cnpj: pessoa.cpf_cnpj
+        })) || []);
+      } else {
+        setPessoas(pessoasRes.data || []);
+      }
+
       if (cargosRes.error) throw cargosRes.error;
       if (setoresRes.error) throw setoresRes.error;
       if (filiaisRes.error) throw filiaisRes.error;
 
-      const rawPessoas = (pessoasRes.data ?? []) as PessoaData[];
-      const pessoasData = rawPessoas.map((pessoa) => {
-        const normalizedRoles: { nome: string; slug: string }[] = [];
-        const seen = new Set<string>();
-
-        (Array.isArray(pessoa.papeis) ? pessoa.papeis : []).forEach((papel) => {
-          if (!papel) return;
-          const slug = normalizeRoleName(papel);
-
-          if (slug && seen.has(slug)) {
-            return;
-          }
-
-          if (slug) {
-            seen.add(slug);
-          }
-
-          normalizedRoles.push({ nome: papel, slug });
-        });
-
-        return {
-          ...pessoa,
-          papeis: normalizedRoles.map((role) => role.nome),
-          papeis_slug: normalizedRoles.map((role) => role.slug),
-        };
-      });
-
-      setPessoas(pessoasData);
       setCargos(cargosRes.data || []);
       setSetores(setoresRes.data || []);
       setFiliais(filiaisRes.data || []);
@@ -195,171 +171,93 @@ export default function Pessoas() {
     try {
       const cpfCnpjValue = formData.tipo_pessoa === 'pessoa_fisica' ? formData.cpf : formData.cnpj;
       
-      const entidadeData = {
-        nome_razao_social: formData.nome,
-        nome_fantasia: formData.tipo_pessoa === 'pessoa_juridica' ? formData.nome : null,
-        tipo_pessoa: formData.tipo_pessoa,
-        cpf_cnpj: cpfCnpjValue,
-        cpf_cnpj_normalizado: cpfCnpjValue ? cpfCnpjValue.replace(/\D/g, '') : null,
+      // Dados para a tabela pessoas
+      const pessoaData = {
+        nome: formData.nome,
         email: formData.email || null,
-        email_normalizado: formData.email ? formData.email.toLowerCase() : null,
         telefone: formData.telefone || null,
+        endereco: formData.endereco || null,
+        tipo_pessoa: formData.tipo_pessoa,
+        cpf: formData.tipo_pessoa === 'pessoa_fisica' ? cpfCnpjValue : null,
+        cnpj: formData.tipo_pessoa === 'pessoa_juridica' ? cpfCnpjValue : null,
+        razao_social: formData.tipo_pessoa === 'pessoa_juridica' ? formData.nome : null,
+        nome_fantasia: formData.tipo_pessoa === 'pessoa_juridica' ? formData.nome : null,
+        cargo_id: formData.cargo_id || null,
+        setor_id: formData.setor_id || null,
+        filial_id: formData.filial_id || null,
         ativo: true,
       };
 
-      let entidadeId: string;
+      let pessoaId: string;
 
       if (editingPessoa) {
-        // Garantir que o ID pertence a entidades_corporativas; se não, cria uma nova
-        const { data: existente } = await supabase
-          .from('entidades_corporativas')
-          .select('id')
-          .eq('id', editingPessoa.id)
-          .maybeSingle();
+        // Atualizar pessoa existente
+        const { error } = await supabase
+          .from('pessoas')
+          .update(pessoaData)
+          .eq('id', editingPessoa.id);
+        
+        if (error) throw error;
+        pessoaId = editingPessoa.id;
+      } else {
+        // Criar nova pessoa
+        const { data, error } = await supabase
+          .from('pessoas')
+          .insert([pessoaData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        pessoaId = data.id;
+      }
 
-        if (existente) {
-          await atualizarEntidade(editingPessoa.id, entidadeData);
-          entidadeId = editingPessoa.id;
-        } else {
-          const novaEntidade = await criarEntidade(entidadeData);
-          entidadeId = novaEntidade.id;
+      // Garantir que a pessoa existe em entidades_corporativas (sem sincronizar papéis ainda)
+      await supabase.rpc('ensure_pessoa_in_entidades_corporativas', {
+        p_pessoa_id: pessoaId
+      });
+
+      // Gerenciar papéis
+      if (formData.categorias.length > 0) {
+        // Primeiro, desativar todos os papéis existentes
+        await supabase
+          .from('papeis_pessoa')
+          .update({ ativo: false, updated_at: new Date().toISOString() })
+          .eq('pessoa_id', pessoaId);
+
+        // Depois, ativar/inserir os papéis selecionados
+        for (const categoriaNome of formData.categorias) {
+          const papel = papeis.find(p => 
+            p.nome.toLowerCase().trim() === categoriaNome.toLowerCase().trim()
+          );
+          
+          if (!papel) {
+            console.warn(`Papel não encontrado: ${categoriaNome}`);
+            continue;
+          }
+
+          // Tentar inserir ou atualizar
+          const { error: papelError } = await supabase
+            .from('papeis_pessoa')
+            .upsert({
+              pessoa_id: pessoaId,
+              papel_id: papel.id,
+              ativo: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'pessoa_id,papel_id'
+            });
+
+          if (papelError) {
+            console.error(`Erro ao associar papel ${categoriaNome}:`, papelError);
+          }
         }
       } else {
-        // Criar nova entidade e aguardar a criação completa
-        const novaEntidade = await criarEntidade(entidadeData);
-        entidadeId = novaEntidade.id;
-        
-        // Aguardar e verificar se a entidade foi realmente criada
-        let entidadeExiste = false;
-        let tentativas = 0;
-        while (!entidadeExiste && tentativas < 10) {
-          try {
-            const { data } = await supabase
-              .from('entidades_corporativas')
-              .select('id')
-              .eq('id', entidadeId)
-              .maybeSingle();
-            
-            if (data) {
-              entidadeExiste = true;
-            }
-          } catch (error) {
-            console.log(`Tentativa ${tentativas + 1}: Entidade ainda não encontrada`);
-          }
-          
-          if (!entidadeExiste) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            tentativas++;
-          }
-        }
-        
-        if (!entidadeExiste) {
-          throw new Error('Entidade não foi criada corretamente');
-        }
-      }
-
-      // Gerenciar papéis de forma mais robusta
-      console.log('Salvando papéis:', formData.categorias);
-      console.log('Papéis disponíveis:', papeis);
-      
-      // 1. Primeiro desativar todos os papéis existentes
-      const { error: deactivateError } = await supabase
-        .from('entidade_papeis')
-        .update({ 
-          ativo: false, 
-          data_fim: new Date().toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
-        })
-        .eq('entidade_id', entidadeId)
-        .eq('ativo', true);
-
-      if (deactivateError) {
-        console.error('Erro ao desativar papéis existentes:', deactivateError);
-      }
-
-      // 2. Aguardar propagação
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // 3. Adicionar novos papéis selecionados
-      if (formData.categorias.length > 0) {
-        console.log('Adicionando papéis:', formData.categorias);
-
-        const shouldAttachSalespersonRole = formData.categorias.some(
-          categoria => categoria === 'vendedora' || categoria === 'vendedor'
-        );
-        const salespersonRole = shouldAttachSalespersonRole ? await fetchSalespersonRole() : null;
-        const processedRoleIds = new Set<string>();
-
-        for (const categoriaNome of formData.categorias) {
-          const isSalespersonCategory = categoriaNome === 'vendedora' || categoriaNome === 'vendedor';
-          let papelId: string | undefined;
-          let papelNome = categoriaNome;
-
-          if (isSalespersonCategory) {
-            if (!salespersonRole) {
-              console.warn('Papel de vendedora/vendedor não encontrado para anexar.');
-              continue;
-            }
-            papelId = salespersonRole.id;
-            papelNome = 'vendedora';
-          } else {
-            const papel = papeis.find(p =>
-              p.nome.toLowerCase().trim() === categoriaNome.toLowerCase().trim() ||
-              p.nome === categoriaNome
-            );
-            papelId = papel?.id;
-            papelNome = papel?.nome ?? categoriaNome;
-          }
-
-          if (!papelId) {
-            console.warn(`Papel não encontrado: ${categoriaNome}. Papéis disponíveis:`, papeis.map(p => p.nome));
-            continue;
-          }
-
-          if (processedRoleIds.has(papelId)) {
-            console.log(`Papel ${papelNome} já inserido para a entidade ${entidadeId}, ignorando duplicata.`);
-            continue;
-          }
-
-          processedRoleIds.add(papelId);
-
-          try {
-            // Upsert seguro: reativar se já existir relação (evita conflito de unique)
-            const { data: existing } = await supabase
-              .from('entidade_papeis')
-              .select('id, ativo')
-              .eq('entidade_id', entidadeId)
-              .eq('papel_id', papelId)
-              .maybeSingle();
-
-            if (existing) {
-              const { error: updError } = await supabase
-                .from('entidade_papeis')
-                .update({
-                  ativo: true,
-                  data_inicio: new Date().toISOString().split('T')[0],
-                  data_fim: null,
-                })
-                .eq('id', existing.id);
-              if (updError) throw updError;
-              console.log(`Papel ${categoriaNome} reativado para a entidade ${entidadeId}`);
-            } else {
-              const { error: insError } = await supabase
-                .from('entidade_papeis')
-                .insert({
-                  entidade_id: entidadeId,
-                  papel_id: papelId,
-                  data_inicio: new Date().toISOString().split('T')[0],
-                  ativo: true,
-                });
-              if (insError) throw insError;
-              console.log(`Papel ${categoriaNome} inserido para a entidade ${entidadeId}`);
-            }
-          } catch (papelError) {
-            console.error(`Falha ao adicionar papel ${categoriaNome}:`, papelError);
-            // Não pare o processo por um erro de papel
-          }
-        }
+        // Se nenhum papel foi selecionado, desativar todos
+        await supabase
+          .from('papeis_pessoa')
+          .update({ ativo: false, updated_at: new Date().toISOString() })
+          .eq('pessoa_id', pessoaId);
       }
       
       toast({
@@ -396,12 +294,6 @@ export default function Pessoas() {
       cargo_id: "",
       setor_id: "",
       filial_id: "",
-      salario: "",
-      data_admissao: "",
-      meta_mensal: "",
-      comissao_padrao: "3.0",
-      comissao_supermeta: "5.0",
-      categoria_id: "",
     });
   };
 
@@ -413,39 +305,23 @@ export default function Pessoas() {
       // Armazenar dados originais para undo
       const originalData = pessoas.map(pessoa => ({
         id: pessoa.id,
-        nome_razao_social: pessoa.nome_razao_social,
+        nome: pessoa.nome,
         ativo: pessoa.ativo,
       }));
 
-      for (const pessoa of pessoas) {
-        const normDoc = pessoa.cpf_cnpj ? pessoa.cpf_cnpj.replace(/\D/g, '') : null;
-        
-        // 1) Excluir na entidades_corporativas por id e por documento normalizado (se houver)
-        await supabase
-          .from('entidades_corporativas')
-          .delete()
-          .eq('id', pessoa.id);
+      // Desativar pessoas em vez de excluir
+      const { error } = await supabase
+        .from('pessoas')
+        .update({ ativo: false, updated_at: new Date().toISOString() })
+        .in('id', pessoaIds);
 
-        if (normDoc) {
-          await supabase
-            .from('entidades_corporativas')
-            .delete()
-            .eq('cpf_cnpj_normalizado', normDoc);
-        }
+      if (error) throw error;
 
-        // 2) Excluir na fornecedores (legado) por id e por documento normalizado (se houver)
-        await supabase
-          .from('fornecedores')
-          .delete()
-          .eq('id', pessoa.id);
-
-        if (normDoc) {
-          await supabase
-            .from('fornecedores')
-            .delete()
-            .eq('cpf_cnpj_normalizado', normDoc);
-        }
-      }
+      // Desativar papéis associados
+      await supabase
+        .from('papeis_pessoa')
+        .update({ ativo: false, updated_at: new Date().toISOString() })
+        .in('pessoa_id', pessoaIds);
 
       setSelectedItems([]);
       
@@ -460,8 +336,8 @@ export default function Pessoas() {
       });
       
       toast({ 
-        title: 'Pessoa(s) excluída(s) definitivamente', 
-        description: `${pessoas.length} pessoa${pessoas.length !== 1 ? 's' : ''} removida${pessoas.length !== 1 ? 's' : ''} com sucesso.` 
+        title: 'Pessoa(s) desativada(s)', 
+        description: `${pessoas.length} pessoa${pessoas.length !== 1 ? 's' : ''} desativada${pessoas.length !== 1 ? 's' : ''} com sucesso.` 
       });
       
       setDeletingPessoa(null);
@@ -469,8 +345,8 @@ export default function Pessoas() {
     } catch (error) {
       console.error('Error deleting pessoas:', error);
       toast({ 
-        title: 'Erro ao excluir', 
-        description: 'Não foi possível excluir as pessoas.', 
+        title: 'Erro ao desativar', 
+        description: 'Não foi possível desativar as pessoas.', 
         variant: 'destructive' 
       });
     } finally {
@@ -481,7 +357,7 @@ export default function Pessoas() {
   const handleEdit = (pessoa: PessoaData) => {
     setEditingPessoa(pessoa);
     setFormData({
-      nome: pessoa.nome_razao_social,
+      nome: pessoa.nome,
       email: pessoa.email || "",
       telefone: pessoa.telefone || "",
       endereco: "",
@@ -492,12 +368,6 @@ export default function Pessoas() {
       cargo_id: "",
       setor_id: "",
       filial_id: "",
-      salario: "",
-      data_admissao: "",
-      meta_mensal: "",
-      comissao_padrao: "3.0",
-      comissao_supermeta: "5.0",
-      categoria_id: "",
     });
     setDialogOpen(true);
   };
@@ -529,27 +399,12 @@ export default function Pessoas() {
 
       // Atualizar status se especificado
       if (updates.ativo !== undefined) {
-        const updateData = { ativo: updates.ativo };
-
-        // Atualizar na entidades_corporativas
-        const { error: errorEntidades } = await supabase
-          .from('entidades_corporativas')
-          .update(updateData)
+        const { error } = await supabase
+          .from('pessoas')
+          .update({ ativo: updates.ativo, updated_at: new Date().toISOString() })
           .in('id', pessoaIds);
 
-        if (errorEntidades) {
-          throw errorEntidades;
-        }
-
-        // Atualizar na fornecedores (legado)
-        const { error: errorFornecedores } = await supabase
-          .from('fornecedores')
-          .update(updateData)
-          .in('id', pessoaIds);
-
-        if (errorFornecedores) {
-          console.warn('Error updating fornecedores table:', errorFornecedores);
-        }
+        if (error) throw error;
       }
 
       // Gerenciar papéis se especificado
@@ -565,9 +420,7 @@ export default function Pessoas() {
             .select('id, nome')
             .in('nome', allPapelNames);
 
-          if (papeisError) {
-            throw papeisError;
-          }
+          if (papeisError) throw papeisError;
 
           // Mapear nomes para IDs
           papelIdsToAdd = updates.papeis.add
@@ -583,61 +436,27 @@ export default function Pessoas() {
           // Adicionar papéis
           if (papelIdsToAdd.length > 0) {
             for (const papelId of papelIdsToAdd) {
-              try {
-                // Reativar se já existir relação (ativa ou inativa); caso contrário, inserir
-                const { data: existingRole } = await supabase
-                  .from('entidade_papeis')
-                  .select('id, ativo')
-                  .eq('entidade_id', pessoaId)
-                  .eq('papel_id', papelId)
-                  .maybeSingle();
-
-                if (existingRole) {
-                  const { error: updError } = await supabase
-                    .from('entidade_papeis')
-                    .update({
-                      ativo: true,
-                      data_inicio: new Date().toISOString().split('T')[0],
-                      data_fim: null,
-                    })
-                    .eq('id', existingRole.id);
-                  if (updError) {
-                    console.warn(`Erro ao reativar papel ${papelId} para ${pessoaId}:`, updError);
-                  }
-                } else {
-                  const { error: insertError } = await supabase
-                    .from('entidade_papeis')
-                    .insert({
-                      entidade_id: pessoaId,
-                      papel_id: papelId,
-                      data_inicio: new Date().toISOString().split('T')[0],
-                      ativo: true,
-                    });
-                  if (insertError) {
-                    console.warn(`Erro ao adicionar papel ${papelId} para ${pessoaId}:`, insertError);
-                  }
-                }
-              } catch (error) {
-                console.warn(`Erro ao adicionar papel ${papelId}:`, error);
-              }
+              await supabase
+                .from('papeis_pessoa')
+                .upsert({
+                  pessoa_id: pessoaId,
+                  papel_id: papelId,
+                  ativo: true,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'pessoa_id,papel_id'
+                });
             }
           }
 
           // Remover papéis
           if (papelIdsToRemove.length > 0) {
-            const { error: removeError } = await supabase
-              .from('entidade_papeis')
-              .update({ 
-                ativo: false, 
-                data_fim: new Date().toISOString().split('T')[0] 
-              })
-              .eq('entidade_id', pessoaId)
-              .in('papel_id', papelIdsToRemove)
-              .eq('ativo', true);
-
-            if (removeError) {
-              console.warn(`Erro ao remover papéis para ${pessoaId}:`, removeError);
-            }
+            await supabase
+              .from('papeis_pessoa')
+              .update({ ativo: false, updated_at: new Date().toISOString() })
+              .eq('pessoa_id', pessoaId)
+              .in('papel_id', papelIdsToRemove);
           }
         }
       }
@@ -685,9 +504,10 @@ export default function Pessoas() {
     const matchesTipo = filterTipo === "all" || pessoa.tipo_pessoa === filterTipo;
     const matchesCategoria =
       filterCategoria === "all" ||
-      pessoa.papeis_slug?.includes(filterCategoria) ||
-      (filterCategoria === "vendedor" && pessoa.papeis_slug?.includes("vendedora"));
-    // Search is already handled by RPC function
+      pessoa.papeis?.some(papel => 
+        papel.toLowerCase().includes(filterCategoria.toLowerCase()) ||
+        (filterCategoria === "vendedor" && papel.toLowerCase().includes("vendedora"))
+      );
     return matchesTipo && matchesCategoria;
   });
 
@@ -701,7 +521,7 @@ export default function Pessoas() {
     };
 
     return papeis?.filter(papel => papel).map((papel, index) => (
-      <Badge key={`${papel}-${index}`} className={colors[papel] || "bg-gray-100 text-gray-800"}>
+      <Badge key={`${papel}-${index}`} className={colors[papel.toLowerCase()] || "bg-gray-100 text-gray-800"}>
         {papel}
       </Badge>
     ));
@@ -883,8 +703,7 @@ export default function Pessoas() {
                     <CardHeader>
                       <CardTitle>Papéis e Categorias</CardTitle>
                       <CardDescription>
-                        Selecione os papéis que esta pessoa desempenha na organização. 
-                        Pessoas com papel "funcionario" aparecerão na aba Entidades Corporativas.
+                        Selecione os papéis que esta pessoa desempenha na organização.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -928,31 +747,149 @@ export default function Pessoas() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <PeopleTable
-            data={filteredPessoas}
-            loading={loading}
-            selectedItems={selectedItems}
-            onSelectionChange={setSelectedItems}
-            onRowClick={(pessoa) => {}} // Pode implementar navegação para detalhes
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onView={(pessoa) => {}} // Pode implementar visualização
-            onBulkEdit={handleBulkEdit}
-            onActivate={handleActivate}
-            onDeactivate={handleDeactivate}
-          />
+          {selectedItems.length > 0 && (
+            <div className="flex gap-2 mb-4 p-4 bg-muted rounded-lg">
+              <span className="text-sm font-medium">
+                {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selecionado{selectedItems.length !== 1 ? 's' : ''}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => handleBulkEdit(selectedItems)}>
+                Editar em Massa
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => handleActivate(selectedItems)}>
+                Ativar
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => handleDeactivate(selectedItems)}>
+                Desativar
+              </Button>
+              <Button 
+                size="sm" 
+                variant="destructive" 
+                onClick={() => setDeletingPessoa(selectedItems[0])}
+              >
+                Excluir
+              </Button>
+            </div>
+          )}
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedItems.length === filteredPessoas.length && filteredPessoas.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedItems(filteredPessoas);
+                      } else {
+                        setSelectedItems([]);
+                      }
+                    }}
+                  />
+                </TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>CPF/CNPJ</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>Papéis</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-24">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPessoas.map((pessoa) => (
+                <TableRow key={pessoa.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedItems.some(item => item.id === pessoa.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedItems([...selectedItems, pessoa]);
+                        } else {
+                          setSelectedItems(selectedItems.filter(item => item.id !== pessoa.id));
+                        }
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">{pessoa.nome}</TableCell>
+                  <TableCell>
+                    <Badge variant={pessoa.tipo_pessoa === 'pessoa_fisica' ? 'default' : 'secondary'}>
+                      {pessoa.tipo_pessoa === 'pessoa_fisica' ? 'PF' : 'PJ'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{formatCPF(pessoa.cpf_cnpj)}</TableCell>
+                  <TableCell>{pessoa.email || '-'}</TableCell>
+                  <TableCell>{pessoa.telefone || '-'}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {getCategoriasBadges(pessoa.papeis)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={pessoa.ativo ? 'default' : 'secondary'}>
+                      {pessoa.ativo ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(pessoa)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDeletingPessoa(pessoa)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {filteredPessoas.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma pessoa encontrada
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Bulk Edit Modal */}
       <PersonBulkEditModal
         open={bulkEditModalOpen}
         onOpenChange={setBulkEditModalOpen}
-        selectedCount={selectedItems.length}
         onSave={handleBulkEditSave}
         loading={bulkEditLoading}
-        availableRoles={papeis}
+        selectedCount={selectedItems.length}
+        availableRoles={papeis.map(p => p.nome)}
       />
+
+      <AlertDialog open={!!deletingPessoa} onOpenChange={() => setDeletingPessoa(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {deletingPessoa?.nome}?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deletingPessoa && handleDelete([deletingPessoa])}
+              disabled={loading}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
