@@ -1,4 +1,3 @@
-// Pequeno helper para CORS
 export function corsHeaders(req: Request) {
   const origin = req.headers.get("origin") ?? "*";
   return {
