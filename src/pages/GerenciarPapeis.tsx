@@ -22,7 +22,7 @@ interface Papel {
   total_pessoas?: number;
 }
 
-export default function GerenciarPapeis() {
+function GerenciarPapeis() {
   const [papeis, setPapeis] = useState<Papel[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -376,3 +376,5 @@ export default function GerenciarPapeis() {
     </div>
   );
 }
+
+export default GerenciarPapeis;

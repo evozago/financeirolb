@@ -36,6 +36,7 @@ import EditOrder from "./pages/EditOrder";
 import ManageFiliais from "./pages/ManageFiliais";
 import RecurringBills from "./pages/RecurringBills";
 import GerenciarPapeis from "./pages/GerenciarPapeis";
+import TestePage from "./pages/TestePage";
 import NotFound from "./pages/NotFound";
 
 // Dashboard variants
@@ -109,6 +110,7 @@ function AppContent() {
                 <Route path="/pessoas" element={<Pessoas />} />
             <Route path="/entidades-corporativas" element={<EntidadesCorporativas />} />
             <Route path="/papeis" element={<GerenciarPapeis />} />
+            <Route path="/teste" element={<TestePage />} />
             <Route path="/settings" element={<Cadastros />} />
                 <Route path="/reports" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
