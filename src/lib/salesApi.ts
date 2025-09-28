@@ -10,7 +10,9 @@ async function postJSON(path: string, body: unknown) {
   const text = await res.text();
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { /* noop */ }
-  if (!res.ok) throw new Error(data?.error || `Erro HTTP ${res.status}`);
+  if (!res.ok) {
+    throw new Error(data?.error || `Erro HTTP ${res.status}`);
+  }
   return data;
 }
 
