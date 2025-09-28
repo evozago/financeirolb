@@ -116,7 +116,7 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       {
         href: '/pessoas',
-        label: 'Pessoas',
+        label: '🔥 PESSOAS TESTE',
         icon: Users,
         description: 'Cadastro de pessoas'
       },

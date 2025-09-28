@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { TestSidebar } from "@/components/layout/TestSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { StatePersistenceProvider } from "@/contexts/StatePersistenceContext";
 import { UndoRedoManager } from "@/components/ui/undo-redo-manager";
@@ -72,7 +73,7 @@ function AppContent() {
           open={undefined}
         >
           <div className="min-h-screen flex w-full bg-background">
-            <AppSidebar />
+            <TestSidebar />
             <SidebarInset className="flex-1">
               <AppHeader />
               <main className="flex-1 p-4 md:p-6">

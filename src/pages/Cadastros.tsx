@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { EnhancedSelect } from '@/components/ui/enhanced-select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { GerenciarPapeisSection } from '@/components/cadastros/GerenciarPapeisSection';
 
 interface Category {
   id: string;
@@ -384,6 +385,7 @@ export default function Cadastros() {
           </div>
         </div>
 
+        <div className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Categories Section */}
           <Card className="border-l-4 border-l-green-500">
@@ -605,6 +607,10 @@ export default function Cadastros() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Papéis Section - Seção separada */}
+        <GerenciarPapeisSection />
         </div>
       </div>
     </div>
