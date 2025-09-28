@@ -9,14 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-
-/**
- * NOVO Painel de Vendedoras
- * - Lista por view v_vendedoras (Pessoa + Papel + Config por entidade)
- * - Não cria Pessoa aqui. Apenas vincula Pessoa existente como Vendedora.
- * - Salva "ativa", "metas" e "preferencia" em vendedora_config.
- * - Mantém compatibilidade com window.selectedEntity e evento saveAllSalesData.
- */
+import { apiAssignVendedora, apiSetVendedoraConfig } from "@/lib/salesApi";
 
 declare global {
   interface Window {
@@ -48,7 +41,7 @@ type VendedoraView = {
   preferencia: any | null;
 };
 
-export function SalespersonPanel() {
+export default function SalespersonPanel() {
   const [lista, setLista] = React.useState<VendedoraView[]>([]);
   const [loading, setLoading] = React.useState(false);
 
@@ -65,19 +58,6 @@ export function SalespersonPanel() {
   >>({});
 
   // ————— Helpers —————
-
-  async function getVendedoraPapelId(): Promise<UUID> {
-    const { data, error } = await supabase
-      .from("papeis")
-      .select("id, nome")
-      .ilike("nome", "vendedor%")
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) throw new Error("Papel Vendedora/Vendedor não encontrado em 'papeis'.");
-    return data.id as UUID;
-  }
 
   async function carregarLista() {
     const entidadeId = window.selectedEntity;
@@ -141,31 +121,7 @@ export function SalespersonPanel() {
     }
     setLoading(true);
     try {
-      const papelId = await getVendedoraPapelId();
-
-      // 1) upsert em papeis_pessoa (único por pessoa/papel/entidade)
-      {
-        const { error } = await supabase.from("papeis_pessoa").upsert(
-          [{
-            pessoa_id: pessoaSelecionada,
-            papel_id: papelId,
-            entidade_id: entidadeId,
-            ativo: true,
-          }],
-          { onConflict: "pessoa_id,papel_id,entidade_id", ignoreDuplicates: false }
-        );
-        if (error) throw error;
-      }
-
-      // 2) garantir registro em vendedora_config
-      {
-        const { error } = await supabase.from("vendedora_config").upsert(
-          [{ pessoa_id: pessoaSelecionada, entidade_id: entidadeId, ativa: true }],
-          { onConflict: "pessoa_id,entidade_id", ignoreDuplicates: false }
-        );
-        if (error) throw error;
-      }
-
+      await apiAssignVendedora(pessoaSelecionada, entidadeId);
       toast.success("Pessoa vinculada como vendedora.");
       setDialogOpen(false);
       setPessoaSelecionada(null);
@@ -192,17 +148,13 @@ export function SalespersonPanel() {
       const metas = row.metas ? JSON.parse(row.metas) : null;
       const preferencia = row.preferencia ? JSON.parse(row.preferencia) : null;
 
-      const { error } = await supabase.from("vendedora_config").upsert(
-        [{
-          pessoa_id: pessoaId,
-          entidade_id: entidadeId,
-          ativa: !!row.ativa,
-          metas,
-          preferencia,
-        }],
-        { onConflict: "pessoa_id,entidade_id", ignoreDuplicates: false }
-      );
-      if (error) throw error;
+      await apiSetVendedoraConfig({
+        pessoaId,
+        entidadeId,
+        ativa: !!row.ativa,
+        metas,
+        preferencia,
+      });
 
       toast.success("Configuração salva.");
       await carregarLista();
@@ -220,7 +172,6 @@ export function SalespersonPanel() {
       toast.error("Selecione uma entidade antes de salvar");
       return;
     }
-    // salva todas as linhas em edição
     setLoading(true);
     try {
       const payloads = Object.entries(edits).map(([pessoaId, row]) => {
@@ -229,20 +180,16 @@ export function SalespersonPanel() {
         try { metas = row.metas ? JSON.parse(row.metas) : null; } catch {}
         try { preferencia = row.preferencia ? JSON.parse(row.preferencia) : null; } catch {}
         return {
-          pessoa_id: pessoaId,
-          entidade_id: entidadeId,
+          pessoaId,
+          entidadeId,
           ativa: !!row.ativa,
           metas,
           preferencia,
         };
       });
 
-      if (payloads.length > 0) {
-        const { error } = await supabase.from("vendedora_config").upsert(
-          payloads,
-          { onConflict: "pessoa_id,entidade_id", ignoreDuplicates: false }
-        );
-        if (error) throw error;
+      for (const p of payloads) {
+        await apiSetVendedoraConfig(p);
       }
 
       toast.success("Dados salvos com sucesso!");
@@ -264,7 +211,6 @@ export function SalespersonPanel() {
     carregarPessoas();
   }, [busca]);
 
-  // Listener compatível com a página SalesManagement
   React.useEffect(() => {
     const handleSave = () => { void saveAllData(); };
     window.addEventListener("saveAllSalesData", handleSave);
@@ -274,7 +220,6 @@ export function SalespersonPanel() {
   // ————— UI —————
   return (
     <div className="space-y-6">
-      {/* Vincular Pessoa existente */}
       <Card>
         <CardHeader>
           <CardTitle>Vendedoras</CardTitle>
@@ -329,7 +274,7 @@ export function SalespersonPanel() {
             </DialogContent>
           </Dialog>
 
-          {/* Lista da entidade atual */}
+          {/* Lista por entidade selecionada */}
           <div className="space-y-3">
             {lista.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma vendedora vinculada para a entidade selecionada.</p>
