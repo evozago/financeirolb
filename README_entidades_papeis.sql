@@ -1,3 +1,0 @@
--- README.sql — Governança de Entidades + Papéis
--- (conteúdo completo gerado anteriormente nesta conversa)
--- Para evitar truncamento aqui no editor, use o arquivo baixado.

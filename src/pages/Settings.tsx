@@ -78,77 +78,38 @@ export default function Settings() {
       
       if (categoriesError) throw categoriesError;
       
-      // Load brands with supplier names - usando entidade_id
+      // Load brands with supplier names
       const { data: brandsData, error: brandsError } = await supabase
         .from('marcas')
         .select(`
           *,
-          entidades_corporativas!marcas_entidade_id_fkey(nome_razao_social)
+          fornecedores!marcas_fornecedor_id_fkey(nome)
         `)
         .order('nome');
       
-      if (brandsError) {
-        console.warn('Erro ao carregar marcas com entidade_id, tentando com fornecedor_id:', brandsError);
-        // Fallback para fornecedor_id se entidade_id ainda não estiver configurado
-        const { data: brandsDataFallback, error: brandsErrorFallback } = await supabase
-          .from('marcas')
-          .select(`
-            *,
-            fornecedores!marcas_fornecedor_id_fkey(nome)
-          `)
-          .order('nome');
-        
-        if (brandsErrorFallback) throw brandsErrorFallback;
-        
-        setBrands((brandsDataFallback || []).map(brand => ({
-          ...brand,
-          fornecedor_nome: brand.fornecedores?.nome
-        })));
-      } else {
-        setBrands((brandsData || []).map(brand => ({
-          ...brand,
-          fornecedor_nome: brand.entidades_corporativas?.nome_razao_social
-        })));
-      }
+      if (brandsError) throw brandsError;
       
-      // Load suppliers - usando entidades corporativas com papel de fornecedor
+      // Load suppliers
       const { data: suppliersData, error: suppliersError } = await supabase
-        .from('entidades_corporativas')
-        .select(`
-          id, 
-          nome_razao_social as nome,
-          entidade_papeis!inner(
-            papel_id,
-            papeis!inner(nome)
-          )
-        `)
+        .from('fornecedores')
+        .select('id, nome')
         .eq('ativo', true)
-        .eq('entidade_papeis.ativo', true)
-        .eq('entidade_papeis.papeis.nome', 'Fornecedor')
-        .order('nome_razao_social');
+        .order('nome');
       
-      if (suppliersError) {
-        console.warn('Erro ao carregar fornecedores via entidades, tentando tabela fornecedores:', suppliersError);
-        // Fallback para tabela fornecedores original
-        const { data: suppliersDataFallback, error: suppliersErrorFallback } = await supabase
-          .from('fornecedores')
-          .select('id, nome')
-          .eq('ativo', true)
-          .order('nome');
-        
-        if (suppliersErrorFallback) throw suppliersErrorFallback;
-        setSuppliers(suppliersDataFallback || []);
-      } else {
-        setSuppliers(suppliersData || []);
-      }
+      if (suppliersError) throw suppliersError;
       
       setCategories(categoriesData || []);
+      setBrands((brandsData || []).map(brand => ({
+        ...brand,
+        fornecedor_nome: brand.fornecedores?.nome
+      })));
+      setSuppliers(suppliersData || []);
       
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
         title: "Erro",
-        description: "Falha ao carregar dados. Verifique se as migrações foram aplicadas.",
+        description: "Falha ao carregar dados",
         variant: "destructive",
       });
     } finally {
@@ -220,25 +181,13 @@ export default function Settings() {
 
     try {
       if (editingBrand) {
-        // Update existing brand - tentar primeiro com entidade_id, depois fornecedor_id
-        let updateData: any = { nome: brandName.trim() };
-        
-        // Verificar se a coluna entidade_id existe
-        const { data: columns } = await supabase
-          .from('information_schema.columns')
-          .select('column_name')
-          .eq('table_name', 'marcas')
-          .eq('column_name', 'entidade_id');
-        
-        if (columns && columns.length > 0) {
-          updateData.entidade_id = brandSupplier;
-        } else {
-          updateData.fornecedor_id = brandSupplier;
-        }
-        
+        // Update existing brand
         const { error } = await supabase
           .from('marcas')
-          .update(updateData)
+          .update({ 
+            nome: brandName.trim(),
+            fornecedor_id: brandSupplier
+          })
           .eq('id', editingBrand.id);
         
         if (error) throw error;
@@ -248,25 +197,13 @@ export default function Settings() {
           description: "Marca atualizada com sucesso",
         });
       } else {
-        // Create new brand - tentar primeiro com entidade_id, depois fornecedor_id
-        let insertData: any = { nome: brandName.trim() };
-        
-        // Verificar se a coluna entidade_id existe
-        const { data: columns } = await supabase
-          .from('information_schema.columns')
-          .select('column_name')
-          .eq('table_name', 'marcas')
-          .eq('column_name', 'entidade_id');
-        
-        if (columns && columns.length > 0) {
-          insertData.entidade_id = brandSupplier;
-        } else {
-          insertData.fornecedor_id = brandSupplier;
-        }
-        
+        // Create new brand
         const { error } = await supabase
           .from('marcas')
-          .insert(insertData);
+          .insert({ 
+            nome: brandName.trim(),
+            fornecedor_id: brandSupplier
+          });
         
         if (error) throw error;
         
