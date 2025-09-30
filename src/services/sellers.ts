@@ -1,30 +1,25 @@
-// src/services/sellers.ts
-import { supabase } from "@/integrations/supabase/client";
+// src/pages/Sellers.tsx
+import React from "react";
+import { listSellers } from "@/services/sellers"; // se usar alias; com caminho relativo: "../services/sellers"
 
-/**
- * Lista entidades marcadas como vendedoras(es).
- * Fonte: VIEW ec_sellers (já unificada/filtrada no banco).
- */
-export async function listSellers() {
-  const { data, error } = await supabase
-    .from("ec_sellers")
-    .select("*")
-    .order("nome_razao_social", { ascending: true });
+export default function Sellers() {
+  const [items, setItems] = React.useState<any[]>([]);
+  const [err, setErr] = React.useState<string | null>(null);
 
-  if (error) throw error;
-  return data ?? [];
-}
+  React.useEffect(() => {
+    (async () => {
+      try { setItems(await listSellers()); } catch (e:any) { setErr(e.message); }
+    })();
+  }, []);
 
-/**
- * Busca por nome entre os sellers.
- */
-export async function searchSellersByName(term: string) {
-  const { data, error } = await supabase
-    .from("ec_sellers")
-    .select("*")
-    .ilike("nome_razao_social", `%${term}%`)
-    .order("nome_razao_social", { ascending: true });
+  if (err) return <div>Erro: {err}</div>;
 
-  if (error) throw error;
-  return data ?? [];
+  return (
+    <div style={{ padding: 16 }}>
+      <h1>Vendedoras(es)</h1>
+      <ul>
+        {items.map((r:any) => <li key={r.id}>{r.nome_razao_social}</li>)}
+      </ul>
+    </div>
+  );
 }
