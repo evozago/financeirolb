@@ -1,6 +1,6 @@
 // src/components/sales/SalespersonPanel.tsx
 import React from "react";
-import { listSellers } from "@/services/sellers"; // usa a view ec_roles_agg
+import { listSellers, searchSellersByName } from "@/services/sellers";
 
 type SellerRow = {
   id: string;
@@ -9,7 +9,7 @@ type SellerRow = {
   telefone: string | null;
   ativo: boolean | null;
   tipo_pessoa: string | null;
-  papeis: string[] | null; // ["vendedora","vendedor",...]
+  papeis: string[] | null; // ex.: ["vendedora","Funcionario"]
 };
 
 export default function SalespersonPanel() {
@@ -19,23 +19,16 @@ export default function SalespersonPanel() {
   const [err, setErr] = React.useState<string | null>(null);
   const [q, setQ] = React.useState("");
 
-  const load = React.useCallback(async () => {
+  async function loadAll() {
     setLoading(true);
     setErr(null);
     try {
       const data = await listSellers();
       setItems(data);
-      // aplica filtro atual (se houver)
-      if (q.trim()) {
-        const term = q.trim().toLowerCase();
-        setFiltered(
-          data.filter((r: SellerRow) =>
-            r.nome_razao_social?.toLowerCase().includes(term)
-          )
-        );
-      } else {
-        setFiltered(data);
-      }
+      setFiltered(q.trim()
+        ? data.filter(r => r.nome_razao_social?.toLowerCase().includes(q.trim().toLowerCase()))
+        : data
+      );
     } catch (e: any) {
       setErr(e?.message ?? "Erro ao carregar vendedoras(es).");
       setItems([]);
@@ -43,21 +36,24 @@ export default function SalespersonPanel() {
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }
 
-  React.useEffect(() => {
-    load();
-  }, [load]);
+  React.useEffect(() => { loadAll(); }, []);
 
-  function onSearch() {
-    const term = q.trim().toLowerCase();
-    if (!term) {
-      setFiltered(items);
-      return;
+  async function onSearch() {
+    if (!q.trim()) { loadAll(); return; }
+    setLoading(true);
+    setErr(null);
+    try {
+      const data = await searchSellersByName(q.trim());
+      setItems(data);
+      setFiltered(data);
+    } catch (e: any) {
+      setErr(e?.message ?? "Erro ao buscar.");
+      setFiltered([]);
+    } finally {
+      setLoading(false);
     }
-    setFiltered(
-      items.filter((r) => r.nome_razao_social?.toLowerCase().includes(term))
-    );
   }
 
   return (
@@ -73,13 +69,10 @@ export default function SalespersonPanel() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSearch()}
           />
-          <button
-            onClick={onSearch}
-            className="px-3 py-1 rounded bg-black text-white"
-          >
+          <button onClick={onSearch} className="px-3 py-1 rounded bg-black text-white">
             Buscar
           </button>
-          <button onClick={load} className="px-3 py-1 rounded border">
+          <button onClick={loadAll} className="px-3 py-1 rounded border">
             Recarregar
           </button>
         </div>
@@ -103,10 +96,7 @@ export default function SalespersonPanel() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td
-                    className="py-6 px-3 text-center text-gray-500"
-                    colSpan={5}
-                  >
+                  <td className="py-6 px-3 text-center text-gray-500" colSpan={5}>
                     Nenhuma vendedora(o) encontrada(o).
                   </td>
                 </tr>
@@ -114,9 +104,7 @@ export default function SalespersonPanel() {
                 filtered.map((r) => (
                   <tr key={r.id} className="border-b">
                     <td className="py-2 px-3">{r.nome_razao_social}</td>
-                    <td className="py-2 px-3">
-                      {(r.papeis ?? []).join(", ") || "-"}
-                    </td>
+                    <td className="py-2 px-3">{(r.papeis ?? []).join(", ") || "-"}</td>
                     <td className="py-2 px-3">{r.email ?? "-"}</td>
                     <td className="py-2 px-3">{r.telefone ?? "-"}</td>
                     <td className="py-2 px-3">
