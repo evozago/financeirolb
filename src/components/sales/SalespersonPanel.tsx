@@ -1,5 +1,5 @@
-// src/components/SalespersonPanel.tsx
-import { useEffect, useMemo, useState } from "react";
+// src/components/sales/SalespersonPanel.tsx
+import React from "react";
 import {
   assignSalespersonRole,
   listActiveSalespeople,
@@ -7,10 +7,10 @@ import {
 } from "@/lib/salespeople";
 
 export default function SalespersonPanel() {
-  const [sellers, setSellers] = useState<Seller[]>([]);
-  const [selectedPessoaId, setSelectedPessoaId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [sellers, setSellers] = React.useState<Seller[]>([]);
+  const [selectedPessoaId, setSelectedPessoaId] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   async function loadSellers() {
     const { data, error } = await listActiveSalespeople();
@@ -18,16 +18,11 @@ export default function SalespersonPanel() {
     setSellers(data ?? []);
   }
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadSellers().catch((e) =>
       setMsg({ type: "err", text: e?.message ?? "Erro ao carregar vendedoras(es)." })
     );
   }, []);
-
-  const sorted = useMemo(
-    () => [...sellers].sort((a, b) => a.nome.localeCompare(b.nome)),
-    [sellers]
-  );
 
   async function handleAssign() {
     setMsg(null);
@@ -53,12 +48,10 @@ export default function SalespersonPanel() {
       <div className="font-semibold text-lg">Vendedoras(es)</div>
 
       <ul className="border rounded p-3 max-h-60 overflow-auto">
-        {sorted.length === 0 ? (
+        {sellers.length === 0 ? (
           <li className="text-sm text-gray-500">Nenhum cadastro com papel de vendedora/vendedor.</li>
         ) : (
-          sorted.map((s) => (
-            <li key={s.id} className="py-1">{s.nome}</li>
-          ))
+          sellers.map((s) => <li key={s.id} className="py-1">{s.nome}</li>)
         )}
       </ul>
 
@@ -86,4 +79,3 @@ export default function SalespersonPanel() {
     </div>
   );
 }
-
