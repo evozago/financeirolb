@@ -1,79 +1,147 @@
 // src/components/sales/SalespersonPanel.tsx
 import React from "react";
-import {
-  assignSalespersonRole,
-  listActiveSalespeople,
-  Seller,
-} from "@/lib/salespeople";
+import { listSellers, searchSellersByName } from "@/services/sellers";
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Painel simples para listar "vendedoras(es)" a partir de ENTIDADES
+ * usando a VIEW ec_roles_agg no Supabase.
+ *
+ * - Mostra a lista (deduplicada por id, 1 linha por entidade na ec_roles_agg)
+ * - Campo de busca por nome (opcional)
+ * - (Opcional) Botão para recarregar
+ *
+ * Observação: Este painel NÃO atribui papel (isso é feito em outras telas).
+ * Aqui focamos em listar de forma estável, sem depender de FK automático do PostgREST.
+ */
+
+type EcRoleAgg = {
+  id: string;
+  nome_razao_social: string;
+  email: string | null;
+  telefone: string | null;
+  ativo: boolean | null;
+  tipo_pessoa: string | null;
+  papeis: string[] | null; // ["vendedora", "vendedor", ...]
+};
 
 export default function SalespersonPanel() {
-  const [sellers, setSellers] = React.useState<Seller[]>([]);
-  const [selectedPessoaId, setSelectedPessoaId] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [msg, setMsg] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [items, setItems] = React.useState<EcRoleAgg[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState("");
 
-  async function loadSellers() {
-    const { data, error } = await listActiveSalespeople();
-    if (error) throw error;
-    setSellers(data ?? []);
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listSellers();
+      setItems(data);
+    } catch (e: any) {
+      setError(e?.message ?? "Erro ao carregar vendedoras(es).");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSearch() {
+    if (!search.trim()) {
+      loadData();
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await searchSellersByName(search.trim());
+      setItems(data);
+    } catch (e: any) {
+      setError(e?.message ?? "Erro ao buscar.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   React.useEffect(() => {
-    loadSellers().catch((e) =>
-      setMsg({ type: "err", text: e?.message ?? "Erro ao carregar vendedoras(es)." })
-    );
-  }, []);
-
-  async function handleAssign() {
-    setMsg(null);
-    if (!selectedPessoaId) {
-      setMsg({ type: "err", text: "Cole o UUID da pessoa (pessoas.id)." });
+    // só para garantir que o client está ok
+    if (!supabase) {
+      setError("Cliente Supabase não inicializado.");
+      setLoading(false);
       return;
     }
-    try {
-      setBusy(true);
-      await assignSalespersonRole(selectedPessoaId.trim());
-      await loadSellers();
-      setSelectedPessoaId("");
-      setMsg({ type: "ok", text: "Papel de vendedora/vendedor atribuído com sucesso." });
-    } catch (e: any) {
-      setMsg({ type: "err", text: e?.message ?? "Falha ao atribuir papel." });
-    } finally {
-      setBusy(false);
-    }
-  }
+    loadData();
+  }, []);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="font-semibold text-lg">Vendedoras(es)</div>
-
-      <ul className="border rounded p-3 max-h-60 overflow-auto">
-        {sellers.length === 0 ? (
-          <li className="text-sm text-gray-500">Nenhum cadastro com papel de vendedora/vendedor.</li>
-        ) : (
-          sellers.map((s) => <li key={s.id} className="py-1">{s.nome}</li>)
-        )}
-      </ul>
-
-      <div className="flex gap-2 items-center">
-        <input
-          className="border rounded px-2 py-1 flex-1"
-          placeholder="Cole o UUID da pessoa (pessoas.id)"
-          value={selectedPessoaId}
-          onChange={(e) => setSelectedPessoaId(e.target.value)}
-        />
-        <button
-          onClick={handleAssign}
-          disabled={busy}
-          className="px-3 py-1 rounded bg-black text-white disabled:opacity-60"
-        >
-          {busy ? "Salvando..." : "Adicionar como Vendedora(o)"}
-        </button>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="text-lg font-semibold">Vendedoras(es)</div>
+        <div className="flex items-center gap-2">
+          <input
+            className="border rounded px-2 py-1"
+            placeholder="Buscar por nome..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button
+            onClick={handleSearch}
+            className="px-3 py-1 rounded bg-black text-white"
+          >
+            Buscar
+          </button>
+          <button
+            onClick={loadData}
+            className="px-3 py-1 rounded border"
+          >
+            Recarregar
+          </button>
+        </div>
       </div>
 
-      {msg && (
-        <div className={msg.type === "ok" ? "text-sm text-green-700" : "text-sm text-red-600"}>
-          {msg.text}
+      {loading && <div className="text-sm text-gray-600">Carregando...</div>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
+
+      {!loading && !error && (
+        <div className="border rounded">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-left border-b bg-gray-50">
+                <th className="py-2 px-3">Nome</th>
+                <th className="py-2 px-3">Papéis</th>
+                <th className="py-2 px-3">E-mail</th>
+                <th className="py-2 px-3">Telefone</th>
+                <th className="py-2 px-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td className="py-6 px-3 text-center text-gray-500" colSpan={5}>
+                    Nenhuma vendedora(o) encontrada(o).
+                  </td>
+                </tr>
+              ) : (
+                items.map((row) => (
+                  <tr key={row.id} className="border-b">
+                    <td className="py-2 px-3">{row.nome_razao_social}</td>
+                    <td className="py-2 px-3">
+                      {(row.papeis ?? []).join(", ")}
+                    </td>
+                    <td className="py-2 px-3">{row.email ?? "-"}</td>
+                    <td className="py-2 px-3">{row.telefone ?? "-"}</td>
+                    <td className="py-2 px-3">
+                      {row.ativo ? (
+                        <span className="text-green-700">Ativo</span>
+                      ) : (
+                        <span className="text-gray-600">Inativo</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
