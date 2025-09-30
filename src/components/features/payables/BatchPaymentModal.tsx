@@ -1,6 +1,6 @@
 /**
  * Modal avançado para pagamento em lote de contas a pagar
- * Campos sem obrigatoriedade na UI. Caso a data não seja informada, usamos a data de hoje no submit.
+ * Sem obrigatoriedades na UI. Se a data não for informada, usa a data de hoje no submit.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -34,7 +34,7 @@ export interface BatchPaymentData {
   valorOriginal: number;
   bancoPagador?: string;
   bankAccountId?: string;
-  dataPagamento: string; // sempre enviado; se o usuário não escolher, usamos hoje
+  dataPagamento: string; // sempre enviado: se não houver, usa “hoje”
   codigoIdentificador?: string;
   tipoAjuste?: 'desconto' | 'juros' | 'normal';
   valorAjuste?: number;
@@ -62,11 +62,10 @@ export function BatchPaymentModal({
     tipoAjuste: 'desconto' | 'juros' | 'normal';
     valorAjuste: number;
     bancoPagador: string;
-    dataPagamento?: Date; // agora opcional na UI
+    dataPagamento?: Date; // opcional na UI
     codigoIdentificador: string;
   }>>({});
 
-  // Carregar contas bancárias e inicializar valores
   useEffect(() => {
     if (open) {
       loadBankAccounts();
@@ -77,7 +76,7 @@ export function BatchPaymentModal({
           tipoAjuste: 'normal' as const,
           valorAjuste: 0,
           bancoPagador: '',
-          dataPagamento: undefined, // sem default para não "forçar" visualmente
+          dataPagamento: undefined,
           codigoIdentificador: ''
         };
       });
@@ -105,10 +104,7 @@ export function BatchPaymentModal({
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const parseCurrency = (value: string): number => {
     const cleaned = value.replace(/[^\d,]/g, '').replace(',', '.');
@@ -131,7 +127,6 @@ export function BatchPaymentModal({
         const installment = installments.find(i => i.id === installmentId);
         const valorOriginal = installment?.amount || 0;
         
-        // Calcular ajuste automaticamente
         const diferenca = valorOriginal - valorPago;
         let tipoAjuste: 'desconto' | 'juros' | 'normal' = 'normal';
         let valorAjuste = 0;
@@ -200,6 +195,7 @@ export function BatchPaymentModal({
   const yyyymmdd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+  // >>> Sem obrigatoriedades: aceita banco e data vazios; data cai para hoje só no envio.
   const handleConfirm = () => {
     const paymentData: BatchPaymentData[] = installments.map(inst => {
       const values = installmentValues[inst.id] || { 
@@ -211,7 +207,6 @@ export function BatchPaymentModal({
         codigoIdentificador: ''
       };
 
-      // Fallback: se o usuário não escolher data, usamos a de hoje.
       const data = values.dataPagamento ?? new Date();
 
       return {
@@ -265,7 +260,6 @@ export function BatchPaymentModal({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-6 py-4">
-          {/* Lista de Contas com Campos Individuais */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Contas para Pagamento</Label>
             <div className="space-y-4 max-h-96 overflow-y-auto border rounded-lg p-4">
@@ -273,7 +267,6 @@ export function BatchPaymentModal({
                 const values = installmentValues[installment.id];
                 return (
                   <div key={installment.id} className="bg-muted/30 rounded-lg p-4 space-y-4">
-                    {/* Cabeçalho da conta */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="font-medium text-sm">
@@ -307,9 +300,7 @@ export function BatchPaymentModal({
                       </div>
                     </div>
 
-                    {/* Campos específicos da parcela */}
                     <div className="grid grid-cols-3 gap-4">
-                      {/* Data de Pagamento (sem obrigatoriedade visual) */}
                       <div className="space-y-2">
                         <Label className="text-xs">Data de Pagamento</Label>
                         <Popover>
@@ -340,7 +331,6 @@ export function BatchPaymentModal({
                         </Popover>
                       </div>
 
-                      {/* Banco Pagador (opcional) */}
                       <div className="space-y-2">
                         <Label className="text-xs">Banco Pagador (opcional)</Label>
                         <Select 
@@ -363,7 +353,6 @@ export function BatchPaymentModal({
                         </Select>
                       </div>
 
-                      {/* Código Identificador (opcional) */}
                       <div className="space-y-2">
                         <Label className="text-xs">Código Identificador (opcional)</Label>
                         <div className="flex items-center gap-1">
@@ -383,7 +372,6 @@ export function BatchPaymentModal({
             </div>
           </div>
 
-          {/* Resumo dos Totais */}
           <div className="bg-muted/30 rounded-lg p-4 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm">Total Original:</span>
@@ -417,12 +405,11 @@ export function BatchPaymentModal({
             )}
           </div>
 
-          {/* Observações */}
           <div className="space-y-2">
             <Label htmlFor="observacoes">Observações</Label>
             <Textarea
               id="observacoes"
-              placeholder="Ex: Pagamento via PIX, desconto por antecipação, juros por atraso, etc."
+              placeholder="Ex: PIX, desconto por antecipação, juros por atraso, etc."
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
               rows={3}
