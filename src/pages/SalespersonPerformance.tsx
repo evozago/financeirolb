@@ -1,18 +1,18 @@
 // src/pages/SalespersonPerformance.tsx
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import React from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { listActiveSalespeople, Seller } from "@/lib/salespeople";
 
 type Venda = { id: string; total: number; criado_em: string; vendedor_id: string };
 
 export default function SalespersonPerformance() {
-  const [sellers, setSellers] = useState<Seller[]>([]);
-  const [selected, setSelected] = useState<string>("");
-  const [sales, setSales] = useState<Venda[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [sellers, setSellers] = React.useState<Seller[]>([]);
+  const [selected, setSelected] = React.useState<string>("");
+  const [sales, setSales] = React.useState<Venda[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     (async () => {
       const { data, error } = await listActiveSalespeople();
       if (error) { setErr(error.message); return; }
@@ -21,7 +21,7 @@ export default function SalespersonPerformance() {
     })();
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!selected) return;
     setErr(null);
     setLoading(true);
@@ -38,7 +38,7 @@ export default function SalespersonPerformance() {
     })();
   }, [selected]);
 
-  const total = useMemo(
+  const total = React.useMemo(
     () => sales.reduce((acc, v) => acc + (Number(v.total) || 0), 0),
     [sales]
   );
@@ -88,4 +88,3 @@ export default function SalespersonPerformance() {
     </div>
   );
 }
-
