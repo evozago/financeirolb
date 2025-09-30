@@ -1,7 +1,14 @@
+mkdir -p scripts
+cat > scripts/test-ec-roles.mjs <<'EOF'
 import { createClient } from "@supabase/supabase-js";
 
 const url = "https://mnxemxgcucfuoedqkygw.supabase.co";
-const key = process.env.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ueGVteGdjdWNmdW9lZHFreWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4OTY5MTYsImV4cCI6MjA2OTQ3MjkxNn0.JeDMKgnwRcK71KOIun8txqFFBWEHSKdPzIF8Qm9tw1o; // use a mesma ANON KEY que vc exportou no shell
+const key = process.env.SUPABASE_ANON_KEY; // vem do export no shell
+
+if (!key) {
+  console.error("SUPABASE_ANON_KEY não definida. Rode: export SUPABASE_ANON_KEY='...'");
+  process.exit(1);
+}
 
 const supabase = createClient(url, key);
 
@@ -20,3 +27,4 @@ const run = async () => {
 };
 
 run();
+EOF
