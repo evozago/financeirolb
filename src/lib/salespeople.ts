@@ -1,5 +1,5 @@
 // src/lib/salespeople.ts
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 
 export type Seller = { id: string; nome: string };
 
@@ -9,7 +9,7 @@ type DbPessoa = {
   entidade_papeis?: { ativo: boolean; papeis: { nome: string } }[];
 };
 
-// Lista vendedoras(es) com papel ativo (vendedora/vendedor)
+// Lista vendedoras(es) via papéis ativos (vendedora/vendedor)
 export async function listActiveSalespeople(): Promise<{ data: Seller[]; error: any }> {
   const { data, error } = await supabase
     .from("pessoas")
@@ -29,7 +29,7 @@ export async function listActiveSalespeople(): Promise<{ data: Seller[]; error: 
   return { data: mapped, error: null };
 }
 
-// pega o id do papel (prioriza "vendedora", cai para "vendedor")
+// pega o id do papel (prioriza 'vendedora', cai para 'vendedor')
 async function getSalesRoleId(): Promise<string> {
   const { data, error } = await supabase
     .from("papeis")
@@ -49,11 +49,12 @@ export async function assignSalespersonRole(pessoaId: string): Promise<void> {
   const papelId = await getSalesRoleId();
   const { error } = await supabase
     .from("entidade_papeis")
-    .upsert(
-      { entidade_id: pessoaId, papel_id: papelId, ativo: true },
-      { onConflict: "entidade_id,papel_id,ativo" }
-    );
-
+    .insert({
+      entidade_id: pessoaId,
+      papel_id: papelId,
+      data_inicio: new Date().toISOString().slice(0, 10),
+      ativo: true,
+    }); // trigger no DB evita 409 e reativa se já existir
   if (error) throw error;
 }
 
@@ -66,6 +67,5 @@ export async function deactivateSalespersonRole(pessoaId: string): Promise<void>
     .eq("entidade_id", pessoaId)
     .eq("papel_id", papelId)
     .eq("ativo", true);
-
   if (error) throw error;
 }
