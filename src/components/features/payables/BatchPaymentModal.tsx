@@ -425,7 +425,7 @@ export function BatchPaymentModal({
             Cancelar
           </Button>
           {/* Confirmar SEM validações bloqueantes */}
-          <Button onClick={handleConfirm} disabled={loading}>
+         <Button onClick={handleConfirm}
             {loading ? 'Processando...' : `Confirmar Pagamento (${installments.length})`}
           </Button>
         </DialogFooter>
