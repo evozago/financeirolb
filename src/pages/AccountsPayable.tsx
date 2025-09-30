@@ -9,14 +9,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, FileSpreadsheet, Upload, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PayablesTable } from '@/components/features/payables/PayablesTable';
+import { PayablesTableWithTrash } from '@/components/features/payables/PayablesTableWithTrash';
 import { PayableFilters } from '@/components/features/payables/PayableFilters';
+import { TrashFilter } from '@/components/features/payables/TrashFilter';
+import { UndoDeleteToast } from '@/components/features/payables/UndoDeleteToast';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BulkEditModal, BulkEditData } from '@/components/features/payables/BulkEditModal';
 import { BillToPayInstallment, PayablesFilter } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUndoActions } from '@/hooks/useUndoActions';
+import { useTrashOperations } from '@/hooks/useTrashOperations';
 import { BatchPaymentModal, BatchPaymentData } from '@/components/features/payables/BatchPaymentModal';
 import { usePagePersistence } from '@/hooks/usePagePersistence';
 
@@ -119,6 +122,20 @@ export default function AccountsPayable() {
   const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
   const [batchPaymentModalOpen, setBatchPaymentModalOpen] = useState(false);
+  
+  // Estados para lixeira
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const [lastDeletedItems, setLastDeletedItems] = useState<BillToPayInstallment[]>([]);
+  
+  // Hook para operações da lixeira
+  const {
+    loading: trashLoading,
+    restoreItems,
+    permanentlyDeleteItems,
+    softDeleteItems,
+    getDeletedCount,
+  } = useTrashOperations();
 
   // Mapear chaves da interface para colunas do banco
   const getOrderColumn = (key: string) => {
@@ -156,8 +173,14 @@ export default function AccountsPayable() {
         .select(`
           *,
           filial:filiais(nome)
-        `)
-        .is('deleted_at', null);
+        `);
+
+      // Aplicar filtro de itens deletados
+      if (filters.showDeleted) {
+        query = query.not('deleted_at', 'is', null);
+      } else {
+        query = query.is('deleted_at', null);
+      }
 
       // Aplicar filtros de categoria
       if (filters.category) {
@@ -331,6 +354,7 @@ export default function AccountsPayable() {
   useEffect(() => {
     loadInstallments();
     loadSuppliers();
+    updateDeletedCount();
   }, [filters, sortKey, sortDirection]); // Recarregar quando filtros ou ordenação mudarem
   
 
@@ -602,58 +626,59 @@ export default function AccountsPayable() {
   };
 
   const handleDelete = async (items: BillToPayInstallment[]) => {
-    setLoading(true);
-    try {
-      const itemIds = items.map(item => item.id);
-      
-      // Armazenar dados originais para undo (dados completos do supabase)
-      const { data: originalItems, error: fetchError } = await supabase
-        .from('ap_installments')
-        .select('*')
-        .in('id', itemIds);
-      
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      const { error } = await supabase
-        .from('ap_installments')
-        .update({ deleted_at: new Date().toISOString() })
-        .in('id', itemIds);
-
-      if (error) {
-        throw error;
-      }
-      
-      setInstallments(prev => prev.filter(installment => !itemIds.includes(installment.id)));
-      
+    const success = await softDeleteItems(items);
+    if (success) {
+      setLastDeletedItems(items);
+      setShowUndoToast(true);
       setSelectedItems([]);
-      
-      // Adicionar ação de undo
-      addUndoAction({
-        id: `delete-${Date.now()}`,
-        type: 'delete',
-        data: { itemIds, count: items.length },
-        originalData: {},
-      }, () => {
-        // Callback para atualizar UI quando desfazer
-        loadInstallments();
-      });
-
-      toast({
-        title: "Sucesso",
-        description: `${items.length} conta(s) excluída(s)`,
-      });
-    } catch (error) {
-      console.error('Error deleting:', error);
-      toast({
-        title: "Erro",
-        description: "Falha ao excluir contas",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      loadInstallments();
+      updateDeletedCount();
     }
+  };
+
+  // Função para restaurar itens da lixeira
+  const handleRestore = async (items: BillToPayInstallment[]) => {
+    const success = await restoreItems(items);
+    if (success) {
+      setSelectedItems([]);
+      loadInstallments();
+      updateDeletedCount();
+    }
+  };
+
+  // Função para deletar permanentemente
+  const handlePermanentDelete = async (items: BillToPayInstallment[]) => {
+    const success = await permanentlyDeleteItems(items);
+    if (success) {
+      setSelectedItems([]);
+      loadInstallments();
+      updateDeletedCount();
+    }
+  };
+
+  // Função para desfazer deleção
+  const handleUndoDelete = async () => {
+    if (lastDeletedItems.length > 0) {
+      const success = await restoreItems(lastDeletedItems);
+      if (success) {
+        setShowUndoToast(false);
+        setLastDeletedItems([]);
+        loadInstallments();
+        updateDeletedCount();
+      }
+    }
+  };
+
+  // Função para atualizar contador de itens deletados
+  const updateDeletedCount = async () => {
+    const count = await getDeletedCount();
+    setDeletedCount(count);
+  };
+
+  // Função para alternar visualização da lixeira
+  const handleToggleDeleted = (show: boolean) => {
+    setFilters({ ...filters, showDeleted: show });
+    setSelectedItems([]);
   };
 
   const handleImport = async (files: File[]) => {
@@ -1241,7 +1266,14 @@ export default function AccountsPayable() {
           {/* Filtros */}
           <Card>
             <CardHeader>
-              <CardTitle>Filtros</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Filtros</span>
+                <TrashFilter
+                  showDeleted={filters.showDeleted || false}
+                  onToggleDeleted={handleToggleDeleted}
+                  deletedCount={deletedCount}
+                />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <PayableFilters
@@ -1253,9 +1285,9 @@ export default function AccountsPayable() {
           </Card>
 
           {/* Tabela */}
-          <PayablesTable
+          <PayablesTableWithTrash
             data={filteredInstallments}
-            loading={loading}
+            loading={loading || trashLoading}
             selectedItems={selectedItems}
             onSelectionChange={setSelectedItems}
             onRowClick={handleRowClick}
@@ -1264,6 +1296,10 @@ export default function AccountsPayable() {
             onView={handleView}
             onEdit={handleEdit}
             onBulkEdit={handleBulkEdit}
+            // Props para lixeira
+            showDeleted={filters.showDeleted || false}
+            onRestore={handleRestore}
+            onPermanentDelete={handlePermanentDelete}
             // Props de ordenação
             sortKey={sortKey}
             sortDirection={sortDirection}
@@ -1271,6 +1307,14 @@ export default function AccountsPayable() {
           />
         </div>
       </div>
+
+      {/* Toast de desfazer deleção */}
+      <UndoDeleteToast
+        show={showUndoToast}
+        itemCount={lastDeletedItems.length}
+        onUndo={handleUndoDelete}
+        onDismiss={() => setShowUndoToast(false)}
+      />
 
       {/* Import Modal */}
       <ImportModal
