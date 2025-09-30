@@ -1,7 +1,17 @@
+// src/lib/salespeople.ts
 import { supabase } from "@/lib/supabaseClient";
 
-export async function listActiveSalespeople() {
-  return supabase
+export type Seller = { id: string; nome: string };
+
+type DbPessoa = {
+  id: string;
+  nome: string;
+  entidade_papeis?: { ativo: boolean; papeis: { nome: string } }[];
+};
+
+// Lista vendedoras(es) com papel ativo (vendedora/vendedor)
+export async function listActiveSalespeople(): Promise<{ data: Seller[]; error: any }> {
+  const { data, error } = await supabase
     .from("pessoas")
     .select(`
       id, nome,
@@ -13,24 +23,49 @@ export async function listActiveSalespeople() {
     .eq("entidade_papeis.ativo", true)
     .in("entidade_papeis.papeis.nome", ["vendedora", "vendedor"])
     .order("nome");
+
+  if (error) return { data: [], error };
+  const mapped = (data as DbPessoa[] | null)?.map(p => ({ id: p.id, nome: p.nome })) ?? [];
+  return { data: mapped, error: null };
 }
 
-export async function assignSalespersonRole(pessoaId: string) {
-  // Reativa/cria papel "vendedora" para a pessoa
-  const { data: papel } = await supabase
+// pega o id do papel (prioriza "vendedora", cai para "vendedor")
+async function getSalesRoleId(): Promise<string> {
+  const { data, error } = await supabase
     .from("papeis")
-    .select("id")
-    .in("nome", ["vendedora", "vendedor"]) // tenta vendedora; se não tiver, usa vendedor
+    .select("id, nome")
+    .in("nome", ["vendedora", "vendedor"])
     .order("nome", { ascending: true })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (!papel?.id) throw new Error("Papel de vendedora/vendedor não encontrado");
+  if (error) throw error;
+  if (!data?.id) throw new Error("Papel de vendedora/vendedor não encontrado em 'papeis'.");
+  return data.id;
+}
 
-  // Upsert em entidade_papeis — precisa do índice único (entidade_id, papel_id, ativo)
+// atribui (ou reativa) o papel de vendedora/vendedor
+export async function assignSalespersonRole(pessoaId: string): Promise<void> {
+  const papelId = await getSalesRoleId();
   const { error } = await supabase
     .from("entidade_papeis")
-    .upsert({ entidade_id: pessoaId, papel_id: papel.id, ativo: true }, { onConflict: "entidade_id,papel_id,ativo" });
+    .upsert(
+      { entidade_id: pessoaId, papel_id: papelId, ativo: true },
+      { onConflict: "entidade_id,papel_id,ativo" }
+    );
+
+  if (error) throw error;
+}
+
+// desativa o papel (mantém histórico)
+export async function deactivateSalespersonRole(pessoaId: string): Promise<void> {
+  const papelId = await getSalesRoleId();
+  const { error } = await supabase
+    .from("entidade_papeis")
+    .update({ ativo: false })
+    .eq("entidade_id", pessoaId)
+    .eq("papel_id", papelId)
+    .eq("ativo", true);
 
   if (error) throw error;
 }
