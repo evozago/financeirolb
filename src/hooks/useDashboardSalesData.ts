@@ -28,7 +28,6 @@ export function useDashboardSalesData(): State {
       }
       setLoading(false);
     })();
-
     return () => { alive = false; };
   }, []);
 
