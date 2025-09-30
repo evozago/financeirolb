@@ -1,27 +1,27 @@
 // src/services/sellers.ts
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Lista entidades marcadas como vendedoras(es).
+ * Fonte: VIEW ec_sellers (já unificada/filtrada no banco).
+ */
 export async function listSellers() {
   const { data, error } = await supabase
-    .from("ec_roles_agg")
+    .from("ec_sellers")
     .select("*")
-    .or("papeis.cs.{vendedora},papeis.cs.{vendedor}")
     .order("nome_razao_social", { ascending: true });
 
   if (error) throw error;
   return data ?? [];
 }
 
-
 /**
- * (Opcional) Busca por nome, mantendo o filtro de papéis.
+ * Busca por nome entre os sellers.
  */
 export async function searchSellersByName(term: string) {
-  // filtra por papéis E nome (case-insensitive)
   const { data, error } = await supabase
-    .from("ec_roles_agg")
+    .from("ec_sellers")
     .select("*")
-    .or("papeis.cs.{vendedora},papeis.cs.{vendedor}")
     .ilike("nome_razao_social", `%${term}%`)
     .order("nome_razao_social", { ascending: true });
 
