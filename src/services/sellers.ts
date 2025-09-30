@@ -1,25 +1,12 @@
-// src/pages/Sellers.tsx
-import React from "react";
-import { listSellers } from "@/services/sellers"; // se usar alias; com caminho relativo: "../services/sellers"
+// src/services/sellers.ts
+import { supabase } from "@/integrations/supabase/client"; // com alias; senão "./integrations/supabase/client"
 
-export default function Sellers() {
-  const [items, setItems] = React.useState<any[]>([]);
-  const [err, setErr] = React.useState<string | null>(null);
+export async function listSellers() {
+  const { data, error } = await supabase
+    .from("ec_sellers")        // ou "ec_roles_agg", se preferir
+    .select("*")
+    .order("nome_razao_social", { ascending: true });
 
-  React.useEffect(() => {
-    (async () => {
-      try { setItems(await listSellers()); } catch (e:any) { setErr(e.message); }
-    })();
-  }, []);
-
-  if (err) return <div>Erro: {err}</div>;
-
-  return (
-    <div style={{ padding: 16 }}>
-      <h1>Vendedoras(es)</h1>
-      <ul>
-        {items.map((r:any) => <li key={r.id}>{r.nome_razao_social}</li>)}
-      </ul>
-    </div>
-  );
+  if (error) throw error;
+  return data ?? [];
 }
