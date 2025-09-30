@@ -244,7 +244,7 @@ export function BatchPaymentModal({
   const isFormValid = () => {
     return installments.every(inst => {
       const values = installmentValues[inst.id];
-      return values && values.bancoPagador && values.dataPagamento;
+      return values && values.dataPagamento;
     });
   };
 
@@ -339,7 +339,7 @@ export function BatchPaymentModal({
 
                       {/* Banco Pagador */}
                       <div className="space-y-2">
-                        <Label className="text-xs">Banco Pagador *</Label>
+                        <Label className="text-xs">Banco Pagador</Label>
                         <Select 
                           value={values?.bancoPagador || ''} 
                           onValueChange={(value) => handleValueChange(installment.id, 'bancoPagador', value)}
@@ -431,7 +431,7 @@ export function BatchPaymentModal({
             <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
               <span className="text-sm text-yellow-800">
-                Preencha a data de pagamento e selecione o banco para todas as parcelas
+                Preencha a data de pagamento para todas as parcelas
               </span>
             </div>
           )}
