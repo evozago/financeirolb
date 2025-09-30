@@ -1,10 +1,14 @@
 // src/hooks/useDashboardSalesData.ts
 import { useEffect, useState } from "react";
-import { listActiveSalespeople } from "@/lib/salespeople";
+import { listActiveSalespeople, Seller } from "@/lib/salespeople";
 
-type Seller = { id: string; nome: string };
+type State = {
+  sellers: Seller[];
+  loading: boolean;
+  error: string | null;
+};
 
-export function useDashboardSalesData() {
+export function useDashboardSalesData(): State {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,11 +22,13 @@ export function useDashboardSalesData() {
       if (!alive) return;
       if (error) {
         setError(error.message ?? "Erro ao carregar vendedoras(es).");
+        setSellers([]);
       } else {
-        setSellers(data ?? []);
+        setSellers(data);
       }
       setLoading(false);
     })();
+
     return () => { alive = false; };
   }, []);
 
