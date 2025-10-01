@@ -60,7 +60,7 @@ export function PaymentModal({
 }: PaymentModalProps) {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedBank, setSelectedBank] = useState<string>('');
-  const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(undefined);
   const [observacoes, setObservacoes] = useState<string>('');
   const [installmentValues, setInstallmentValues] = useState<Record<string, number>>({});
 
@@ -131,13 +131,16 @@ export function PaymentModal({
   };
 
   const handleConfirm = () => {
+    const hoje = new Date();
+    const dataFinal = paymentDate || hoje;
+    
     const paymentData: PaymentData[] = installments.map(inst => ({
       installmentId: inst.id,
       valorPago: installmentValues[inst.id] || inst.valor,
-      bancoPagador: selectedBank,
-      bankAccountId: bankAccounts.find(b => b.nome_banco === selectedBank)?.id,
-      dataPagamento: format(paymentDate, 'yyyy-MM-dd'),
-      observacoes: observacoes
+      bancoPagador: selectedBank || undefined,
+      bankAccountId: selectedBank ? bankAccounts.find(b => b.nome_banco === selectedBank)?.id : undefined,
+      dataPagamento: format(dataFinal, 'yyyy-MM-dd'),
+      observacoes: observacoes || undefined
     }));
 
     onPaymentConfirm(paymentData);
@@ -150,7 +153,7 @@ export function PaymentModal({
     });
     setInstallmentValues(initialValues);
     setSelectedBank('');
-    setPaymentDate(new Date());
+    setPaymentDate(undefined);
     setObservacoes('');
   };
 
@@ -223,9 +226,11 @@ export function PaymentModal({
             )}
           </div>
 
-          {/* Data de Pagamento */}
+          {/* Data de Pagamento - Opcional */}
           <div className="space-y-2">
-            <Label htmlFor="payment-date">Data de Pagamento</Label>
+            <Label htmlFor="payment-date" className="text-sm text-muted-foreground">
+              Data de Pagamento (opcional - padrão: hoje)
+            </Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -236,27 +241,30 @@ export function PaymentModal({
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {paymentDate ? format(paymentDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                  {paymentDate ? format(paymentDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Hoje'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
                 <CalendarComponent
                   mode="single"
                   selected={paymentDate}
-                  onSelect={(date) => date && setPaymentDate(date)}
+                  onSelect={(date) => setPaymentDate(date)}
                   locale={ptBR}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
           </div>
 
-          {/* Banco Pagador */}
+          {/* Banco Pagador - Opcional */}
           <div className="space-y-2">
-            <Label htmlFor="bank">Banco Pagador</Label>
+            <Label htmlFor="bank" className="text-sm text-muted-foreground">
+              Banco Pagador (opcional)
+            </Label>
             <Select value={selectedBank} onValueChange={setSelectedBank}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecionar banco" />
+                <SelectValue placeholder="Não informado" />
               </SelectTrigger>
               <SelectContent>
                 {bankAccounts.map(bank => (
