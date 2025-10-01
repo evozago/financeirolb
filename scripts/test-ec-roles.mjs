@@ -1,5 +1,3 @@
-mkdir -p scripts
-cat > scripts/test-ec-roles.mjs <<'EOF'
 import { createClient } from "@supabase/supabase-js";
 
 const url = "https://mnxemxgcucfuoedqkygw.supabase.co";
@@ -27,4 +25,3 @@ const run = async () => {
 };
 
 run();
-EOF
