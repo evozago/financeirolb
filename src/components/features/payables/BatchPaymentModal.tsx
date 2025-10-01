@@ -1,6 +1,6 @@
 /**
  * Modal avançado para pagamento em lote de contas a pagar
- * Permite registrar informações detalhadas de pagamento incluindo código identificador
+ * Sem obrigatoriedades na UI. Se a data não for informada, usa a data de hoje no submit.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,10 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, DollarSign, CreditCard, Building2, AlertTriangle } from 'lucide-react';
+import { CalendarIcon, DollarSign, CreditCard, Building2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format as formatDateFns } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,7 @@ export interface BatchPaymentData {
   valorOriginal: number;
   bancoPagador?: string;
   bankAccountId?: string;
-  dataPagamento: string;
+  dataPagamento: string; // sempre enviado; se o usuário não escolher, usamos hoje
   codigoIdentificador?: string;
   tipoAjuste?: 'desconto' | 'juros' | 'normal';
   valorAjuste?: number;
@@ -48,12 +48,12 @@ interface BankAccount {
   agencia?: string;
 }
 
-export function BatchPaymentModal({ 
-  open, 
-  onOpenChange, 
-  installments, 
-  onPaymentConfirm, 
-  loading = false 
+export function BatchPaymentModal({
+  open,
+  onOpenChange,
+  installments,
+  onPaymentConfirm,
+  loading = false
 }: BatchPaymentModalProps) {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [observacoes, setObservacoes] = useState<string>('');
@@ -62,15 +62,14 @@ export function BatchPaymentModal({
     tipoAjuste: 'desconto' | 'juros' | 'normal';
     valorAjuste: number;
     bancoPagador: string;
-    dataPagamento: Date;
+    dataPagamento?: Date; // opcional na UI
     codigoIdentificador: string;
   }>>({});
 
-  // Carregar contas bancárias
+  // Carregar contas bancárias e inicializar valores
   useEffect(() => {
     if (open) {
       loadBankAccounts();
-      // Inicializar valores com os valores originais
       const initialValues: Record<string, any> = {};
       installments.forEach(inst => {
         initialValues[inst.id] = {
@@ -78,7 +77,7 @@ export function BatchPaymentModal({
           tipoAjuste: 'normal' as const,
           valorAjuste: 0,
           bancoPagador: '',
-          dataPagamento: new Date(),
+          dataPagamento: undefined, // sem default para não "forçar" visualmente
           codigoIdentificador: ''
         };
       });
@@ -116,27 +115,27 @@ export function BatchPaymentModal({
     return parseFloat(cleaned) || 0;
   };
 
-  const handleValueChange = (installmentId: string, field: string, value: string | number | Date) => {
+  const handleValueChange = (installmentId: string, field: string, value: string | number | Date | undefined) => {
     setInstallmentValues(prev => {
-      const current = prev[installmentId] || { 
-        valorPago: 0, 
-        tipoAjuste: 'normal', 
+      const current = prev[installmentId] || {
+        valorPago: 0,
+        tipoAjuste: 'normal' as const,
         valorAjuste: 0,
         bancoPagador: '',
-        dataPagamento: new Date(),
+        dataPagamento: undefined,
         codigoIdentificador: ''
       };
-      
+
       if (field === 'valorPago') {
-        const valorPago = typeof value === 'string' ? parseCurrency(value) : value as number;
+        const valorPago = typeof value === 'string' ? parseCurrency(value) : (value as number);
         const installment = installments.find(i => i.id === installmentId);
         const valorOriginal = installment?.amount || 0;
-        
+
         // Calcular ajuste automaticamente
         const diferenca = valorOriginal - valorPago;
         let tipoAjuste: 'desconto' | 'juros' | 'normal' = 'normal';
         let valorAjuste = 0;
-        
+
         if (diferenca > 0.01) {
           tipoAjuste = 'desconto';
           valorAjuste = diferenca;
@@ -144,7 +143,7 @@ export function BatchPaymentModal({
           tipoAjuste = 'juros';
           valorAjuste = Math.abs(diferenca);
         }
-        
+
         return {
           ...prev,
           [installmentId]: {
@@ -155,7 +154,7 @@ export function BatchPaymentModal({
           }
         };
       }
-      
+
       return {
         ...prev,
         [installmentId]: {
@@ -169,9 +168,9 @@ export function BatchPaymentModal({
   const calculateTotals = () => {
     const originalTotal = installments.reduce((sum, inst) => sum + inst.amount, 0);
     const paidTotal = Object.values(installmentValues).reduce((sum, value) => sum + (value?.valorPago || 0), 0);
-    const totalDesconto = Object.values(installmentValues).reduce((sum, value) => 
+    const totalDesconto = Object.values(installmentValues).reduce((sum, value) =>
       sum + (value?.tipoAjuste === 'desconto' ? value.valorAjuste : 0), 0);
-    const totalJuros = Object.values(installmentValues).reduce((sum, value) => 
+    const totalJuros = Object.values(installmentValues).reduce((sum, value) =>
       sum + (value?.tipoAjuste === 'juros' ? value.valorAjuste : 0), 0);
 
     return {
@@ -189,8 +188,8 @@ export function BatchPaymentModal({
 
     const isDesconto = value.tipoAjuste === 'desconto';
     return (
-      <Badge 
-        variant={isDesconto ? 'default' : 'destructive'} 
+      <Badge
+        variant={isDesconto ? 'default' : 'destructive'}
         className={cn('text-xs', isDesconto ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}
       >
         {isDesconto ? '↓' : '↑'} {formatCurrency(value.valorAjuste)}
@@ -198,27 +197,36 @@ export function BatchPaymentModal({
     );
   };
 
+  const yyyymmdd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // >>> Sem obrigatoriedades: aceita banco e data vazios; data cai para hoje só no envio.
   const handleConfirm = () => {
     const paymentData: BatchPaymentData[] = installments.map(inst => {
-      const values = installmentValues[inst.id] || { 
-        valorPago: inst.amount, 
-        tipoAjuste: 'normal', 
+      const values = installmentValues[inst.id] || {
+        valorPago: inst.amount,
+        tipoAjuste: 'normal' as const,
         valorAjuste: 0,
         bancoPagador: '',
-        dataPagamento: new Date(),
+        dataPagamento: undefined,
         codigoIdentificador: ''
       };
+
+      const data = values.dataPagamento ?? new Date();
+
       return {
         installmentId: inst.id,
-        valorPago: values.valorPago,
+        valorPago: values.valorPago ?? inst.amount,
         valorOriginal: inst.amount,
-        bancoPagador: values.bancoPagador,
-        bankAccountId: bankAccounts.find(b => b.nome_banco === values.bancoPagador)?.id,
-        dataPagamento: `${values.dataPagamento.getFullYear()}-${String(values.dataPagamento.getMonth() + 1).padStart(2, '0')}-${String(values.dataPagamento.getDate()).padStart(2, '0')}`,
-        codigoIdentificador: values.codigoIdentificador,
-        tipoAjuste: values.tipoAjuste,
-        valorAjuste: values.valorAjuste,
-        observacoes: observacoes
+        bancoPagador: values.bancoPagador || undefined,
+        bankAccountId: values.bancoPagador
+          ? bankAccounts.find(b => b.nome_banco === values.bancoPagador)?.id
+          : undefined,
+        dataPagamento: yyyymmdd(data),
+        codigoIdentificador: values.codigoIdentificador || undefined,
+        tipoAjuste: values.tipoAjuste || 'normal',
+        valorAjuste: values.valorAjuste || 0,
+        observacoes
       };
     });
 
@@ -230,22 +238,15 @@ export function BatchPaymentModal({
     installments.forEach(inst => {
       initialValues[inst.id] = {
         valorPago: inst.amount,
-        tipoAjuste: 'normal',
+        tipoAjuste: 'normal' as const,
         valorAjuste: 0,
         bancoPagador: '',
-        dataPagamento: new Date(),
+        dataPagamento: undefined,
         codigoIdentificador: ''
       };
     });
     setInstallmentValues(initialValues);
     setObservacoes('');
-  };
-
-  const isFormValid = () => {
-    return installments.every(inst => {
-      const values = installmentValues[inst.id];
-      return values && values.bancoPagador && values.dataPagamento;
-    });
   };
 
   const totals = calculateTotals();
@@ -279,7 +280,7 @@ export function BatchPaymentModal({
                           {installment.bill?.supplier.name}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Parcela {installment.installmentNumber}/{installment.bill?.totalInstallments} • 
+                          Parcela {installment.installmentNumber}/{installment.bill?.totalInstallments} •
                           Venc: {new Date(installment.dueDate).toLocaleDateString('pt-BR')}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -296,7 +297,7 @@ export function BatchPaymentModal({
                           <Input
                             type="text"
                             className="w-28 text-right text-sm"
-                            value={formatCurrency(values?.valorPago || installment.amount)}
+                            value={formatCurrency(values?.valorPago ?? installment.amount)}
                             onChange={(e) => handleValueChange(installment.id, 'valorPago', e.target.value)}
                           />
                         </div>
@@ -308,9 +309,9 @@ export function BatchPaymentModal({
 
                     {/* Campos específicos da parcela */}
                     <div className="grid grid-cols-3 gap-4">
-                      {/* Data de Pagamento */}
+                      {/* Data de Pagamento (sem obrigatoriedade visual) */}
                       <div className="space-y-2">
-                        <Label className="text-xs">Data de Pagamento *</Label>
+                        <Label className="text-xs">Data de Pagamento</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -321,14 +322,16 @@ export function BatchPaymentModal({
                               )}
                             >
                               <CalendarIcon className="mr-1 h-3 w-3" />
-                              {values?.dataPagamento ? format(values.dataPagamento, 'dd/MM/yyyy', { locale: ptBR }) : 'Data'}
+                              {values?.dataPagamento
+                                ? formatDateFns(values.dataPagamento, 'dd/MM/yyyy', { locale: ptBR })
+                                : 'Data (opcional)'}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0">
                             <CalendarComponent
                               mode="single"
                               selected={values?.dataPagamento}
-                              onSelect={(date) => date && handleValueChange(installment.id, 'dataPagamento', date)}
+                              onSelect={(date) => handleValueChange(installment.id, 'dataPagamento', date || undefined)}
                               locale={ptBR}
                               initialFocus
                               className="p-3 pointer-events-auto"
@@ -337,15 +340,15 @@ export function BatchPaymentModal({
                         </Popover>
                       </div>
 
-                      {/* Banco Pagador */}
+                      {/* Banco Pagador (opcional) */}
                       <div className="space-y-2">
-                        <Label className="text-xs">Banco Pagador *</Label>
-                        <Select 
-                          value={values?.bancoPagador || ''} 
+                        <Label className="text-xs">Banco Pagador (opcional)</Label>
+                        <Select
+                          value={values?.bancoPagador || ''}
                           onValueChange={(value) => handleValueChange(installment.id, 'bancoPagador', value)}
                         >
                           <SelectTrigger className="text-xs">
-                            <SelectValue placeholder="Banco" />
+                            <SelectValue placeholder="Banco (opcional)" />
                           </SelectTrigger>
                           <SelectContent>
                             {bankAccounts.map(bank => (
@@ -360,9 +363,9 @@ export function BatchPaymentModal({
                         </Select>
                       </div>
 
-                      {/* Código Identificador */}
+                      {/* Código Identificador (opcional) */}
                       <div className="space-y-2">
-                        <Label className="text-xs">Código Identificador</Label>
+                        <Label className="text-xs">Código Identificador (opcional)</Label>
                         <div className="flex items-center gap-1">
                           <CreditCard className="h-3 w-3 text-muted-foreground" />
                           <Input
@@ -403,7 +406,7 @@ export function BatchPaymentModal({
               </div>
             )}
             {totals.economia !== 0 && (
-              <div className={cn("flex justify-between items-center border-t pt-2 font-medium", 
+              <div className={cn("flex justify-between items-center border-t pt-2 font-medium",
                 totals.economia > 0 ? 'text-green-600' : 'text-red-600'
               )}>
                 <span className="text-sm">
@@ -425,16 +428,6 @@ export function BatchPaymentModal({
               rows={3}
             />
           </div>
-
-          {/* Alerta de Validação */}
-          {!isFormValid() && (
-            <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <span className="text-sm text-yellow-800">
-                Preencha a data de pagamento e selecione o banco para todas as parcelas
-              </span>
-            </div>
-          )}
         </div>
 
         <DialogFooter className="flex-shrink-0 gap-2">
@@ -444,10 +437,8 @@ export function BatchPaymentModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancelar
           </Button>
-          <Button 
-            onClick={handleConfirm} 
-            disabled={loading || !isFormValid()}
-          >
+          {/* Confirmar SEM validações bloqueantes */}
+          <Button onClick={handleConfirm} disabled={loading}>
             {loading ? 'Processando...' : `Confirmar Pagamento (${installments.length})`}
           </Button>
         </DialogFooter>
