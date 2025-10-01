@@ -25,7 +25,7 @@ export async function listActiveSalespeople(): Promise<{ data: Seller[]; error: 
     .order("nome");
 
   if (error) return { data: [], error };
-  const mapped = (data as DbPessoa[] | null)?.map(p => ({ id: p.id, nome: p.nome })) ?? [];
+  const mapped = (data as any[] | null)?.map((p: any) => ({ id: p.id, nome: p.nome })) ?? [];
   return { data: mapped, error: null };
 }
 

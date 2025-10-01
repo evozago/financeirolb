@@ -12,12 +12,28 @@ export default function DashboardSales() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   
   const { 
-    kpiData, 
-    momGrowthData, 
-    yoyGrowthData, 
-    monthlySalesData, 
+    sellers,
     loading 
-  } = useDashboardSalesData(selectedYear, selectedMonth);
+  } = useDashboardSalesData();
+  
+  // Mock data para desenvolvimento
+  const kpiData = { 
+    totalSales: 0, 
+    total_sales: 0,
+    salesTarget: 0, 
+    total_goal: 0,
+    achievementPercent: 0,
+    goal_achievement_percentage: 0,
+    commission: 0,
+    mom_growth_percentage: 0,
+    yoy_growth_percentage: 0,
+    top_performer_name: '',
+    top_performer_sales: 0,
+    active_salespeople: 0
+  };
+  const momGrowthData: any[] = [];
+  const yoyGrowthData: any[] = [];
+  const monthlySalesData: any[] = [];
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);

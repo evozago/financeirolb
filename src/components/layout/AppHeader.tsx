@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -13,7 +12,6 @@ export function AppHeader() {
     <header className="border-b bg-card sticky top-0 z-50">
       <div className="flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-4">
-          <SidebarTrigger />
           <button
             onClick={() => navigate('/')}
             className="font-bold text-xl text-primary hover:text-primary/80 transition-colors"

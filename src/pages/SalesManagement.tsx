@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SalesHeader } from "@/components/sales/SalesHeader";
 import { YearlyComparisonTable } from "@/components/sales/YearlyComparisonTable";
-import { SalespersonPanel } from "@/components/sales/SalespersonPanel";
+import SalespersonPanel from "@/components/sales/SalespersonPanel";
 import { GrowthSimulation } from "@/components/sales/GrowthSimulation";
 import { useSalesData } from "@/hooks/useSalesData";
 import { Save } from "lucide-react";
