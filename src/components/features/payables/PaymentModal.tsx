@@ -1,6 +1,7 @@
 /**
- * Modal avançado para controle de pagamentos
- * Permite editar valor pago, selecionar banco pagador e adicionar observações
+ * Modal avançado para pagamento em lote de contas a pagar
+ * Banco e Data são opcionais na UI.
+ * Se a data não for informada, usa a data de hoje no submit.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -10,37 +11,34 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CalendarIcon, DollarSign } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CalendarIcon, DollarSign, CreditCard, Building2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format as formatDateFns } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { BillToPayInstallment } from '@/types/payables';
 
-interface InstallmentData {
-  id: string;
-  numero_parcela: number;
-  total_parcelas: number;
-  valor: number;
-  data_vencimento: string;
-  status: string;
-}
-
-interface PaymentModalProps {
+interface BatchPaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  installments: InstallmentData[];
-  onPaymentConfirm: (paymentData: PaymentData[]) => void;
+  installments: BillToPayInstallment[];
+  onPaymentConfirm: (paymentData: BatchPaymentData[]) => void;
   loading?: boolean;
 }
 
-export interface PaymentData {
+export interface BatchPaymentData {
   installmentId: string;
   valorPago: number;
+  valorOriginal: number;
   bancoPagador?: string;
   bankAccountId?: string;
-  dataPagamento: string;
+  dataPagamento: string; // sempre enviado; se o usuário não escolher, usamos hoje
+  codigoIdentificador?: string;
+  tipoAjuste?: 'desconto' | 'juros' | 'normal';
+  valorAjuste?: number;
   observacoes?: string;
 }
 
@@ -51,27 +49,38 @@ interface BankAccount {
   agencia?: string;
 }
 
-export function PaymentModal({ 
-  open, 
-  onOpenChange, 
-  installments, 
-  onPaymentConfirm, 
-  loading = false 
-}: PaymentModalProps) {
+export function BatchPaymentModal({
+  open,
+  onOpenChange,
+  installments,
+  onPaymentConfirm,
+  loading = false
+}: BatchPaymentModalProps) {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [selectedBank, setSelectedBank] = useState<string>('');
-  const [paymentDate, setPaymentDate] = useState<Date | undefined>(undefined);
   const [observacoes, setObservacoes] = useState<string>('');
-  const [installmentValues, setInstallmentValues] = useState<Record<string, number>>({});
+  const [installmentValues, setInstallmentValues] = useState<Record<string, {
+    valorPago: number;
+    tipoAjuste: 'desconto' | 'juros' | 'normal';
+    valorAjuste: number;
+    bancoPagador?: string;
+    dataPagamento?: Date;
+    codigoIdentificador?: string;
+  }>>({});
 
-  // Carregar contas bancárias
+  // Carregar contas bancárias e inicializar valores
   useEffect(() => {
     if (open) {
       loadBankAccounts();
-      // Inicializar valores com os valores originais
-      const initialValues: Record<string, number> = {};
+      const initialValues: Record<string, any> = {};
       installments.forEach(inst => {
-        initialValues[inst.id] = inst.valor;
+        initialValues[inst.id] = {
+          valorPago: inst.amount,
+          tipoAjuste: 'normal' as const,
+          valorAjuste: 0,
+          bancoPagador: undefined,   // agora realmente opcional
+          dataPagamento: undefined,  // opcional, cai para hoje no submit
+          codigoIdentificador: ''
+        };
       });
       setInstallmentValues(initialValues);
     }
@@ -103,208 +112,200 @@ export function PaymentModal({
     }).format(value);
 
   const parseCurrency = (value: string): number => {
-    // Remove formatação e converte para número
     const cleaned = value.replace(/[^\d,]/g, '').replace(',', '.');
     return parseFloat(cleaned) || 0;
   };
 
-  const handleValueChange = (installmentId: string, value: string) => {
-    const numericValue = parseCurrency(value);
-    setInstallmentValues(prev => ({
-      ...prev,
-      [installmentId]: numericValue
-    }));
+  const handleValueChange = (installmentId: string, field: string, value: string | number | Date | undefined) => {
+    setInstallmentValues(prev => {
+      const current = prev[installmentId];
+      if (!current) return prev;
+
+      if (field === 'valorPago') {
+        const valorPago = typeof value === 'string' ? parseCurrency(value) : (value as number);
+        const installment = installments.find(i => i.id === installmentId);
+        const valorOriginal = installment?.amount || 0;
+
+        const diferenca = valorOriginal - valorPago;
+        let tipoAjuste: 'desconto' | 'juros' | 'normal' = 'normal';
+        let valorAjuste = 0;
+
+        if (diferenca > 0.01) {
+          tipoAjuste = 'desconto';
+          valorAjuste = diferenca;
+        } else if (diferenca < -0.01) {
+          tipoAjuste = 'juros';
+          valorAjuste = Math.abs(diferenca);
+        }
+
+        return {
+          ...prev,
+          [installmentId]: { ...current, valorPago, tipoAjuste, valorAjuste }
+        };
+      }
+
+      return { ...prev, [installmentId]: { ...current, [field]: value } };
+    });
   };
 
   const calculateTotals = () => {
-    const originalTotal = installments.reduce((sum, inst) => sum + inst.valor, 0);
-    const paidTotal = Object.values(installmentValues).reduce((sum, value) => sum + value, 0);
-    const discount = originalTotal - paidTotal;
-    const discountPercent = originalTotal > 0 ? (discount / originalTotal) * 100 : 0;
+    const originalTotal = installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const paidTotal = Object.values(installmentValues).reduce((sum, v) => sum + (v?.valorPago || 0), 0);
+    const totalDesconto = Object.values(installmentValues).reduce((s, v) => s + (v?.tipoAjuste === 'desconto' ? v.valorAjuste : 0), 0);
+    const totalJuros = Object.values(installmentValues).reduce((s, v) => s + (v?.tipoAjuste === 'juros' ? v.valorAjuste : 0), 0);
 
-    return {
-      originalTotal,
-      paidTotal,
-      discount,
-      discountPercent
-    };
+    return { originalTotal, paidTotal, totalDesconto, totalJuros, economia: totalDesconto - totalJuros };
   };
+
+  const yyyymmdd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const handleConfirm = () => {
     const hoje = new Date();
-    const dataFinal = paymentDate || hoje;
-    
-    const paymentData: PaymentData[] = installments.map(inst => ({
-      installmentId: inst.id,
-      valorPago: installmentValues[inst.id] || inst.valor,
-      bancoPagador: selectedBank || undefined,
-      bankAccountId: selectedBank ? bankAccounts.find(b => b.nome_banco === selectedBank)?.id : undefined,
-      dataPagamento: format(dataFinal, 'yyyy-MM-dd'),
-      observacoes: observacoes || undefined
-    }));
+    const paymentData: BatchPaymentData[] = installments.map(inst => {
+      const values = installmentValues[inst.id];
+      const data = values?.dataPagamento ?? hoje;
+
+      return {
+        installmentId: inst.id,
+        valorPago: values?.valorPago ?? inst.amount,
+        valorOriginal: inst.amount,
+        bancoPagador: values?.bancoPagador || undefined,
+        bankAccountId: values?.bancoPagador
+          ? bankAccounts.find(b => b.nome_banco === values.bancoPagador)?.id
+          : undefined,
+        dataPagamento: yyyymmdd(data),
+        codigoIdentificador: values?.codigoIdentificador || undefined,
+        tipoAjuste: values?.tipoAjuste || 'normal',
+        valorAjuste: values?.valorAjuste || 0,
+        observacoes
+      };
+    });
 
     onPaymentConfirm(paymentData);
   };
 
-  const handleReset = () => {
-    const initialValues: Record<string, number> = {};
-    installments.forEach(inst => {
-      initialValues[inst.id] = inst.valor;
-    });
-    setInstallmentValues(initialValues);
-    setSelectedBank('');
-    setPaymentDate(undefined);
-    setObservacoes('');
-  };
-
   const totals = calculateTotals();
-  const hasDiscount = totals.discount > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Confirmar Pagamento
+            Pagamento em Lote
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            {installments.length} parcela(s) selecionada(s) para pagamento
+            {installments.length} conta(s) selecionada(s) para pagamento
           </p>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Lista de Parcelas com Valores */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Valores das Parcelas</Label>
-            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-              {installments.map((installment) => (
-                <div key={installment.id} className="flex items-center justify-between gap-4 p-2 bg-muted/30 rounded">
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">
-                      Parcela {installment.numero_parcela}/{installment.total_parcelas}
-                    </div>
+        <div className="flex-1 overflow-y-auto space-y-6 py-4">
+          {installments.map((installment) => {
+            const values = installmentValues[installment.id];
+            return (
+              <div key={installment.id} className="bg-muted/30 rounded-lg p-4 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-medium text-sm">{installment.bill?.supplier.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Venc: {new Date(installment.data_vencimento).toLocaleDateString('pt-BR')}
+                      Parcela {installment.installmentNumber}/{installment.bill?.totalInstallments} •
+                      Venc: {new Date(installment.dueDate).toLocaleDateString('pt-BR')}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Original:</span>
-                    <span className="text-sm font-medium">{formatCurrency(installment.valor)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Pago:</span>
+                  <div className="flex items-center gap-3">
                     <Input
                       type="text"
-                      className="w-24 text-right text-sm"
-                      value={formatCurrency(installmentValues[installment.id] || installment.valor)}
-                      onChange={(e) => handleValueChange(installment.id, e.target.value)}
+                      className="w-28 text-right text-sm"
+                      value={formatCurrency(values?.valorPago ?? installment.amount)}
+                      onChange={(e) => handleValueChange(installment.id, 'valorPago', e.target.value)}
                     />
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Resumo dos Totais */}
-          <div className="bg-muted/30 rounded-lg p-4 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Total Original:</span>
-              <span className="font-medium">{formatCurrency(totals.originalTotal)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Total a Pagar:</span>
-              <span className="font-medium">{formatCurrency(totals.paidTotal)}</span>
-            </div>
-            {hasDiscount && (
-              <div className="flex justify-between items-center text-green-600 border-t pt-2">
-                <span className="text-sm font-medium">Desconto:</span>
-                <span className="font-medium">
-                  {formatCurrency(totals.discount)} ({totals.discountPercent.toFixed(1)}%)
-                </span>
+                <div className="grid grid-cols-3 gap-4">
+                  {/* Data opcional */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Data de Pagamento (opcional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left text-xs">
+                          <CalendarIcon className="mr-1 h-3 w-3" />
+                          {values?.dataPagamento
+                            ? formatDateFns(values.dataPagamento, 'dd/MM/yyyy', { locale: ptBR })
+                            : 'Hoje'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={values?.dataPagamento}
+                          onSelect={(date) => handleValueChange(installment.id, 'dataPagamento', date || undefined)}
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Banco opcional */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Banco Pagador (opcional)</Label>
+                    <Select
+                      value={values?.bancoPagador || ''}
+                      onValueChange={(v) => handleValueChange(installment.id, 'bancoPagador', v)}
+                    >
+                      <SelectTrigger className="text-xs">
+                        <SelectValue placeholder="Não informado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bankAccounts.map(bank => (
+                          <SelectItem key={bank.id} value={bank.nome_banco}>
+                            <div className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              <span className="text-xs">{bank.nome_banco}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Código Identificador */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Código Identificador</Label>
+                    <Input
+                      className="text-xs"
+                      placeholder="Ex: TED123"
+                      value={values?.codigoIdentificador || ''}
+                      onChange={(e) => handleValueChange(installment.id, 'codigoIdentificador', e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
 
-          {/* Data de Pagamento - Opcional */}
-          <div className="space-y-2">
-            <Label htmlFor="payment-date" className="text-sm text-muted-foreground">
-              Data de Pagamento (opcional - padrão: hoje)
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !paymentDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {paymentDate ? format(paymentDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Hoje'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <CalendarComponent
-                  mode="single"
-                  selected={paymentDate}
-                  onSelect={(date) => setPaymentDate(date)}
-                  locale={ptBR}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Banco Pagador - Opcional */}
-          <div className="space-y-2">
-            <Label htmlFor="bank" className="text-sm text-muted-foreground">
-              Banco Pagador (opcional)
-            </Label>
-            <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger>
-                <SelectValue placeholder="Não informado" />
-              </SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map(bank => (
-                  <SelectItem key={bank.id} value={bank.nome_banco}>
-                    <div className="flex flex-col">
-                      <span>{bank.nome_banco}</span>
-                      {(bank.conta || bank.agencia) && (
-                        <span className="text-xs text-muted-foreground">
-                          {bank.agencia && `Ag: ${bank.agencia}`} {bank.conta && `Cc: ${bank.conta}`}
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Totais */}
+          <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between"><span>Total Original:</span><span>{formatCurrency(totals.originalTotal)}</span></div>
+            <div className="flex justify-between"><span>Total a Pagar:</span><span>{formatCurrency(totals.paidTotal)}</span></div>
           </div>
 
           {/* Observações */}
           <div className="space-y-2">
-            <Label htmlFor="observacoes">Observações</Label>
+            <Label>Observações</Label>
             <Textarea
-              id="observacoes"
-              placeholder="Ex: Desconto por pagamento antecipado, taxa bancária, etc."
+              placeholder="Ex: Pagamento via PIX, desconto por antecipação..."
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
-              rows={3}
             />
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleReset} disabled={loading}>
-            Resetar
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
           <Button onClick={handleConfirm} disabled={loading}>
-            {loading ? 'Processando...' : `Confirmar Pagamento`}
+            {loading ? 'Processando...' : `Confirmar Pagamento (${installments.length})`}
           </Button>
         </DialogFooter>
       </DialogContent>
