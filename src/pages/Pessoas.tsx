@@ -125,68 +125,37 @@ export default function Pessoas() {
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      const [pessoasRes, cargosRes, setoresRes, filiaisRes] = await Promise.all([
-        supabase.rpc('search_entidades_pessoas', {
-          p_search: searchTerm || null,
-          p_limit: 1000,
-          p_offset: 0
-        }),
-        supabase.from('hr_cargos').select('*').eq('ativo', true).order('nome'),
-        supabase.from('hr_setores').select('*').eq('ativo', true).order('nome'),
-        supabase.from('filiais').select('*').eq('ativo', true).order('nome'),
-      ]);
+const loadData = async () => {
+  try {
+    setLoading(true);
 
-      if (pessoasRes.error) throw pessoasRes.error;
-      if (cargosRes.error) throw cargosRes.error;
-      if (setoresRes.error) throw setoresRes.error;
-      if (filiaisRes.error) throw filiaisRes.error;
+    const { data, error } = await supabase
+      .from("pessoas")
+      .select("id, nome, tipo_pessoa, email, telefone, cpf, cnpj, ativo, categorias, dados_fornecedor")
+      .order("nome");
 
-      const rawPessoas = (pessoasRes.data ?? []) as PessoaData[];
-      const pessoasData = rawPessoas.map((pessoa) => {
-        const normalizedRoles: { nome: string; slug: string }[] = [];
-        const seen = new Set<string>();
+    if (error) throw error;
 
-        (Array.isArray(pessoa.papeis) ? pessoa.papeis : []).forEach((papel) => {
-          if (!papel) return;
-          const slug = normalizeRoleName(papel);
+    const pessoasData = (data ?? []).map((pessoa) => ({
+      ...pessoa,
+      categorias: Array.isArray(pessoa.categorias) ? pessoa.categorias : [],
+      tipo_fornecedor: pessoa.dados_fornecedor?.tipo || null,
+      marcas: Array.isArray(pessoa.dados_fornecedor?.marcas) ? pessoa.dados_fornecedor.marcas : []
+    }));
 
-          if (slug && seen.has(slug)) {
-            return;
-          }
+    setPessoas(pessoasData);
+  } catch (error) {
+    console.error("Erro ao carregar pessoas:", error);
+    toast({
+      title: "Erro",
+      description: "Não foi possível carregar as pessoas.",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
-          if (slug) {
-            seen.add(slug);
-          }
-
-          normalizedRoles.push({ nome: papel, slug });
-        });
-
-        return {
-          ...pessoa,
-          papeis: normalizedRoles.map((role) => role.nome),
-          papeis_slug: normalizedRoles.map((role) => role.slug),
-        };
-      });
-
-      setPessoas(pessoasData);
-      setCargos(cargosRes.data || []);
-      setSetores(setoresRes.data || []);
-      setFiliais(filiaisRes.data || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar os dados.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
