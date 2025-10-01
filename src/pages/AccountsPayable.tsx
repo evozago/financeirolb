@@ -9,14 +9,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, FileSpreadsheet, Upload, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PayablesTable } from '@/components/features/payables/PayablesTable';
+import { PayablesTableWithTrash } from '@/components/features/payables/PayablesTableWithTrash';
 import { PayableFilters } from '@/components/features/payables/PayableFilters';
+import { TrashFilter } from '@/components/features/payables/TrashFilter';
+import { UndoDeleteToast } from '@/components/features/payables/UndoDeleteToast';
 import { ImportModal } from '@/components/features/payables/ImportModal';
 import { BulkEditModal, BulkEditData } from '@/components/features/payables/BulkEditModal';
 import { BillToPayInstallment, PayablesFilter } from '@/types/payables';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUndoActions } from '@/hooks/useUndoActions';
+import { useTrashOperations } from '@/hooks/useTrashOperations';
 import { BatchPaymentModal, BatchPaymentData } from '@/components/features/payables/BatchPaymentModal';
 import { usePagePersistence } from '@/hooks/usePagePersistence';
 
@@ -119,6 +122,20 @@ export default function AccountsPayable() {
   const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
   const [batchPaymentModalOpen, setBatchPaymentModalOpen] = useState(false);
+  
+  // Estados para lixeira
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const [lastDeletedItems, setLastDeletedItems] = useState<BillToPayInstallment[]>([]);
+  
+  // Hook para operações da lixeira
+  const {
+    loading: trashLoading,
+    restoreItems,
+    permanentlyDeleteItems,
+    softDeleteItems,
+    getDeletedCount,
+  } = useTrashOperations();
 
   // Mapear chaves da interface para colunas do banco
   const getOrderColumn = (key: string) => {
@@ -156,8 +173,14 @@ export default function AccountsPayable() {
         .select(`
           *,
           filial:filiais(nome)
-        `)
-        .is('deleted_at', null);
+        `);
+
+      // Aplicar filtro de itens deletados
+      if (filters.showDeleted) {
+        query = query.not('deleted_at', 'is', null);
+      } else {
+        query = query.is('deleted_at', null);
+      }
 
       // Aplicar filtros de categoria
       if (filters.category) {
@@ -331,6 +354,7 @@ export default function AccountsPayable() {
   useEffect(() => {
     loadInstallments();
     loadSuppliers();
+    updateDeletedCount();
   }, [filters, sortKey, sortDirection]); // Recarregar quando filtros ou ordenação mudarem
   
 
@@ -602,58 +626,59 @@ export default function AccountsPayable() {
   };
 
   const handleDelete = async (items: BillToPayInstallment[]) => {
-    setLoading(true);
-    try {
-      const itemIds = items.map(item => item.id);
-      
-      // Armazenar dados originais para undo (dados completos do supabase)
-      const { data: originalItems, error: fetchError } = await supabase
-        .from('ap_installments')
-        .select('*')
-        .in('id', itemIds);
-      
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      const { error } = await supabase
-        .from('ap_installments')
-        .update({ deleted_at: new Date().toISOString() })
-        .in('id', itemIds);
-
-      if (error) {
-        throw error;
-      }
-      
-      setInstallments(prev => prev.filter(installment => !itemIds.includes(installment.id)));
-      
+    const success = await softDeleteItems(items);
+    if (success) {
+      setLastDeletedItems(items);
+      setShowUndoToast(true);
       setSelectedItems([]);
-      
-      // Adicionar ação de undo
-      addUndoAction({
-        id: `delete-${Date.now()}`,
-        type: 'delete',
-        data: { itemIds, count: items.length },
-        originalData: {},
-      }, () => {
-        // Callback para atualizar UI quando desfazer
-        loadInstallments();
-      });
-
-      toast({
-        title: "Sucesso",
-        description: `${items.length} conta(s) excluída(s)`,
-      });
-    } catch (error) {
-      console.error('Error deleting:', error);
-      toast({
-        title: "Erro",
-        description: "Falha ao excluir contas",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      loadInstallments();
+      updateDeletedCount();
     }
+  };
+
+  // Função para restaurar itens da lixeira
+  const handleRestore = async (items: BillToPayInstallment[]) => {
+    const success = await restoreItems(items);
+    if (success) {
+      setSelectedItems([]);
+      loadInstallments();
+      updateDeletedCount();
+    }
+  };
+
+  // Função para deletar permanentemente
+  const handlePermanentDelete = async (items: BillToPayInstallment[]) => {
+    const success = await permanentlyDeleteItems(items);
+    if (success) {
+      setSelectedItems([]);
+      loadInstallments();
+      updateDeletedCount();
+    }
+  };
+
+  // Função para desfazer deleção
+  const handleUndoDelete = async () => {
+    if (lastDeletedItems.length > 0) {
+      const success = await restoreItems(lastDeletedItems);
+      if (success) {
+        setShowUndoToast(false);
+        setLastDeletedItems([]);
+        loadInstallments();
+        updateDeletedCount();
+      }
+    }
+  };
+
+  // Função para atualizar contador de itens deletados
+  const updateDeletedCount = async () => {
+    const count = await getDeletedCount();
+    setDeletedCount(count);
+  };
+
+  // Função para alternar visualização da lixeira
+  const handleToggleDeleted = (show: boolean) => {
+    setFilters({ ...filters, showDeleted: show });
+    setSelectedItems([]);
   };
 
   const handleImport = async (files: File[]) => {
@@ -980,7 +1005,194 @@ export default function AccountsPayable() {
               console.log(`NFe ${finalNfeNumber || 'sem número'} importada com sucesso (${duplicatas.length} parcelas)`);
             }
           } else {
-            warnings.push(`Planilha ${file.name}: Implementação pendente`);
+            // Processar arquivo Excel
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = await import('xlsx').then(XLSX => XLSX.read(arrayBuffer, { type: 'array' }));
+            
+            // Pegar a primeira planilha
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Converter para JSON
+            const jsonData = await import('xlsx').then(XLSX => XLSX.utils.sheet_to_json(worksheet, { header: 1 }));
+            
+            if (jsonData.length < 2) {
+              errors.push(`${file.name}: Planilha vazia ou sem dados`);
+              continue;
+            }
+            
+            // Primeira linha são os cabeçalhos
+            const headers = jsonData[0] as string[];
+            const rows = jsonData.slice(1) as any[][];
+            
+            // Mapear colunas esperadas (case-insensitive)
+            const getColumnIndex = (possibleNames: string[]) => {
+              return headers.findIndex(header => 
+                possibleNames.some(name => 
+                  header?.toString().toLowerCase().includes(name.toLowerCase())
+                )
+              );
+            };
+            
+            const columnMap = {
+              fornecedor: getColumnIndex(['fornecedor', 'supplier', 'empresa']),
+              descricao: getColumnIndex(['descricao', 'descrição', 'description', 'produto']),
+              valor: getColumnIndex(['valor', 'value', 'amount', 'preco', 'preço']),
+              vencimento: getColumnIndex(['vencimento', 'due', 'data_vencimento', 'data vencimento']),
+              categoria: getColumnIndex(['categoria', 'category', 'tipo']),
+              documento: getColumnIndex(['documento', 'nfe', 'nota', 'numero']),
+              emissao: getColumnIndex(['emissao', 'emissão', 'issue', 'data_emissao', 'data emissão']),
+              filial: getColumnIndex(['filial', 'branch', 'unidade']),
+              observacoes: getColumnIndex(['observacoes', 'observações', 'obs', 'notes'])
+            };
+            
+            // Verificar se colunas obrigatórias existem
+            const requiredColumns = ['fornecedor', 'descricao', 'valor', 'vencimento'];
+            const missingColumns = requiredColumns.filter(col => columnMap[col as keyof typeof columnMap] === -1);
+            
+            if (missingColumns.length > 0) {
+              errors.push(`${file.name}: Colunas obrigatórias não encontradas: ${missingColumns.join(', ')}`);
+              continue;
+            }
+            
+            // Processar cada linha
+            for (let i = 0; i < rows.length; i++) {
+              const row = rows[i];
+              const rowNumber = i + 2; // +2 porque começamos da linha 2 (header é linha 1)
+              
+              try {
+                // Extrair dados da linha
+                const fornecedor = row[columnMap.fornecedor]?.toString().trim();
+                const descricao = row[columnMap.descricao]?.toString().trim();
+                const valorStr = row[columnMap.valor]?.toString().replace(/[^\d,.-]/g, '').replace(',', '.');
+                const valor = parseFloat(valorStr);
+                const vencimento = row[columnMap.vencimento];
+                const categoria = row[columnMap.categoria]?.toString().trim() || 'Geral';
+                const documento = row[columnMap.documento]?.toString().trim() || `PLAN-${Date.now()}-${i}`;
+                const emissao = row[columnMap.emissao] || new Date().toISOString().split('T')[0];
+                const filial = row[columnMap.filial]?.toString().trim();
+                const observacoes = row[columnMap.observacoes]?.toString().trim() || `Importado de ${file.name}`;
+                
+                // Validações básicas
+                if (!fornecedor || !descricao || isNaN(valor) || valor <= 0) {
+                  warnings.push(`Linha ${rowNumber}: Dados obrigatórios inválidos ou ausentes`);
+                  continue;
+                }
+                
+                // Converter data de vencimento
+                let dataVencimento: string;
+                if (typeof vencimento === 'number') {
+                  // Excel date serial number
+                  const excelDate = new Date((vencimento - 25569) * 86400 * 1000);
+                  dataVencimento = excelDate.toISOString().split('T')[0];
+                } else if (typeof vencimento === 'string') {
+                  // Tentar parsear string de data
+                  const parsedDate = new Date(vencimento);
+                  if (isNaN(parsedDate.getTime())) {
+                    warnings.push(`Linha ${rowNumber}: Data de vencimento inválida: ${vencimento}`);
+                    continue;
+                  }
+                  dataVencimento = parsedDate.toISOString().split('T')[0];
+                } else {
+                  warnings.push(`Linha ${rowNumber}: Data de vencimento não informada`);
+                  continue;
+                }
+                
+                // Converter data de emissão
+                let dataEmissao: string;
+                if (typeof emissao === 'number') {
+                  const excelDate = new Date((emissao - 25569) * 86400 * 1000);
+                  dataEmissao = excelDate.toISOString().split('T')[0];
+                } else if (typeof emissao === 'string') {
+                  const parsedDate = new Date(emissao);
+                  dataEmissao = isNaN(parsedDate.getTime()) ? 
+                    new Date().toISOString().split('T')[0] : 
+                    parsedDate.toISOString().split('T')[0];
+                } else {
+                  dataEmissao = new Date().toISOString().split('T')[0];
+                }
+                
+                // Buscar ou criar entidade (fornecedor)
+                let entidadeId = null;
+                try {
+                  const { data: existingEntity } = await supabase
+                    .from('entidades')
+                    .select('id')
+                    .eq('nome', fornecedor)
+                    .eq('ativo', true)
+                    .single();
+                  
+                  if (existingEntity) {
+                    entidadeId = existingEntity.id;
+                  } else {
+                    // Criar nova entidade
+                    const { data: newEntity, error: entityError } = await supabase
+                      .from('entidades')
+                      .insert({
+                        nome: fornecedor,
+                        tipo: 'PJ',
+                        ativo: true
+                      })
+                      .select('id')
+                      .single();
+                    
+                    if (!entityError && newEntity) {
+                      entidadeId = newEntity.id;
+                    }
+                  }
+                } catch (entityError) {
+                  console.warn(`Erro ao processar entidade ${fornecedor}:`, entityError);
+                }
+                
+                // Buscar filial se especificada
+                let filialId = null;
+                if (filial) {
+                  try {
+                    const { data: existingFilial } = await supabase
+                      .from('filiais')
+                      .select('id')
+                      .eq('nome', filial)
+                      .eq('ativo', true)
+                      .single();
+                    
+                    if (existingFilial) {
+                      filialId = existingFilial.id;
+                    }
+                  } catch (filialError) {
+                    warnings.push(`Linha ${rowNumber}: Filial "${filial}" não encontrada`);
+                  }
+                }
+                
+                // Inserir no banco
+                const { error: insertError } = await supabase
+                  .from('ap_installments')
+                  .insert({
+                    descricao: descricao,
+                    fornecedor: fornecedor,
+                    valor: valor,
+                    valor_total_titulo: valor,
+                    data_vencimento: dataVencimento,
+                    data_emissao: dataEmissao,
+                    status: 'aberto',
+                    numero_documento: documento,
+                    categoria: categoria,
+                    entidade_id: entidadeId,
+                    filial_id: filialId,
+                    numero_parcela: 1,
+                    total_parcelas: 1,
+                    observacoes: observacoes
+                  });
+                
+                if (insertError) {
+                  errors.push(`Linha ${rowNumber}: Erro ao inserir - ${insertError.message}`);
+                } else {
+                  totalImported++;
+                }
+                
+              } catch (rowError) {
+                errors.push(`Linha ${rowNumber}: Erro ao processar - ${(rowError as Error).message}`);
+              }
+            }
           }
         } catch (fileError) {
           errors.push(`Erro ao processar ${file.name}: ${(fileError as Error).message}`);
@@ -1013,9 +1225,160 @@ export default function AccountsPayable() {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    // Mock - implementar download real
-    console.log('Download template');
+  const handleDownloadTemplate = async () => {
+    try {
+      // Importar biblioteca XLSX dinamicamente
+      const XLSX = await import('xlsx');
+      
+      // Dados de exemplo para o template
+      const templateData = [
+        // Cabeçalhos
+        [
+          'Fornecedor',
+          'Descrição',
+          'Valor',
+          'Data Vencimento',
+          'Categoria',
+          'Número Documento',
+          'Data Emissão',
+          'Filial',
+          'Observações'
+        ],
+        // Exemplos de dados
+        [
+          'Empresa ABC Ltda',
+          'Fornecimento de materiais de escritório',
+          1250.50,
+          '2025-10-15',
+          'Material de Escritório',
+          'NF-001234',
+          '2025-09-30',
+          'Matriz',
+          'Pedido #12345'
+        ],
+        [
+          'Fornecedor XYZ S.A.',
+          'Serviços de manutenção',
+          850.00,
+          '2025-10-20',
+          'Serviços',
+          'NF-005678',
+          '2025-09-30',
+          'Filial SP',
+          'Contrato anual'
+        ],
+        [
+          'Distribuidora 123',
+          'Produtos para revenda',
+          3200.75,
+          '2025-11-05',
+          'Mercadorias',
+          'NF-009876',
+          '2025-09-30',
+          '',
+          'Lote #789'
+        ]
+      ];
+      
+      // Criar workbook e worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(templateData);
+      
+      // Definir larguras das colunas
+      const columnWidths = [
+        { wch: 25 }, // Fornecedor
+        { wch: 35 }, // Descrição
+        { wch: 12 }, // Valor
+        { wch: 15 }, // Data Vencimento
+        { wch: 20 }, // Categoria
+        { wch: 15 }, // Número Documento
+        { wch: 15 }, // Data Emissão
+        { wch: 15 }, // Filial
+        { wch: 30 }  // Observações
+      ];
+      worksheet['!cols'] = columnWidths;
+      
+      // Estilizar cabeçalho
+      const headerStyle = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "366092" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+      
+      // Aplicar estilo aos cabeçalhos (primeira linha)
+      for (let col = 0; col < templateData[0].length; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!worksheet[cellAddress]) worksheet[cellAddress] = {};
+        worksheet[cellAddress].s = headerStyle;
+      }
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Contas a Pagar');
+      
+      // Criar segunda aba com instruções
+      const instructionsData = [
+        ['INSTRUÇÕES PARA IMPORTAÇÃO DE CONTAS A PAGAR'],
+        [''],
+        ['COLUNAS OBRIGATÓRIAS:'],
+        ['• Fornecedor: Nome da empresa ou pessoa'],
+        ['• Descrição: Descrição do produto/serviço'],
+        ['• Valor: Valor da conta (use ponto para decimais)'],
+        ['• Data Vencimento: Data no formato AAAA-MM-DD ou DD/MM/AAAA'],
+        [''],
+        ['COLUNAS OPCIONAIS:'],
+        ['• Categoria: Tipo da despesa (padrão: "Geral")'],
+        ['• Número Documento: Número da nota fiscal ou documento'],
+        ['• Data Emissão: Data de emissão (padrão: data atual)'],
+        ['• Filial: Nome da filial (deve existir no sistema)'],
+        ['• Observações: Informações adicionais'],
+        [''],
+        ['FORMATOS ACEITOS:'],
+        ['• Datas: 2025-10-15 ou 15/10/2025'],
+        ['• Valores: 1250.50 ou 1.250,50'],
+        ['• Texto: Sem caracteres especiais nos nomes'],
+        [''],
+        ['DICAS:'],
+        ['• Mantenha os cabeçalhos na primeira linha'],
+        ['• Não deixe linhas vazias entre os dados'],
+        ['• Fornecedores novos serão criados automaticamente'],
+        ['• Filiais devem existir previamente no sistema'],
+        ['• Use a aba "Contas a Pagar" para seus dados']
+      ];
+      
+      const instructionsSheet = XLSX.utils.aoa_to_sheet(instructionsData);
+      
+      // Estilizar título das instruções
+      const titleStyle = {
+        font: { bold: true, size: 14, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "E6F3FF" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+      
+      if (!instructionsSheet['A1']) instructionsSheet['A1'] = {};
+      instructionsSheet['A1'].s = titleStyle;
+      
+      // Definir largura da coluna de instruções
+      instructionsSheet['!cols'] = [{ wch: 60 }];
+      
+      XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instruções');
+      
+      // Gerar arquivo e fazer download
+      const fileName = `modelo_contas_a_pagar_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      toast({
+        title: "Template baixado",
+        description: `Arquivo ${fileName} foi baixado com sucesso`,
+      });
+      
+    } catch (error) {
+      console.error('Erro ao gerar template:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao gerar template da planilha",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExport = () => {
@@ -1241,7 +1604,14 @@ export default function AccountsPayable() {
           {/* Filtros */}
           <Card>
             <CardHeader>
-              <CardTitle>Filtros</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Filtros</span>
+                <TrashFilter
+                  showDeleted={filters.showDeleted || false}
+                  onToggleDeleted={handleToggleDeleted}
+                  deletedCount={deletedCount}
+                />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <PayableFilters
@@ -1253,9 +1623,9 @@ export default function AccountsPayable() {
           </Card>
 
           {/* Tabela */}
-          <PayablesTable
+          <PayablesTableWithTrash
             data={filteredInstallments}
-            loading={loading}
+            loading={loading || trashLoading}
             selectedItems={selectedItems}
             onSelectionChange={setSelectedItems}
             onRowClick={handleRowClick}
@@ -1264,6 +1634,10 @@ export default function AccountsPayable() {
             onView={handleView}
             onEdit={handleEdit}
             onBulkEdit={handleBulkEdit}
+            // Props para lixeira
+            showDeleted={filters.showDeleted || false}
+            onRestore={handleRestore}
+            onPermanentDelete={handlePermanentDelete}
             // Props de ordenação
             sortKey={sortKey}
             sortDirection={sortDirection}
@@ -1271,6 +1645,14 @@ export default function AccountsPayable() {
           />
         </div>
       </div>
+
+      {/* Toast de desfazer deleção */}
+      <UndoDeleteToast
+        show={showUndoToast}
+        itemCount={lastDeletedItems.length}
+        onUndo={handleUndoDelete}
+        onDismiss={() => setShowUndoToast(false)}
+      />
 
       {/* Import Modal */}
       <ImportModal

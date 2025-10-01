@@ -79,6 +79,7 @@ export interface PayablesFilter {
   amountFrom?: number;
   amountTo?: number;
   search?: string;
+  showDeleted?: boolean; // Novo campo para mostrar itens deletados
 }
 
 export interface ImportResult {
