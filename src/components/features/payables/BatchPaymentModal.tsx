@@ -1,6 +1,7 @@
 /**
  * Modal avançado para pagamento em lote de contas a pagar
- * Sem obrigatoriedades na UI. Se a data não for informada, usa a data de hoje no submit.
+ * Banco e Data são opcionais na UI.
+ * Se a data não for informada, usa a data de hoje no submit.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -77,7 +78,7 @@ export function BatchPaymentModal({
           tipoAjuste: 'normal' as const,
           valorAjuste: 0,
           bancoPagador: '',
-          dataPagamento: undefined, // sem default para não "forçar" visualmente
+          dataPagamento: undefined, // não obrigatório
           codigoIdentificador: ''
         };
       });
@@ -200,7 +201,7 @@ export function BatchPaymentModal({
   const yyyymmdd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-  // >>> Sem obrigatoriedades: aceita banco e data vazios; data cai para hoje só no envio.
+  // >>> Confirmação sem obrigatoriedade: usa hoje como fallback se data não for escolhida
   const handleConfirm = () => {
     const paymentData: BatchPaymentData[] = installments.map(inst => {
       const values = installmentValues[inst.id] || {
@@ -309,7 +310,7 @@ export function BatchPaymentModal({
 
                     {/* Campos específicos da parcela */}
                     <div className="grid grid-cols-3 gap-4">
-                      {/* Data de Pagamento (sem obrigatoriedade visual) */}
+                      {/* Data de Pagamento (opcional) */}
                       <div className="space-y-2">
                         <Label className="text-xs">Data de Pagamento</Label>
                         <Popover>
@@ -342,7 +343,7 @@ export function BatchPaymentModal({
 
                       {/* Banco Pagador (opcional) */}
                       <div className="space-y-2">
-                        <Label className="text-xs">Banco Pagador (opcional)</Label>
+                        <Label className="text-xs">Banco Pagador</Label>
                         <Select
                           value={values?.bancoPagador || ''}
                           onValueChange={(value) => handleValueChange(installment.id, 'bancoPagador', value)}
@@ -365,7 +366,7 @@ export function BatchPaymentModal({
 
                       {/* Código Identificador (opcional) */}
                       <div className="space-y-2">
-                        <Label className="text-xs">Código Identificador (opcional)</Label>
+                        <Label className="text-xs">Código Identificador</Label>
                         <div className="flex items-center gap-1">
                           <CreditCard className="h-3 w-3 text-muted-foreground" />
                           <Input
@@ -437,7 +438,7 @@ export function BatchPaymentModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancelar
           </Button>
-          {/* Confirmar SEM validações bloqueantes */}
+          {/* Confirmar sem obrigatoriedade de banco/data */}
           <Button onClick={handleConfirm} disabled={loading}>
             {loading ? 'Processando...' : `Confirmar Pagamento (${installments.length})`}
           </Button>
