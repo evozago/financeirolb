@@ -1,31 +1,89 @@
-// Substitua a função atual por esta versão
-const loadSuppliers = async () => {
-  try {
-    // Uma única consulta para todos os fornecedores
-    const { data, error } = await supabase
-      .from('pessoas')
-      .select('id, nome, tipo_pessoa')
-      .contains('categorias', ['fornecedor'])
-      .eq('ativo', true)
-      .order('nome');
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
-    if (error) {
+interface Supplier {
+  id: string;
+  nome: string;
+}
+
+interface Category {
+  id: string;
+  nome: string;
+}
+
+interface Filial {
+  id: string;
+  nome: string;
+}
+
+const NewBill: React.FC = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [filiais, setFiliais] = useState<Filial[]>([]);
+
+  const [formData, setFormData] = useState({
+    fornecedor_id: "",
+    descricao: "",
+    valor: "",
+    data_vencimento: "",
+    categoria: "",
+    numero_parcela: "1",
+    total_parcelas: "1",
+    forma_pagamento: "",
+    banco: "",
+    observacoes: "",
+    filial_id: "",
+  });
+
+  useEffect(() => {
+    loadSuppliers();
+    loadCategories();
+    loadFiliais();
+  }, []);
+
+  const loadSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pessoas')
+        .select('id, nome, tipo_pessoa')
+        .contains('categorias', ['fornecedor'])
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        console.error('Erro ao carregar fornecedores:', error);
+        return;
+      }
+
+      // Mapeia os fornecedores com sufixo baseado no tipo_pessoa
+      const mappedSuppliers: Supplier[] = (data || []).map(p => ({
+        id: p.id,
+        nome: `${p.nome} (${p.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`
+      }));
+
+      setSuppliers(mappedSuppliers);
+    } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
-      return;
     }
-
-    // Adiciona sufixo e define o tipo conforme tipo_pessoa
-    const allSuppliers: UnifiedSupplier[] = (data || []).map(p => ({
-      id: p.id,
-      name: `${p.nome} (${p.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`,
-      tipo: p.tipo_pessoa === 'pessoa_juridica' ? 'fornecedor' : 'pessoa'
-    }));
-
-    setSuppliers(allSuppliers);
-  } catch (error) {
-    console.error('Erro ao carregar fornecedores:', error);
-  }
-};
+  };
 
   const loadCategories = async () => {
     try {
@@ -82,13 +140,13 @@ const loadSuppliers = async () => {
       const { error } = await supabase
         .from('ap_installments')
         .insert({
-          fornecedor_id: formData.fornecedor_id, // grava UUID real
+          fornecedor_id: formData.fornecedor_id,
           descricao: formData.descricao,
           valor: parseFloat(formData.valor),
           valor_total_titulo: parseFloat(formData.valor),
           data_vencimento: formData.data_vencimento,
-          numero_parcela: formData.numero_parcela,
-          total_parcelas: formData.total_parcelas,
+          numero_parcela: parseInt(formData.numero_parcela),
+          total_parcelas: parseInt(formData.total_parcelas),
           observacoes: formData.observacoes,
           categoria: formData.categoria,
           forma_pagamento: formData.forma_pagamento,
@@ -303,4 +361,6 @@ const loadSuppliers = async () => {
       </div>
     </div>
   );
-}
+};
+
+export default NewBill;
