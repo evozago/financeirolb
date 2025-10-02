@@ -1,83 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+const loadSuppliers = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('pessoas')
+      .select('id, nome, tipo_pessoa')
+      .contains('categorias', ['fornecedor'])
+      .eq('ativo', true)
+      .order('nome');
 
-interface Supplier {
-  id: string;
-  nome: string;
-}
-
-interface Category {
-  id: string;
-  nome: string;
-}
-
-interface Filial {
-  id: string;
-  nome: string;
-}
-
-export default function NewBill() {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [filiais, setFiliais] = useState<Filial[]>([]);
-
-  const [formData, setFormData] = useState({
-    fornecedor_id: '',   // armazena UUID real do fornecedor
-    descricao: '',
-    valor: '',
-    data_vencimento: '',
-    numero_parcela: 1,
-    total_parcelas: 1,
-    observacoes: '',
-    categoria: '',
-    forma_pagamento: '',
-    banco: '',
-    filial_id: ''
-  });
-
-  useEffect(() => {
-    loadSuppliers();
-    loadCategories();
-    loadFiliais();
-  }, []);
-
-  // 🔧 Corrigido: busca fornecedores apenas uma vez e usa tipo_pessoa real
-  const loadSuppliers = async () => {
-    try {
-      const { data: fornecedores, error } = await supabase
-        .from('pessoas')
-        .select('id, nome, tipo_pessoa')
-        .contains('categorias', ['fornecedor'])
-        .eq('ativo', true)
-        .order('nome');
-
-      if (error) {
-        console.error('Erro ao carregar fornecedores:', error);
-        return;
-      }
-
-      const allSuppliers = (fornecedores || []).map(f => ({
-        id: f.id,
-        nome: `${f.nome} (${f.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`
-      }));
-
-      setSuppliers(allSuppliers);
-    } catch (error) {
+    if (error) {
       console.error('Erro ao carregar fornecedores:', error);
+      return;
     }
-  };
+
+    // gera o sufixo com base em tipo_pessoa e evita duplicados
+    const allSuppliers: UnifiedSupplier[] = (data || []).map(p => ({
+      id: p.id,
+      name: `${p.nome} (${p.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`,
+      tipo: p.tipo_pessoa === 'pessoa_juridica' ? 'fornecedor' : 'pessoa'
+    }));
+
+    setSuppliers(allSuppliers);
+  } catch (error) {
+    console.error('Erro ao carregar fornecedores:', error);
+  }
+};
 
   const loadCategories = async () => {
     try {
