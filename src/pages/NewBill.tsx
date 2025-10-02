@@ -1,5 +1,7 @@
+// Substitua a função atual por esta versão
 const loadSuppliers = async () => {
   try {
+    // Uma única consulta para todos os fornecedores
     const { data, error } = await supabase
       .from('pessoas')
       .select('id, nome, tipo_pessoa')
@@ -12,7 +14,7 @@ const loadSuppliers = async () => {
       return;
     }
 
-    // gera o sufixo com base em tipo_pessoa e evita duplicados
+    // Adiciona sufixo e define o tipo conforme tipo_pessoa
     const allSuppliers: UnifiedSupplier[] = (data || []).map(p => ({
       id: p.id,
       name: `${p.nome} (${p.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`,
