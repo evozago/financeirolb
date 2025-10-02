@@ -34,7 +34,7 @@ export default function NewBill() {
   const [filiais, setFiliais] = useState<Filial[]>([]);
 
   const [formData, setFormData] = useState({
-    fornecedor_id: '',   // salva o UUID do fornecedor
+    fornecedor_id: '',   // armazena UUID real do fornecedor
     descricao: '',
     valor: '',
     data_vencimento: '',
@@ -53,7 +53,7 @@ export default function NewBill() {
     loadFiliais();
   }, []);
 
-  // 🔧 Corrigido: busca apenas uma vez e usa tipo_pessoa real
+  // 🔧 Corrigido: busca fornecedores apenas uma vez e usa tipo_pessoa real
   const loadSuppliers = async () => {
     try {
       const { data: fornecedores, error } = await supabase
