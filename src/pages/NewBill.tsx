@@ -59,6 +59,7 @@ const NewBill: React.FC = () => {
     loadFiliais();
   }, []);
 
+  // Uma única consulta à tabela `pessoas` com o sufixo PF/PJ
   const loadSuppliers = async () => {
     try {
       const { data, error } = await supabase
@@ -73,7 +74,6 @@ const NewBill: React.FC = () => {
         return;
       }
 
-      // Mapeia os fornecedores com sufixo baseado no tipo_pessoa
       const mappedSuppliers: Supplier[] = (data || []).map(p => ({
         id: p.id,
         nome: `${p.nome} (${p.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`
@@ -350,7 +350,7 @@ const NewBill: React.FC = () => {
                 <Button type="button" variant="outline" onClick={() => navigate('/accounts-payable')}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading}>
                   <Save className="h-4 w-4 mr-2" />
                   {loading ? 'Salvando...' : 'Salvar'}
                 </Button>
