@@ -59,40 +59,24 @@ export default function NewBill() {
 
   const loadSuppliers = async () => {
     try {
-      // Buscar fornecedores (PJ)
-      const { data: fornecedores, error: errorFornecedores } = await supabase
+      // Buscar fornecedores uma única vez
+      const { data: fornecedores, error } = await supabase
         .from('pessoas')
-        .select('id, nome, tipo_pessoa').contains('categorias', ['fornecedor'])
+        .select('id, nome, tipo_pessoa')
+        .contains('categorias', ['fornecedor'])
         .eq('ativo', true)
         .order('nome');
 
-      // Buscar pessoas (PF)
-      const { data: pessoas, error: errorPessoas } = await supabase
-        .from('pessoas')
-        .select('id, nome, tipo_pessoa').contains('categorias', ['fornecedor'])
-        .eq('ativo', true)
-        .order('nome');
-
-      if (errorFornecedores) {
-        console.error('Error loading fornecedores:', errorFornecedores);
-      }
-      if (errorPessoas) {
-        console.error('Error loading pessoas:', errorPessoas);
+      if (error) {
+        console.error('Error loading suppliers:', error);
+        return;
       }
 
-      // Unificar dados: PJ e PF juntos
-      const allSuppliers = [
-        ...(fornecedores || []).map(f => ({
-          id: f.id,
-          nome: `${f.nome} (PJ)`,
-          tipo: 'fornecedor'
-        })),
-        ...(pessoas || []).map(p => ({
-          id: p.id,
-          nome: `${p.nome} (PF)`,
-          tipo: 'pessoa'
-        }))
-      ].sort((a, b) => a.nome.localeCompare(b.nome));
+      // Adicionar sufixo correto baseado no tipo_pessoa real
+      const allSuppliers = (fornecedores || []).map(f => ({
+        id: f.id,
+        nome: `${f.nome} (${f.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`
+      }));
 
       setSuppliers(allSuppliers);
     } catch (error) {

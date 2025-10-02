@@ -7,7 +7,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PaymentModal, PaymentData } from './PaymentModal';
+import { BatchPaymentModal, BatchPaymentData } from './PaymentModal';
 
 interface InstallmentData {
   id: string;
@@ -147,7 +147,7 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
     }
   };
 
-  const handlePaymentConfirm = async (paymentData: PaymentData[]) => {
+  const handlePaymentConfirm = async (paymentData: BatchPaymentData[]) => {
     setLoading(true);
     try {
       // Processar cada pagamento
@@ -296,10 +296,17 @@ export function StatusChangeControl({ installments, onStatusChanged, className }
         )}
 
         {/* Modal de Pagamento Avançado */}
-        <PaymentModal
+        <BatchPaymentModal
           open={paymentModalOpen}
           onOpenChange={setPaymentModalOpen}
-          installments={installments.filter(inst => selectedInstallments.includes(inst.id))}
+          installments={installments.filter(inst => selectedInstallments.includes(inst.id)).map(inst => ({
+            id: inst.id,
+            installmentNumber: inst.numero_parcela,
+            amount: inst.valor,
+            dueDate: inst.data_vencimento,
+            status: inst.status as 'Pendente' | 'Pago' | 'Vencido',
+            billId: inst.id
+          }))}
           onPaymentConfirm={handlePaymentConfirm}
           loading={loading}
         />
