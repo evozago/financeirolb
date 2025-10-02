@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Supplier {
   id: string;
-  nome: string;
+  nome: string;      // Nome com sufixo (PF/PJ) só para exibição
 }
 
 interface Category {
@@ -38,7 +38,7 @@ export default function NewBill() {
   const [filiais, setFiliais] = useState<Filial[]>([]);
 
   const [formData, setFormData] = useState({
-    fornecedor: '',
+    fornecedor_id: '',   // Agora armazena o UUID do fornecedor
     descricao: '',
     valor: '',
     data_vencimento: '',
@@ -59,7 +59,6 @@ export default function NewBill() {
 
   const loadSuppliers = async () => {
     try {
-      // Buscar fornecedores uma única vez
       const { data: fornecedores, error } = await supabase
         .from('pessoas')
         .select('id, nome, tipo_pessoa')
@@ -72,7 +71,6 @@ export default function NewBill() {
         return;
       }
 
-      // Adicionar sufixo correto baseado no tipo_pessoa real
       const allSuppliers = (fornecedores || []).map(f => ({
         id: f.id,
         nome: `${f.nome} (${f.tipo_pessoa === 'pessoa_juridica' ? 'PJ' : 'PF'})`
@@ -125,7 +123,7 @@ export default function NewBill() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.fornecedor || !formData.descricao || !formData.valor || !formData.data_vencimento || !formData.categoria) {
+    if (!formData.fornecedor_id || !formData.descricao || !formData.valor || !formData.data_vencimento || !formData.categoria) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios (Fornecedor, Descrição, Valor, Data de Vencimento e Categoria)",
@@ -136,13 +134,10 @@ export default function NewBill() {
 
     setLoading(true);
     try {
-      // Generate a temporary UUID for entidade_id
-      const tempUuid = crypto.randomUUID();
-      
       const { error } = await supabase
         .from('ap_installments')
         .insert({
-          fornecedor: formData.fornecedor,
+          fornecedor_id: formData.fornecedor_id, // agora é o UUID real
           descricao: formData.descricao,
           valor: parseFloat(formData.valor),
           valor_total_titulo: parseFloat(formData.valor),
@@ -154,7 +149,6 @@ export default function NewBill() {
           forma_pagamento: formData.forma_pagamento,
           banco: formData.banco,
           status: 'aberto',
-          entidade_id: tempUuid,
           filial_id: formData.filial_id || null
         });
 
@@ -189,7 +183,6 @@ export default function NewBill() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -222,14 +215,14 @@ export default function NewBill() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="fornecedor">Fornecedor *</Label>
-                  <Select value={formData.fornecedor} onValueChange={(value) => handleInputChange('fornecedor', value)}>
+                  <Label htmlFor="fornecedor_id">Fornecedor *</Label>
+                  <Select value={formData.fornecedor_id} onValueChange={(value) => handleInputChange('fornecedor_id', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um fornecedor" />
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.nome}>
+                        <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.nome}
                         </SelectItem>
                       ))}
