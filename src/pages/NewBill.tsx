@@ -1,7 +1,3 @@
-/**
- * Página para criar nova conta a pagar
- */
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -16,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Supplier {
   id: string;
-  nome: string;      // Nome com sufixo (PF/PJ) só para exibição
+  nome: string;
 }
 
 interface Category {
@@ -38,7 +34,7 @@ export default function NewBill() {
   const [filiais, setFiliais] = useState<Filial[]>([]);
 
   const [formData, setFormData] = useState({
-    fornecedor_id: '',   // Agora armazena o UUID do fornecedor
+    fornecedor_id: '',   // salva o UUID do fornecedor
     descricao: '',
     valor: '',
     data_vencimento: '',
@@ -57,6 +53,7 @@ export default function NewBill() {
     loadFiliais();
   }, []);
 
+  // 🔧 Corrigido: busca apenas uma vez e usa tipo_pessoa real
   const loadSuppliers = async () => {
     try {
       const { data: fornecedores, error } = await supabase
@@ -67,7 +64,7 @@ export default function NewBill() {
         .order('nome');
 
       if (error) {
-        console.error('Error loading suppliers:', error);
+        console.error('Erro ao carregar fornecedores:', error);
         return;
       }
 
@@ -78,7 +75,7 @@ export default function NewBill() {
 
       setSuppliers(allSuppliers);
     } catch (error) {
-      console.error('Error loading suppliers:', error);
+      console.error('Erro ao carregar fornecedores:', error);
     }
   };
 
@@ -91,13 +88,13 @@ export default function NewBill() {
         .order('nome');
 
       if (error) {
-        console.error('Error loading categories:', error);
+        console.error('Erro ao carregar categorias:', error);
         return;
       }
 
       setCategories(data || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      console.error('Erro ao carregar categorias:', error);
     }
   };
 
@@ -110,23 +107,23 @@ export default function NewBill() {
         .order('nome');
 
       if (error) {
-        console.error('Error loading filiais:', error);
+        console.error('Erro ao carregar filiais:', error);
         return;
       }
 
       setFiliais(data || []);
     } catch (error) {
-      console.error('Error loading filiais:', error);
+      console.error('Erro ao carregar filiais:', error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.fornecedor_id || !formData.descricao || !formData.valor || !formData.data_vencimento || !formData.categoria) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatórios (Fornecedor, Descrição, Valor, Data de Vencimento e Categoria)",
+        description: "Preencha os campos obrigatórios (Fornecedor, Descrição, Valor, Data de Vencimento e Categoria)",
         variant: "destructive",
       });
       return;
@@ -137,7 +134,7 @@ export default function NewBill() {
       const { error } = await supabase
         .from('ap_installments')
         .insert({
-          fornecedor_id: formData.fornecedor_id, // agora é o UUID real
+          fornecedor_id: formData.fornecedor_id, // grava UUID real
           descricao: formData.descricao,
           valor: parseFloat(formData.valor),
           valor_total_titulo: parseFloat(formData.valor),
@@ -152,9 +149,7 @@ export default function NewBill() {
           filial_id: formData.filial_id || null
         });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Sucesso",
@@ -163,7 +158,7 @@ export default function NewBill() {
 
       navigate('/accounts-payable');
     } catch (error) {
-      console.error('Error creating bill:', error);
+      console.error('Erro ao criar conta:', error);
       toast({
         title: "Erro",
         description: "Falha ao criar conta a pagar",
@@ -187,19 +182,13 @@ export default function NewBill() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/accounts-payable')}
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate('/accounts-payable')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Nova Conta a Pagar</h1>
-                <p className="text-muted-foreground">
-                  Preencha os dados da nova conta a pagar
-                </p>
+                <p className="text-muted-foreground">Preencha os dados da nova conta a pagar</p>
               </div>
             </div>
           </div>
@@ -352,11 +341,7 @@ export default function NewBill() {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/accounts-payable')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/accounts-payable')}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={loading}>
