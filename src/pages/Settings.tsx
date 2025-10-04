@@ -168,11 +168,11 @@ export default function Settings() {
       setCategoryParent('');
       setEditingCategory(null);
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving category:', error);
       toast({
         title: "Erro",
-        description: "Falha ao salvar categoria",
+        description: error?.message || "Falha ao salvar categoria",
         variant: "destructive",
       });
     }
@@ -483,17 +483,17 @@ export default function Settings() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            {(category.nivel || 0) < 2 && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openNewSubcategory(category)}
-                                className="h-8 px-2 border-green-300 hover:bg-green-50 dark:hover:bg-green-950/20"
-                                title="Adicionar subcategoria"
-                              >
-                                <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
-                              </Button>
-                            )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openNewSubcategory(category)}
+                                  className="h-8 px-2"
+                                  title="Adicionar subcategoria"
+                                  aria-label="Adicionar subcategoria"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  <span className="text-xs">Sub</span>
+                                </Button>
                             <Button
                               variant="ghost"
                               size="sm"
