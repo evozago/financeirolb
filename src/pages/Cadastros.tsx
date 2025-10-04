@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Tag, Award, Pencil, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,9 @@ interface Category {
   id: string;
   nome: string;
   ativo: boolean;
+  categoria_pai_id?: string | null;
+  nivel?: number;
+  caminho_completo?: string;
 }
 
 interface Brand {
@@ -49,6 +53,7 @@ export default function Cadastros() {
   // Category dialog state
   const [categoryDialog, setCategoryDialog] = useState(false);
   const [categoryName, setCategoryName] = useState('');
+  const [categoryParent, setCategoryParent] = useState<string>('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   
   // Brand dialog state
@@ -65,11 +70,10 @@ export default function Cadastros() {
     try {
       setLoading(true);
       
-      // Load categories
+      // Load categories with hierarchy
       const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categorias_produtos')
-        .select('*')
-        .order('nome');
+        .from('vw_categorias_hierarquicas')
+        .select('*');
       
       if (categoriesError) throw categoriesError;
       
@@ -159,10 +163,15 @@ export default function Cadastros() {
     }
 
     try {
+      const categoryData = {
+        nome: categoryName.trim(),
+        categoria_pai_id: categoryParent || null
+      };
+
       if (editingCategory) {
         const { error } = await supabase
           .from('categorias_produtos')
-          .update({ nome: categoryName.trim() })
+          .update(categoryData)
           .eq('id', editingCategory.id);
         
         if (error) throw error;
@@ -174,7 +183,7 @@ export default function Cadastros() {
       } else {
         const { error } = await supabase
           .from('categorias_produtos')
-          .insert({ nome: categoryName.trim() });
+          .insert(categoryData);
         
         if (error) throw error;
         
@@ -186,6 +195,7 @@ export default function Cadastros() {
       
       setCategoryDialog(false);
       setCategoryName('');
+      setCategoryParent('');
       setEditingCategory(null);
       loadData();
     } catch (error) {
@@ -316,6 +326,7 @@ export default function Cadastros() {
   const openEditCategory = (category: Category) => {
     setEditingCategory(category);
     setCategoryName(category.nome);
+    setCategoryParent(category.categoria_pai_id || '');
     setCategoryDialog(true);
   };
 
@@ -329,6 +340,14 @@ export default function Cadastros() {
   const openNewCategory = () => {
     setEditingCategory(null);
     setCategoryName('');
+    setCategoryParent('');
+    setCategoryDialog(true);
+  };
+
+  const openNewSubcategory = (parentCategory: Category) => {
+    setEditingCategory(null);
+    setCategoryName('');
+    setCategoryParent(parentCategory.id);
     setCategoryDialog(true);
   };
 
@@ -418,6 +437,30 @@ export default function Cadastros() {
                           placeholder="Ex: Vestuário, Calçados, Acessórios"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="categoryParent">Categoria Pai (Opcional)</Label>
+                        <Select value={categoryParent} onValueChange={setCategoryParent}>
+                          <SelectTrigger id="categoryParent">
+                            <SelectValue placeholder="Nenhuma (categoria principal)" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="">Nenhuma (categoria principal)</SelectItem>
+                            {categories
+                              .filter(c => 
+                                c.id !== editingCategory?.id && 
+                                (c.nivel || 0) < 2
+                              )
+                              .map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.caminho_completo || category.nome}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Máximo 3 níveis de hierarquia
+                        </p>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
@@ -439,7 +482,7 @@ export default function Cadastros() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
+                      <TableHead>Nome / Hierarquia</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -447,7 +490,16 @@ export default function Cadastros() {
                   <TableBody>
                     {categories.map((category) => (
                       <TableRow key={category.id}>
-                        <TableCell className="font-medium">{category.nome}</TableCell>
+                        <TableCell>
+                          <div style={{ paddingLeft: `${(category.nivel || 0) * 24}px` }}>
+                            {category.nivel ? (
+                              <span className="text-muted-foreground mr-2">└─</span>
+                            ) : (
+                              <span className="mr-2">📁</span>
+                            )}
+                            <span className="font-medium">{category.nome}</span>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={category.ativo ? "default" : "secondary"}>
                             {category.ativo ? "Ativo" : "Inativo"}
@@ -455,6 +507,16 @@ export default function Cadastros() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            {(category.nivel || 0) < 2 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openNewSubcategory(category)}
+                                title="Adicionar subcategoria"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

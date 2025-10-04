@@ -252,26 +252,47 @@ export type Database = {
       categorias_produtos: {
         Row: {
           ativo: boolean
+          categoria_pai_id: string | null
           created_at: string
           id: string
+          nivel: number
           nome: string
           updated_at: string
         }
         Insert: {
           ativo?: boolean
+          categoria_pai_id?: string | null
           created_at?: string
           id?: string
+          nivel?: number
           nome: string
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          categoria_pai_id?: string | null
           created_at?: string
           id?: string
+          nivel?: number
           nome?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categorias_produtos_categoria_pai_id_fkey"
+            columns: ["categoria_pai_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categorias_produtos_categoria_pai_id_fkey"
+            columns: ["categoria_pai_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dim_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       config_vendas: {
         Row: {
@@ -3870,6 +3891,21 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_categorias_hierarquicas: {
+        Row: {
+          ativo: boolean | null
+          caminho_completo: string | null
+          caminho_ids: string[] | null
+          caminho_nomes: string[] | null
+          categoria_pai_id: string | null
+          created_at: string | null
+          id: string | null
+          nivel: number | null
+          nome: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       vw_dim_categorias: {
         Row: {
           ativo: boolean | null
@@ -4227,6 +4263,10 @@ export type Database = {
           valor_total_titulo: number
         }[]
       }
+      get_categoria_path: {
+        Args: { p_categoria_id: string }
+        Returns: string
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -4446,7 +4486,13 @@ export type Database = {
         }[]
       }
       search_entidades_pessoas: {
-        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_papel?: string
+          p_search?: string
+          p_tipo?: string
+        }
         Returns: {
           ativo: boolean
           cpf_cnpj: string

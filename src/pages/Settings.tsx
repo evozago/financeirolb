@@ -27,6 +27,9 @@ interface Category {
   id: string;
   nome: string;
   ativo: boolean;
+  categoria_pai_id?: string | null;
+  nivel?: number;
+  caminho_completo?: string;
 }
 
 interface Brand {
@@ -54,6 +57,7 @@ export default function Settings() {
   // Category dialog state
   const [categoryDialog, setCategoryDialog] = useState(false);
   const [categoryName, setCategoryName] = useState('');
+  const [categoryParent, setCategoryParent] = useState<string>('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   
   // Brand dialog state
@@ -70,11 +74,10 @@ export default function Settings() {
     try {
       setLoading(true);
       
-      // Load categories
+      // Load categories with hierarchy
       const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categorias_produtos')
-        .select('*')
-        .order('nome');
+        .from('vw_categorias_hierarquicas')
+        .select('*');
       
       if (categoriesError) throw categoriesError;
       
@@ -128,11 +131,16 @@ export default function Settings() {
     }
 
     try {
+      const categoryData = {
+        nome: categoryName.trim(),
+        categoria_pai_id: categoryParent || null
+      };
+
       if (editingCategory) {
         // Update existing category
         const { error } = await supabase
           .from('categorias_produtos')
-          .update({ nome: categoryName.trim() })
+          .update(categoryData)
           .eq('id', editingCategory.id);
         
         if (error) throw error;
@@ -145,7 +153,7 @@ export default function Settings() {
         // Create new category
         const { error } = await supabase
           .from('categorias_produtos')
-          .insert({ nome: categoryName.trim() });
+          .insert(categoryData);
         
         if (error) throw error;
         
@@ -157,6 +165,7 @@ export default function Settings() {
       
       setCategoryDialog(false);
       setCategoryName('');
+      setCategoryParent('');
       setEditingCategory(null);
       loadData();
     } catch (error) {
@@ -289,6 +298,7 @@ export default function Settings() {
   const openEditCategory = (category: Category) => {
     setEditingCategory(category);
     setCategoryName(category.nome);
+    setCategoryParent(category.categoria_pai_id || '');
     setCategoryDialog(true);
   };
 
@@ -302,6 +312,14 @@ export default function Settings() {
   const openNewCategory = () => {
     setEditingCategory(null);
     setCategoryName('');
+    setCategoryParent('');
+    setCategoryDialog(true);
+  };
+
+  const openNewSubcategory = (parentCategory: Category) => {
+    setEditingCategory(null);
+    setCategoryName('');
+    setCategoryParent(parentCategory.id);
     setCategoryDialog(true);
   };
 
@@ -395,6 +413,30 @@ export default function Settings() {
                           placeholder="Ex: Vestuário, Calçados, Acessórios"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="categoryParent">Categoria Pai (Opcional)</Label>
+                        <Select value={categoryParent} onValueChange={setCategoryParent}>
+                          <SelectTrigger id="categoryParent">
+                            <SelectValue placeholder="Nenhuma (categoria principal)" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="">Nenhuma (categoria principal)</SelectItem>
+                            {categories
+                              .filter(c => 
+                                c.id !== editingCategory?.id && 
+                                (c.nivel || 0) < 2
+                              )
+                              .map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.caminho_completo || category.nome}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Máximo 3 níveis de hierarquia
+                        </p>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
@@ -416,7 +458,7 @@ export default function Settings() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
+                      <TableHead>Nome / Hierarquia</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -424,7 +466,16 @@ export default function Settings() {
                   <TableBody>
                     {categories.map((category) => (
                       <TableRow key={category.id}>
-                        <TableCell>{category.nome}</TableCell>
+                        <TableCell>
+                          <div style={{ paddingLeft: `${(category.nivel || 0) * 24}px` }}>
+                            {category.nivel ? (
+                              <span className="text-muted-foreground mr-2">└─</span>
+                            ) : (
+                              <span className="mr-2">📁</span>
+                            )}
+                            <span className="font-medium">{category.nome}</span>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={category.ativo ? "default" : "secondary"}>
                             {category.ativo ? "Ativo" : "Inativo"}
@@ -432,6 +483,16 @@ export default function Settings() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            {(category.nivel || 0) < 2 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openNewSubcategory(category)}
+                                title="Adicionar subcategoria"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
