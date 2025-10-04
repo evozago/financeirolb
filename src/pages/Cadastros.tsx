@@ -506,21 +506,23 @@ export default function Cadastros() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
                             {(category.nivel || 0) < 2 && (
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => openNewSubcategory(category)}
+                                className="h-8 px-2 border-green-300 hover:bg-green-50 dark:hover:bg-green-950/20"
                                 title="Adicionar subcategoria"
                               >
-                                <Plus className="h-3 w-3" />
+                                <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
                               </Button>
                             )}
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => openEditCategory(category)}
+                              className="h-8 px-2"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -528,6 +530,7 @@ export default function Cadastros() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteCategory(category)}
+                              className="h-8 px-2"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
